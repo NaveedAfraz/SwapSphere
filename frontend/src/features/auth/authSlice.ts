@@ -108,6 +108,34 @@ const authSlice = createSlice({
         state.status = 'error';
         state.error = action.payload as string || 'Google auth failed';
       });
+
+    // Handle profile setup thunk
+    builder
+      .addCase('auth/updateProfile/pending', (state: AuthState) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase('auth/updateProfile/fulfilled', (state: AuthState, action: any) => {
+        state.status = 'authenticated';
+        // Update user with profile data and tokens
+        if (action.payload.user) {
+          state.user = {
+            id: action.payload.user.id,
+            email: action.payload.user.email,
+            phone: action.payload.user.phone,
+            token: action.payload.token,
+            sellerMode: action.payload.user.profile?.seller_mode || false,
+            profileCompleted: true,
+          };
+        }
+        state.accessToken = action.payload.token;
+        state.refreshToken = action.payload.refreshToken || null;
+        state.error = null;
+      })
+      .addCase('auth/updateProfile/rejected', (state: AuthState, action: any) => {
+        state.status = 'error';
+        state.error = action.payload as string || 'Profile setup failed';
+      });
   },
 });
 

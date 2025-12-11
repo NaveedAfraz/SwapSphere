@@ -1,5 +1,10 @@
 const express = require("express");
-const { registerBasic, setupProfile, login, googleAuth } = require("./controller");
+const {
+  registerBasic,
+  setupProfile,
+  login,
+  googleAuth,
+} = require("./controller");
 
 const router = express.Router();
 
@@ -9,7 +14,7 @@ router.post("/register", registerBasic);
 // Google OAuth login/register
 router.post("/google", googleAuth);
 
-// Complete profile setup (with optional password for OAuth users)
+// Update profile (for logged-in users)
 router.post("/profile/:userId", setupProfile);
 
 // Login user

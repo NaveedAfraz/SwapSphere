@@ -1,5 +1,5 @@
 // app/(auth)/sign-in.tsx
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Dimensions, TouchableOpacity, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { useDispatch } from "react-redux";
@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import type { AppDispatch } from "@/src/lib/store/index";
 import ReusableAuthForm from "@/src/features/auth/components/reusableAuthform";
+import ErrorModal from "@/src/features/auth/components/ErrorModal";
 import { loginThunk } from "@/src/features/auth/authThunks";
 import { loginSchema } from "@/src/features/auth/utils/validators";
 import type { LoginPayload } from "@/src/features/auth/types/auth";
@@ -17,17 +18,38 @@ import { authScreenStyles } from "@/src/features/auth/styles/authScreenStyles";
 export default function SignInScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const [errorModal, setErrorModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const closeErrorModal = () => {
+    setErrorModal({
+      visible: false,
+      title: '',
+      message: '',
+    });
+  };
 
   const handleSubmit = async (data: LoginPayload) => {
-    const result = await dispatch(loginThunk(data))
-      .unwrap()
-      .catch((e) => {
-        // handle server error: show toast / set errors
-        console.error("Login failed", e);
+    try {
+      const result = await dispatch(loginThunk(data)).unwrap();
+      
+      if (result) {
+        console.log("Login successful, navigating to home page");
+        // navigate to home page after successful login
+        router.replace("/(tabs)/index" as any);
+      }
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      
+      // Show user-friendly error message using custom modal
+      setErrorModal({
+        visible: true,
+        title: "Login Failed",
+        message: error || "Invalid email or password. Please try again.",
       });
-    if (result) {
-      // navigate to home or previous screen
-      router.replace("/(auth)/profile-setup");
     }
   };
 
@@ -90,6 +112,13 @@ export default function SignInScreen() {
           </View>
         </View>
       </KeyboardAwareScrollView>
+      
+      <ErrorModal
+        visible={errorModal.visible}
+        title={errorModal.title}
+        message={errorModal.message}
+        onClose={closeErrorModal}
+      />
     </>
   );
 }

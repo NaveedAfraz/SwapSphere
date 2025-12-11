@@ -1,15 +1,10 @@
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+const { pool } = require("../database/db");
 // User model methods
 const User = {
   // Find user by email or phone
   async findByEmailOrPhone(email, phone = null) {
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 OR phone = $2',
+      "SELECT * FROM users WHERE email = $1 OR phone = $2",
       [email, phone]
     );
     return result.rows[0];
@@ -18,7 +13,7 @@ const User = {
   // Find user by ID
   async findById(id) {
     const result = await pool.query(
-      'SELECT * FROM users WHERE id = $1 AND is_active = true',
+      "SELECT * FROM users WHERE id = $1 AND is_active = true",
       [id]
     );
     return result.rows[0];
@@ -40,15 +35,17 @@ const User = {
   async update(id, updates) {
     const fields = Object.keys(updates);
     const values = Object.values(updates);
-    const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
-    
+    const setClause = fields
+      .map((field, index) => `${field} = $${index + 2}`)
+      .join(", ");
+
     const result = await pool.query(
       `UPDATE users SET ${setClause}, updated_at = NOW() 
        WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
     return result.rows[0];
-  }
+  },
 };
 
 // Profile model methods
@@ -56,7 +53,7 @@ const Profile = {
   // Find profile by user ID
   async findByUserId(userId) {
     const result = await pool.query(
-      'SELECT * FROM profiles WHERE user_id = $1',
+      "SELECT * FROM profiles WHERE user_id = $1",
       [userId]
     );
     return result.rows[0];
@@ -69,7 +66,13 @@ const Profile = {
       `INSERT INTO profiles (user_id, name, bio, seller_mode, location) 
        VALUES ($1, $2, $3, $4, $5) 
        RETURNING *`,
-      [user_id, name || null, bio || null, seller_mode || false, location || null]
+      [
+        user_id,
+        name || null,
+        bio || null,
+        seller_mode || false,
+        location || null,
+      ]
     );
     return result.rows[0];
   },
@@ -78,8 +81,10 @@ const Profile = {
   async update(id, updates) {
     const fields = Object.keys(updates);
     const values = Object.values(updates);
-    const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
-    
+    const setClause = fields
+      .map((field, index) => `${field} = $${index + 2}`)
+      .join(", ");
+
     const result = await pool.query(
       `UPDATE profiles SET ${setClause} 
        WHERE id = $1 RETURNING *`,
@@ -98,7 +103,7 @@ const Profile = {
       [userId]
     );
     return result.rows[0];
-  }
+  },
 };
 
 // Seller model methods
@@ -106,7 +111,7 @@ const Seller = {
   // Find seller by user ID
   async findByUserId(userId) {
     const result = await pool.query(
-      'SELECT * FROM sellers WHERE user_id = $1',
+      "SELECT * FROM sellers WHERE user_id = $1",
       [userId]
     );
     return result.rows[0];
@@ -128,20 +133,22 @@ const Seller = {
   async update(id, updates) {
     const fields = Object.keys(updates);
     const values = Object.values(updates);
-    const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
-    
+    const setClause = fields
+      .map((field, index) => `${field} = $${index + 2}`)
+      .join(", ");
+
     const result = await pool.query(
       `UPDATE sellers SET ${setClause} 
        WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
     return result.rows[0];
-  }
+  },
 };
 
 module.exports = {
   User,
   Profile,
   Seller,
-  pool
+  pool,
 };
