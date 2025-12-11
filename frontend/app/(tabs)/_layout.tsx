@@ -13,33 +13,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: "Browse",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
     </Tabs>
   );
 }

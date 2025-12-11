@@ -29,7 +29,7 @@ export default function ProfileSetupScreen() {
 
   // For now, show password field for all users as a fallback
   // TODO: Implement proper OAuth detection through route params or auth state
-  const isOAuthUser = false; // Temporary - will be updated based on OAuth flow
+  const isOAuthUser = false;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,7 +52,6 @@ export default function ProfileSetupScreen() {
       return;
     }
 
-    // Validate password if provided
     if (formData.password && formData.password.length < 8) {
       Alert.alert("Error", "Password must be at least 8 characters long");
       return;
@@ -76,7 +75,9 @@ export default function ProfileSetupScreen() {
       console.log("Profile setup result:", result);
 
       if (result) {
-        console.log("Profile setup successful, navigating to home page automatically");
+        console.log(
+          "Profile setup successful, navigating to home page automatically"
+        );
         // Navigate directly without showing alert
         router.replace("/(tabs)/index" as any);
       } else {
@@ -100,7 +101,7 @@ export default function ProfileSetupScreen() {
         {
           text: "Skip",
           onPress: () => router.replace("/(tabs)/index" as any),
-        }, 
+        },
       ]
     );
   };
@@ -127,17 +128,26 @@ export default function ProfileSetupScreen() {
             style={authScreenStyles.lottieAnimation}
           />
           <Text style={authScreenStyles.title}>Complete Your Profile</Text>
-          <Text style={authScreenStyles.subtitle}>Tell us a bit about yourself</Text>
+          <Text style={authScreenStyles.subtitle}>
+            Tell us a bit about yourself
+          </Text>
           <View style={authScreenStyles.decorativeCircle} />
           <View style={authScreenStyles.decorativeCircleSmall} />
         </LinearGradient>
 
         <View style={authScreenStyles.formContainer}>
           <View style={authScreenStyles.handleBar} />
-          
+
           <View style={{ gap: 20 }}>
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50", marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: "#2c3e50",
+                  marginBottom: 8,
+                }}
+              >
                 Name *
               </Text>
               <TextInput
@@ -157,7 +167,14 @@ export default function ProfileSetupScreen() {
             </View>
 
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50", marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: "#2c3e50",
+                  marginBottom: 8,
+                }}
+              >
                 Bio
               </Text>
               <TextInput
@@ -181,7 +198,14 @@ export default function ProfileSetupScreen() {
             </View>
 
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50", marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: "#2c3e50",
+                  marginBottom: 8,
+                }}
+              >
                 Location
               </Text>
               <TextInput
@@ -201,13 +225,24 @@ export default function ProfileSetupScreen() {
             </View>
 
             <View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <Text
+                  style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50" }}
+                >
                   Enable Seller Mode
                 </Text>
                 <Switch
                   value={formData.seller_mode}
-                  onValueChange={(value) => handleInputChange("seller_mode", value)}
+                  onValueChange={(value) =>
+                    handleInputChange("seller_mode", value)
+                  }
                   trackColor={{ false: "#e1e8ed", true: "#3498db" }}
                   thumbColor={formData.seller_mode ? "#ffffff" : "#ffffff"}
                 />
@@ -218,32 +253,40 @@ export default function ProfileSetupScreen() {
             </View>
 
             {isOAuthUser && (
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#2c3e50", marginBottom: 8 }}>
-                Set Password (Optional)
-              </Text>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#e1e8ed",
-                  borderRadius: 12,
-                  padding: 16,
-                  fontSize: 16,
-                  backgroundColor: "#f8f9fa",
-                }}
-                value={formData.password}
-                onChangeText={(value) => handleInputChange("password", value)}
-                placeholder="Create a password for email login"
-                secureTextEntry
-                maxLength={128}
-              />
-              <Text style={{ fontSize: 14, color: "#7f8c8d", marginTop: 4 }}>
-                Optional: Set a password to enable email login (min. 8 characters)
-              </Text>
-            </View>
-          )}
+              <View>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: "#2c3e50",
+                    marginBottom: 8,
+                  }}
+                >
+                  Set Password (Optional)
+                </Text>
+                <TextInput
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#e1e8ed",
+                    borderRadius: 12,
+                    padding: 16,
+                    fontSize: 16,
+                    backgroundColor: "#f8f9fa",
+                  }}
+                  value={formData.password}
+                  onChangeText={(value) => handleInputChange("password", value)}
+                  placeholder="Create a password for email login"
+                  secureTextEntry
+                  maxLength={128}
+                />
+                <Text style={{ fontSize: 14, color: "#7f8c8d", marginTop: 4 }}>
+                  Optional: Set a password to enable email login (min. 8
+                  characters)
+                </Text>
+              </View>
+            )}
           </View>
-          
+
           <View style={{ gap: 12, marginTop: 20 }}>
             <TouchableOpacity
               style={{
@@ -258,7 +301,9 @@ export default function ProfileSetupScreen() {
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+                <Text
+                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                >
                   Complete Setup
                 </Text>
               )}
@@ -275,7 +320,9 @@ export default function ProfileSetupScreen() {
               }}
               onPress={skipSetup}
             >
-              <Text style={{ color: "#3498db", fontSize: 16, fontWeight: "600" }}>
+              <Text
+                style={{ color: "#3498db", fontSize: 16, fontWeight: "600" }}
+              >
                 Skip for Now
               </Text>
             </TouchableOpacity>
