@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react-native';
 
 interface TrendingItem {
   id: number;

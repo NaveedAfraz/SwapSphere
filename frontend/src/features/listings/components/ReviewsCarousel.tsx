@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, Dimensions } from 'react-native';
-import { Star, Quote } from 'lucide-react';
+import { Star, Quote } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 

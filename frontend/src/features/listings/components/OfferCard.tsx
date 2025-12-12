@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { Clock, Tag, Zap } from 'lucide-react';
+import { Clock, Tag, Zap } from 'lucide-react-native';
 
 interface OfferCardProps {
   id: number;

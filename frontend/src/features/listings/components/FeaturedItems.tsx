@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { Heart, Star, MapPin } from 'lucide-react';
+import { Heart, Star, MapPin } from 'lucide-react-native';
 
 interface FeaturedItem {
   id: number;

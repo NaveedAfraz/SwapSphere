@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { Heart, Star, MapPin, Shield, Clock } from 'lucide-react';
+import { Heart, Star, MapPin, Shield, Clock } from 'lucide-react-native';
 
 interface ListingCardProps {
   id: number;

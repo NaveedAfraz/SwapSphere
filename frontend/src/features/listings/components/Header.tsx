@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Menu, Bell, Camera, Search } from 'lucide-react';
+import { Menu, Bell, Camera, Search } from 'lucide-react-native';
 
 interface HeaderProps {
   searchQuery: string;
