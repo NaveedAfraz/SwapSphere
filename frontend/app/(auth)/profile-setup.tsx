@@ -79,7 +79,7 @@ export default function ProfileSetupScreen() {
           "Profile setup successful, navigating to home page automatically"
         );
         // Navigate directly without showing alert
-        router.replace("/(tabs)/index" as any);
+        router.replace("/(tabs)" as any);
       } else {
         console.log("No result returned from profile setup");
       }

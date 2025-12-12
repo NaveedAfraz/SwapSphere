@@ -1,6 +1,12 @@
 // app/(auth)/sign-in.tsx
 import React, { useState } from "react";
-import { View, Text, Dimensions, TouchableOpacity, StatusBar } from "react-native";
+import {
+  View,
+  Text,
+  Dimensions,
+  TouchableOpacity,
+  StatusBar,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useDispatch } from "react-redux";
 import LottieView from "lottie-react-native";
@@ -13,37 +19,36 @@ import { loginThunk } from "@/src/features/auth/authThunks";
 import { loginSchema } from "@/src/features/auth/utils/validators";
 import type { LoginPayload } from "@/src/features/auth/types/auth";
 import { authScreenStyles } from "@/src/features/auth/styles/authScreenStyles";
- 
 
 export default function SignInScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const [errorModal, setErrorModal] = useState({
     visible: false,
-    title: '',
-    message: '',
+    title: "",
+    message: "",
   });
 
   const closeErrorModal = () => {
     setErrorModal({
       visible: false,
-      title: '',
-      message: '',
+      title: "",
+      message: "",
     });
   };
 
   const handleSubmit = async (data: LoginPayload) => {
     try {
       const result = await dispatch(loginThunk(data)).unwrap();
-      
+
       if (result) {
         console.log("Login successful, navigating to home page");
         // navigate to home page after successful login
-        router.replace("/(tabs)/index" as any);
+        router.replace("/(tabs)" as any);
       }
     } catch (error: any) {
       console.error("Login failed:", error);
-      
+
       // Show user-friendly error message using custom modal
       setErrorModal({
         visible: true,
@@ -75,14 +80,16 @@ export default function SignInScreen() {
             style={authScreenStyles.lottieAnimation}
           />
           <Text style={authScreenStyles.title}>Welcome Back</Text>
-          <Text style={authScreenStyles.subtitle}>Sign in to continue to SwapSphere</Text>
+          <Text style={authScreenStyles.subtitle}>
+            Sign in to continue to SwapSphere
+          </Text>
           <View style={authScreenStyles.decorativeCircle} />
           <View style={authScreenStyles.decorativeCircleSmall} />
         </LinearGradient>
 
         <View style={authScreenStyles.formContainer}>
           <View style={authScreenStyles.handleBar} />
-          
+
           <ReusableAuthForm
             schema={loginSchema}
             fields={[
@@ -103,16 +110,18 @@ export default function SignInScreen() {
             submitLabel="Sign in"
             onSubmit={handleSubmit}
           />
-          
+
           <View style={authScreenStyles.registerContainer}>
-            <Text style={authScreenStyles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
+            <Text style={authScreenStyles.registerText}>
+              Don't have an account?{" "}
+            </Text>
+            <TouchableOpacity onPress={() => router.push("/(auth)/sign-up")}>
               <Text style={authScreenStyles.registerLink}>Register</Text>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAwareScrollView>
-      
+
       <ErrorModal
         visible={errorModal.visible}
         title={errorModal.title}
