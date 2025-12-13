@@ -8,9 +8,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Categories from "@/src/features/listings/components/Categories";
 import SearchBar from "@/src/features/search/components/SearchBar";
-import FeaturedItems from "@/src/features/FeaturedItems"
+import FeaturedItems from "@/src/features/FeaturedItems";
 
 const categories = [
   { id: 1, name: "Fashion", icon: "", color: "#6B7280" },
@@ -45,6 +46,7 @@ export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [liked, setLiked] = useState<Record<number, boolean>>({});
+  const insets = useSafeAreaInsets();
 
   const toggleLike = (id: number) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -60,10 +62,10 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[{ paddingBottom: insets.bottom }]}
       >
         <View style={styles.header}>
           <TouchableOpacity

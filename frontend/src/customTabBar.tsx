@@ -36,7 +36,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { isSellerMode } = useUserMode();
 
   // compute bottom offset similar to your TabLayout bottom logic
-  const bottomInset = Math.max(insets.bottom, Platform.OS === "ios" ? 12 : 8);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 4);
 
   // helper: navigate to a tab by name (keeps nav semantics)
   const navTo = (name: string) => {
@@ -117,7 +117,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.container}>
       {/* Tab Bar Container */}
-      <View style={styles.tabBarWrapper}>
+      <View style={[styles.tabBarWrapper, { paddingBottom: bottomInset }]}>
         {/* Shadow layer for center button */}
         <View style={styles.centerButtonShadow} />
         <View style={styles.tabBar}>{tabs.map(renderTab)}</View>
@@ -136,8 +136,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 0,
-    paddingBottom: Platform.OS === "ios" ? 30 : 20,
+    paddingTop: Platform.OS === "ios" ? 20 : 12,
   },
   centerButtonShadow: {
     position: "absolute",
@@ -164,9 +163,9 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 30,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    borderRadius: 25,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "space-between",
     shadowColor: "#1a1a1a",
@@ -179,7 +178,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tabIconContainer: {
     width: 48,
@@ -201,14 +200,14 @@ const styles = StyleSheet.create({
   },
   centerButtonContainer: {
     position: "relative",
-    marginTop: -40,
+    marginTop: -30,
     alignItems: "center",
     justifyContent: "center",
   },
   centerButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#1a1a1a",

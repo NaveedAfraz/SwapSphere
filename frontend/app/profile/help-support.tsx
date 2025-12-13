@@ -65,23 +65,44 @@ export default function HelpSupportScreen() {
   const renderFAQItem = (item: FAQItem) => (
     <TouchableOpacity
       key={item.id}
-      style={styles.faqItem}
+      style={[
+        styles.faqItem,
+        expandedItem === item.id && styles.faqItemExpanded
+      ]}
       onPress={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
+      activeOpacity={0.7}
     >
       <View style={styles.faqHeader}>
-        <Text style={styles.faqQuestion}>{item.question}</Text>
-        <Ionicons 
-          name={expandedItem === item.id ? 'chevron-up' : 'chevron-down'} 
-          size={20} 
-          color="#6B7280" 
-        />
+        <View style={styles.questionContainer}>
+          <View style={styles.questionIcon}>
+            <Ionicons 
+              name="help-circle-outline" 
+              size={20} 
+              color="#3B82F6" 
+            />
+          </View>
+          <Text style={styles.faqQuestion}>{item.question}</Text>
+        </View>
+        <View style={[
+          styles.chevronContainer,
+          expandedItem === item.id && styles.chevronContainerRotated
+        ]}>
+          <Ionicons 
+            name={expandedItem === item.id ? 'chevron-up' : 'chevron-down'} 
+            size={20} 
+            color="#6B7280" 
+          />
+        </View>
       </View>
       
       {expandedItem === item.id && (
         <View style={styles.faqAnswer}>
-          <Text style={styles.answerText}>{item.answer}</Text>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{item.category}</Text>
+          <View style={styles.answerContent}>
+            <Text style={styles.answerText}>{item.answer}</Text>
+            <View style={styles.categoryBadge}>
+              <Ionicons name="pricetag-outline" size={12} color="#6366F1" style={styles.categoryIcon} />
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
           </View>
         </View>
       )}
@@ -273,41 +294,97 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   faqItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  faqItemExpanded: {
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    borderColor: '#BFDBFE',
   },
   faqHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
+  },
+  questionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 16,
+  },
+  questionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   faqQuestion: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
-    marginRight: 12,
+    lineHeight: 22,
+  },
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chevronContainerRotated: {
+    backgroundColor: '#EFF6FF',
   },
   faqAnswer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#FAFBFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  answerContent: {
+    position: 'relative',
   },
   answerText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 12,
+    fontSize: 15,
+    color: '#4B5563',
+    lineHeight: 22,
+    marginBottom: 16,
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: '#EDE9FE',
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  categoryIcon: {
+    marginRight: 6,
   },
   categoryText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     color: '#6366F1',
   },

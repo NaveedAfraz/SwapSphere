@@ -109,7 +109,7 @@ export default function InboxScreen() {
       >
         <ConversationList
           conversations={conversations}
-          onPressConversation={(id: number) => console.log("Open chat", id)}
+          onPressConversation={(id: number) => router.push(`/inbox/${id}` as any)}
         />
       </ScrollView>
     </View>

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { View, ScrollView, StyleSheet, Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
 import Header from "@/src/features/listings/components/Header";
 import Categories from "@/src/features/listings/components/Categories";
 import FeaturedItems from "@/src/features/FeaturedItems";
 import TrendingItems from "@/src/features/listings/components/TrendingItems";
 import OfferCard from "@/src/features/listings/components/OfferCard";
-import ListingCard from "@/src/features/listings/components/ListingCard";
 import ReviewsCarousel from "@/src/features/listings/components/ReviewsCarousel";
 import SellerBadge from "@/src/features/listings/components/SellerBadge";
 import SidebarDrawer from "@/src/features/listings/components/SidebarDrawer";
@@ -112,6 +112,7 @@ const listings = [
     verified: true,
     condition: "Like New",
     posted: "2 hours ago",
+    category: "Electronics",
   },
   {
     id: 2,
@@ -121,23 +122,53 @@ const listings = [
     location: "New York, NY",
     rating: 4.7,
     reviews: 89,
-    seller: "VintageStore",
+    seller: "FashionHub",
     verified: true,
     condition: "Excellent",
     posted: "5 hours ago",
+    category: "Fashion",
   },
   {
     id: 3,
-    title: "iPhone 13 Pro • 256GB - Good Condition",
-    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
-    price: "$599",
+    title: "Professional Camera Kit - Barely Used",
+    image: "https://images.unsplash.com/photo-1516035069371-29a1b242ccaa?w=800",
+    price: "$2,450",
     location: "Los Angeles, CA",
     rating: 4.8,
-    reviews: 62,
-    seller: "MobileHub",
+    reviews: 156,
+    seller: "PhotoPro",
+    verified: true,
+    condition: "Like New",
+    posted: "1 day ago",
+    category: "Electronics",
+  },
+  {
+    id: 4,
+    title: "Designer Handbag - Authentic",
+    image: "https://images.unsplash.com/photo-1584917865442-486d0547a7f5?w=800",
+    price: "$890",
+    location: "Chicago, IL",
+    rating: 4.9,
+    reviews: 234,
+    seller: "LuxuryBoutique",
+    verified: true,
+    condition: "Excellent",
+    posted: "3 days ago",
+    category: "Fashion",
+  },
+  {
+    id: 5,
+    title: "Gaming Console Bundle - Complete Set",
+    image: "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800",
+    price: "$450",
+    location: "Houston, TX",
+    rating: 4.6,
+    reviews: 178,
+    seller: "GameZone",
     verified: false,
     condition: "Good",
-    posted: "1 day ago",
+    posted: "1 week ago",
+    category: "Gaming",
   },
 ];
 
@@ -210,6 +241,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [liked, setLiked] = useState<Record<number, boolean>>({});
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const toggleLike = (id: number) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -229,13 +261,13 @@ export default function HomePage() {
   };
 
   return (
-    <View style={styles.container}>
-      <Header 
-        searchQuery={searchQuery} 
-        setSearchQuery={setSearchQuery} 
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <Header
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
         onMenuPress={toggleDrawer}
       />
-      
+
       <ScrollView showsVerticalScrollIndicator={false}>
         <Categories categories={categories} />
 
@@ -257,23 +289,20 @@ export default function HomePage() {
           toggleLike={toggleLike}
           onProductPress={handleProductPress}
           onMakeOffer={handleMakeOffer}
+          sectionTitle="Featured"
         />
 
         <TrendingItems items={trendingItems} />
 
         {/* Latest Listings Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Latest Listings</Text>
-          {listings.map((listing) => (
-            <ListingCard
-              key={listing.id}
-              {...listing}
-              liked={liked[listing.id]}
-              onLike={() => toggleLike(listing.id)}
-              onPress={() => console.log("Listing pressed:", listing.id)}
-            />
-          ))}
-        </View>
+        <FeaturedItems
+          items={listings}
+          liked={liked}
+          toggleLike={toggleLike}
+          onProductPress={handleProductPress}
+          onMakeOffer={handleMakeOffer}
+          sectionTitle="Latest Listings"
+        />
 
         {/* Top Sellers Section */}
         <View style={styles.section}>
@@ -289,10 +318,10 @@ export default function HomePage() {
 
         <ReviewsCarousel reviews={reviews} />
       </ScrollView>
-      
-      <SidebarDrawer 
-        isVisible={isDrawerVisible} 
-        onClose={() => setIsDrawerVisible(false)} 
+
+      <SidebarDrawer
+        isVisible={isDrawerVisible}
+        onClose={() => setIsDrawerVisible(false)}
       />
     </View>
   );
