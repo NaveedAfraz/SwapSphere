@@ -1,8 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ImageGallery from '@/src/features/create/components/ImageGallery';
 import { FormField, CategorySelector, ConditionSelector } from '@/src/features/create/components/FormFields';
+
+const COLORS = {
+  dark: '#111827',
+  accent: '#3B82F6',
+  muted: '#6B7280',
+  surface: '#D1D5DB',
+  bg: '#F9FAFB',
+  white: '#FFFFFF',
+  success: '#22C55E',
+  error: '#DC2626',
+  gold: '#FACC15',
+  chipBg: '#F3F4F6',
+};
 
 const categories = [
   { id: 1, name: 'Fashion', icon: '', color: '#FFE66D' },
@@ -14,6 +28,7 @@ const categories = [
 const conditions = ['New', 'Like New', 'Good', 'Fair'];
 
 export default function CreateScreen() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -21,10 +36,6 @@ export default function CreateScreen() {
   const [condition, setCondition] = useState('');
   const [location, setLocation] = useState('');
   const [images, setImages] = useState<string[]>([]);
-
-  const pickImage = async () => {
-    // This is handled by the ImageGallery component
-  };
 
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
@@ -36,17 +47,17 @@ export default function CreateScreen() {
 
   const handleSubmit = () => {
     if (!title || !description || !price || !category || !condition || !location) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Missing Information', 'Please fill in all required fields');
       return;
     }
 
     if (images.length === 0) {
-      Alert.alert('Error', 'Please add at least one image');
+      Alert.alert('Add Images', 'Please add at least one image');
       return;
     }
 
     Alert.alert('Success', 'Listing created successfully!');
-    // Reset form
+
     setTitle('');
     setDescription('');
     setPrice('');
@@ -60,18 +71,18 @@ export default function CreateScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
           <Text style={styles.title}>Create Listing</Text>
-          <TouchableOpacity style={styles.postButton} onPress={handleSubmit}>
+          <TouchableOpacity style={styles.postButton} onPress={handleSubmit} activeOpacity={0.9}>
+            <Ionicons name="checkmark" size={18} color={COLORS.white} />
             <Text style={styles.postButtonText}>Post</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.formContainer}>
-          <ImageGallery 
-            images={images}
-            onAddImages={addImages}
-            onRemoveImage={removeImage}
-          />
+          <ImageGallery images={images} onAddImages={addImages} onRemoveImage={removeImage} />
 
           <FormField
             label="Title"
@@ -99,17 +110,9 @@ export default function CreateScreen() {
             keyboardType="numeric"
           />
 
-          <CategorySelector
-            categories={categories}
-            selectedCategory={category}
-            onSelectCategory={setCategory}
-          />
+          <CategorySelector categories={categories} selectedCategory={category} onSelectCategory={setCategory} />
 
-          <ConditionSelector
-            conditions={conditions}
-            selectedCondition={condition}
-            onSelectCondition={setCondition}
-          />
+          <ConditionSelector conditions={conditions} selectedCondition={condition} onSelectCondition={setCondition} />
 
           <FormField
             label="Location"
@@ -124,45 +127,53 @@ export default function CreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  formContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-  },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+
   header: {
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
+
+  backButton: {
+    marginRight: 16,
+  },
+
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#111827',
     letterSpacing: -0.5,
+    flex: 1,
   },
+
   postButton: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.dark,
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderRadius: 14,
+    shadowColor: COLORS.dark,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
     elevation: 3,
   },
+
   postButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 15,
+  },
+
+  formContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
 });

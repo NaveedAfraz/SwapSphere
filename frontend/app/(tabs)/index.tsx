@@ -8,6 +8,7 @@ import OfferCard from "@/src/features/listings/components/OfferCard";
 import ListingCard from "@/src/features/listings/components/ListingCard";
 import ReviewsCarousel from "@/src/features/listings/components/ReviewsCarousel";
 import SellerBadge from "@/src/features/listings/components/SellerBadge";
+import SidebarDrawer from "@/src/features/listings/components/SidebarDrawer";
 
 // Dummy data (marketplace-focused)
 const categories = [
@@ -207,16 +208,25 @@ const sellers = [
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [liked, setLiked] = useState<Record<number, boolean>>({});
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
 
   const toggleLike = (id: number) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const toggleDrawer = () => {
+    setIsDrawerVisible(!isDrawerVisible);
+  };
+
   return (
     <View style={styles.container}>
+      <Header 
+        searchQuery={searchQuery} 
+        setSearchQuery={setSearchQuery} 
+        onMenuPress={toggleDrawer}
+      />
+      
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-
         <Categories categories={categories} />
 
         {/* Special Offers Section */}
@@ -267,6 +277,11 @@ export default function HomePage() {
 
         <ReviewsCarousel reviews={reviews} />
       </ScrollView>
+      
+      <SidebarDrawer 
+        isVisible={isDrawerVisible} 
+        onClose={() => setIsDrawerVisible(false)} 
+      />
     </View>
   );
 }

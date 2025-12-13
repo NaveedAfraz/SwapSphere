@@ -1,80 +1,92 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Categories from '@/src/features/listings/components/Categories';
-import SearchBar from '@/src/features/search/components/SearchBar';
-import SearchResults from '@/src/features/search/components/SearchResults';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import Categories from "@/src/features/listings/components/Categories";
+import SearchBar from "@/src/features/search/components/SearchBar";
+import SearchResults from "@/src/features/search/components/SearchResults";
 
 const categories = [
-  { id: 1, name: 'Fashion', icon: '', color: '#FFE66D' },
-  { id: 2, name: 'Tech', icon: '', color: '#95E1D3' },
-  { id: 3, name: 'Home', icon: '', color: '#F6C1C1' },
-  { id: 4, name: 'Fitness', icon: '', color: '#F38181' },
+  { id: 1, name: "Fashion", icon: "", color: "#6B7280" },
+  { id: 2, name: "Tech", icon: "", color: "#6B7280" },
+  { id: 3, name: "Home", icon: "", color: "#6B7280" },
+  { id: 4, name: "Fitness", icon: "", color: "#6B7280" },
 ];
 
 const searchResults = [
   {
     id: 1,
     title: 'MacBook Pro 16" - Like New',
-    image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800',
-    price: '$1,299',
-    location: 'San Francisco, CA',
+    image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
+    price: "$1,299",
+    location: "San Francisco, CA",
     rating: 4.9,
     reviews: 127,
-    seller: 'TechExpert',
+    seller: "TechExpert",
     verified: true,
-    condition: 'Like New',
-    posted: '2 hours ago',
+    condition: "Like New",
+    posted: "2 hours ago",
   },
   {
     id: 2,
-    title: 'iPhone 13 Pro - 256GB',
-    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
-    price: '$699',
-    location: 'New York, NY',
+    title: "iPhone 13 Pro - 256GB",
+    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+    price: "$699",
+    location: "New York, NY",
     rating: 4.8,
     reviews: 89,
-    seller: 'MobileHub',
+    seller: "MobileHub",
     verified: true,
-    condition: 'Excellent',
-    posted: '5 hours ago',
+    condition: "Excellent",
+    posted: "5 hours ago",
   },
 ];
 
 export default function SearchScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [liked, setLiked] = useState<Record<number, boolean>>({});
 
   const toggleLike = (id: number) => {
-    setLiked(prev => ({ ...prev, [id]: !prev[id] }));
+    setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(tabs)")}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
           <Text style={styles.title}>Search</Text>
         </View>
 
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onClear={() => setSearchQuery('')}
+          onClear={() => setSearchQuery("")}
         />
 
-        <Categories 
-          categories={categories} 
-        />
+        <Categories categories={categories} />
 
-        <SearchResults 
+        <SearchResults
           results={searchResults}
           liked={liked}
           onLike={toggleLike}
-          onPress={(id) => console.log('Listing pressed:', id)}
+          onPress={(id) => console.log("Listing pressed:", id)}
         />
       </ScrollView>
     </View>
@@ -84,7 +96,7 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   scrollContent: {
     paddingBottom: 100,
@@ -92,15 +104,20 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 60,
     paddingBottom: 20,
+    // marginVertical: 20,
     paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    backgroundColor: "#FFFFFF",
+
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     letterSpacing: -0.5,
   },
 });

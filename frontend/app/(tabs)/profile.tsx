@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import SellerBadge from '@/src/features/listings/components/SellerBadge';
 import ProfileHeader from '@/src/features/profile/components/ProfileHeader';
@@ -38,6 +39,7 @@ const sellerData = {
 export default function ProfileScreen() {
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const { isSellerMode, setIsSellerMode } = useUserMode();
+  const router = useRouter();
 
   const handleMenuItemPress = (item: typeof sellerMenuItems[0]) => {
     if (item.isDestructive) {
@@ -51,7 +53,25 @@ export default function ProfileScreen() {
       );
     } else {
       setSelectedItem(item.id);
-      console.log('Navigate to:', item.title);
+      
+      // Navigate to appropriate screen based on item title and mode
+      const routeMap: Record<string, any> = {
+        'My Listings': '/profile/my-listings',
+        'Sales': '/profile/sales',
+        'Reviews': '/profile/my-reviews',
+        'Settings': '/profile/settings',
+        'Help & Support': '/profile/help-support',
+        'My Purchases': '/profile/my-purchases',
+        'My Reviews': '/profile/my-reviews',
+      };
+      
+      const route = routeMap[item.title];
+      if (route) {
+        router.push(route as any);
+      } else {
+        console.log('Navigate to:', item.title);
+      }
+      
       // Reset selection after navigation
       setTimeout(() => setSelectedItem(null), 300);
     }

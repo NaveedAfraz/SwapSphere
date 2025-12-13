@@ -1,8 +1,6 @@
-import React from 'react';
-import { View, Text, ScrollView, Image, StyleSheet, Dimensions } from 'react-native';
-import { Star, Quote } from 'lucide-react-native';
-
-const { width } = Dimensions.get('window');
+import React from "react";
+import { View, Text, ScrollView, Image, StyleSheet } from "react-native";
+import { Star, Quote } from "lucide-react-native";
 
 interface Review {
   id: number;
@@ -18,6 +16,16 @@ interface ReviewsCarouselProps {
   reviews: Review[];
 }
 
+const COLORS = {
+  dark: "#111827",
+  accent: "#3B82F6",
+  muted: "#6B7280",
+  surface: "#D1D5DB",
+  bg: "#F9FAFB",
+  white: "#FFFFFF",
+  gold: "#FACC15",
+};
+
 export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
   return (
     <View style={styles.container}>
@@ -25,14 +33,13 @@ export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
         <Text style={styles.title}>Recent Reviews</Text>
         <Text style={styles.subtitle}>What our users are saying</Text>
       </View>
-      
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.carousel}
         contentContainerStyle={styles.carouselContent}
       >
-        {reviews.map(review => (
+        {reviews.map((review) => (
           <View key={review.id} style={styles.reviewCard}>
             <View style={styles.reviewHeader}>
               <View style={styles.userContainer}>
@@ -42,23 +49,26 @@ export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
                   <Text style={styles.listingName}>{review.listing}</Text>
                 </View>
               </View>
+
               <View style={styles.ratingContainer}>
                 {[...Array(5)].map((_, index) => (
                   <Star
                     key={index}
                     size={12}
-                    color={index < review.rating ? '#FFD700' : '#D1D5DB'}
-                    fill={index < review.rating ? '#FFD700' : 'transparent'}
+                    color={index < review.rating ? COLORS.gold : COLORS.surface}
+                    fill={index < review.rating ? COLORS.gold : "transparent"}
                   />
                 ))}
               </View>
             </View>
-            
+
             <View style={styles.commentContainer}>
-              <Quote size={16} color="#3B82F6" style={styles.quoteIcon} />
-              <Text style={styles.comment} numberOfLines={4}>{review.comment}</Text>
+              <Quote size={16} color={COLORS.accent} style={styles.quoteIcon} />
+              <Text style={styles.comment} numberOfLines={4}>
+                {review.comment}
+              </Text>
             </View>
-            
+
             <Text style={styles.date}>{review.date}</Text>
           </View>
         ))}
@@ -69,97 +79,111 @@ export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 30,
+    marginTop: 32,
     paddingHorizontal: 20,
-    marginBottom: 80,
+    // paddingBottom: 100,
   },
+
   header: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
+
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 22,
+    fontWeight: "700",
+    color: COLORS.dark,
     marginBottom: 4,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
+
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.muted,
   },
-  carousel: {
-    marginHorizontal: -20,
-  },
+
   carouselContent: {
     paddingHorizontal: 20,
+    paddingBottom: 100,
   },
+
   reviewCard: {
     width: 280,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
+
     padding: 16,
     marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: COLORS.dark,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: COLORS.surface,
   },
+
   reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
+
   userContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
+
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     marginRight: 12,
   },
+
   userInfo: {
     flex: 1,
   },
+
   userName: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: COLORS.dark,
     marginBottom: 2,
   },
+
   listingName: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.muted,
   },
+
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
+
   commentContainer: {
-    position: 'relative',
+    position: "relative",
     marginBottom: 12,
   },
+
   quoteIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: -8,
     left: -4,
-    opacity: 0.3,
+    opacity: 0.25,
   },
+
   comment: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#111827',
+    color: COLORS.dark,
     paddingLeft: 12,
   },
+
   date: {
     fontSize: 11,
-    color: '#6B7280',
-    alignSelf: 'flex-end',
+    color: COLORS.muted,
+    alignSelf: "flex-end",
   },
 });

@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   searchBar: {
     flexDirection: 'row',

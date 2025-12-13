@@ -1,5 +1,11 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 
 interface Category {
   id: number;
@@ -12,21 +18,32 @@ interface CategoriesProps {
   categories: Category[];
 }
 
+const COLORS = {
+  dark: "#111827",
+  muted: "#6B7280",
+  bg: "#F9FAFB",
+  white: "#FFFFFF",
+  surface: "#D1D5DB",
+};
+
 export default function Categories({ categories }: CategoriesProps) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Categories</Text>
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
+        contentContainerStyle={styles.categoriesScroll}
       >
-        {categories.map(cat => (
-          <TouchableOpacity 
-            key={cat.id} 
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat.id}
+            activeOpacity={0.9}
             style={[styles.categoryCard, { backgroundColor: cat.color }]}
           >
-            <Text style={styles.categoryIcon}>{cat.icon}</Text>
+            {cat.icon ? (
+              <Text style={styles.categoryIcon}>{cat.icon}</Text>
+            ) : null}
             <Text style={styles.categoryName}>{cat.name}</Text>
           </TouchableOpacity>
         ))}
@@ -37,43 +54,47 @@ export default function Categories({ categories }: CategoriesProps) {
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: 30,
+    marginTop: 32,
     paddingHorizontal: 20,
   },
+
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 20,
-    letterSpacing: -0.5,
+    fontSize: 22,
+    fontWeight: "700",
+    color: COLORS.dark,
+    marginBottom: 16,
+    letterSpacing: -0.4,
   },
+
   categoriesScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
+    paddingBottom: 8,
   },
+
   categoryCard: {
-    width: 110,
-    height: 110,
+    width: 104,
+    height: 104,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: COLORS.dark,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: COLORS.white,
   },
+
   categoryIcon: {
-    fontSize: 40,
-    marginBottom: 8,
+    fontSize: 34,
+    marginBottom: 6,
   },
+
   categoryName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.dark,
+    textAlign: "center",
   },
 });

@@ -100,7 +100,7 @@ export default function ProfileSetupScreen() {
         },
         {
           text: "Skip",
-          onPress: () => router.replace("/(tabs)/index" as any),
+          onPress: () => router.replace("/(tabs)" as any),
         },
       ]
     );
