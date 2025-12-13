@@ -1,6 +1,14 @@
-import React from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { TrendingUp } from 'lucide-react-native';
+import React from "react";
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import { TrendingUp } from "lucide-react-native";
+import { Interactions } from "@/src/constants/theme";
 
 interface TrendingItem {
   id: number;
@@ -15,23 +23,24 @@ interface TrendingItemsProps {
 
 export default function TrendingItems({ items }: TrendingItemsProps) {
   return (
-    <View style={[styles.section, { marginBottom: 30 }]}>
+    <View style={[styles.section]}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Trending Now</Text>
         <TrendingUp size={20} color="#3B82F6" />
       </View>
-      
-      <ScrollView 
-        horizontal 
+
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.trendingScroll}
       >
-        {items.map(item => (
-          <TouchableOpacity key={item.id} style={styles.trendingCard}>
-            <Image 
-              source={{ uri: item.image }} 
-              style={styles.trendingImage}
-            />
+        {items.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.trendingCard}
+            activeOpacity={Interactions.activeOpacity}
+          >
+            <Image source={{ uri: item.image }} style={styles.trendingImage} />
             <View style={styles.trendBadge}>
               <TrendingUp size={12} color="#fff" />
               <Text style={styles.trendText}>{item.trend}</Text>
@@ -47,18 +56,20 @@ export default function TrendingItems({ items }: TrendingItemsProps) {
 const styles = StyleSheet.create({
   section: {
     marginTop: 30,
+
     paddingHorizontal: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingBottom: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     letterSpacing: -0.5,
   },
   trendingScroll: {
@@ -67,44 +78,45 @@ const styles = StyleSheet.create({
   },
   trendingCard: {
     width: 150,
+    marginBottom: 30,
     marginRight: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: "rgba(255, 255, 255, 0.8)",
   },
   trendingImage: {
-    width: '100%',
+    width: "100%",
     height: 150,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   trendBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3B82F6',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3B82F6",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
   },
   trendText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 4,
   },
   trendingName: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     padding: 16,
     paddingTop: 12,
   },

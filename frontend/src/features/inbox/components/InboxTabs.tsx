@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Interactions } from '@/src/constants/theme';
 
 interface InboxTabsProps {
   selectedTab: 'all' | 'unread';
@@ -13,6 +14,7 @@ export default function InboxTabs({ selectedTab, onSelectTab, unreadCount }: Inb
       <TouchableOpacity
         style={[styles.tab, selectedTab === 'all' && styles.tabActive]}
         onPress={() => onSelectTab('all')}
+        activeOpacity={Interactions.buttonOpacity}
       >
         <Text style={[styles.tabText, selectedTab === 'all' && styles.tabTextActive]}>
           All Messages
@@ -21,6 +23,7 @@ export default function InboxTabs({ selectedTab, onSelectTab, unreadCount }: Inb
       <TouchableOpacity
         style={[styles.tab, selectedTab === 'unread' && styles.tabActive]}
         onPress={() => onSelectTab('unread')}
+        activeOpacity={Interactions.buttonOpacity}
       >
         <Text style={[styles.tabText, selectedTab === 'unread' && styles.tabTextActive]}>
           Unread

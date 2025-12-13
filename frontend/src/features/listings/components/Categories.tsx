@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useRouter } from "expo-router";
+import { Interactions } from "@/src/constants/theme";
 
 interface Category {
   id: number;
@@ -27,6 +29,12 @@ const COLORS = {
 };
 
 export default function Categories({ categories }: CategoriesProps) {
+  const router = useRouter();
+
+  const handleCategoryPress = (category: Category) => {
+    router.push(`/listings/${category.name}`);
+  };
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Categories</Text>
@@ -38,8 +46,9 @@ export default function Categories({ categories }: CategoriesProps) {
         {categories.map((cat) => (
           <TouchableOpacity
             key={cat.id}
-            activeOpacity={0.9}
+            activeOpacity={Interactions.activeOpacity}
             style={[styles.categoryCard, { backgroundColor: cat.color }]}
+            onPress={() => handleCategoryPress(cat)}
           >
             {cat.icon ? (
               <Text style={styles.categoryIcon}>{cat.icon}</Text>

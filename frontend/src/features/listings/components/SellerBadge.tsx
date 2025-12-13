@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Shield, Star, CheckCircle, MessageCircle, Award } from 'lucide-react-native';
+import { Interactions } from '@/src/constants/theme';
 
 interface SellerBadgeProps {
   id: number;
@@ -30,7 +31,7 @@ export default function SellerBadge({
   onPress,
 }: SellerBadgeProps) {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={Interactions.activeOpacity}>
       <View style={styles.header}>
         <View style={styles.profileContainer}>
           <Image source={{ uri: avatar }} style={styles.avatar} />
@@ -90,7 +91,7 @@ export default function SellerBadge({
         </View>
       </View>
       
-      <TouchableOpacity style={styles.contactBtn}>
+      <TouchableOpacity style={styles.contactBtn} activeOpacity={Interactions.buttonOpacity}>
         <MessageCircle size={16} color="#fff" />
         <Text style={styles.contactBtnText}>Contact Seller</Text>
       </TouchableOpacity>

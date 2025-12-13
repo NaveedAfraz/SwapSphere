@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from '@/src/constants/theme';
 
 const COLORS = {
   dark: "#111827",
@@ -162,7 +163,7 @@ export default function MyPurchases() {
     <TouchableOpacity
       style={styles.purchaseCard}
       onPress={() => setShowDetails(showDetails === item.id ? null : item.id)}
-      activeOpacity={0.9}
+      activeOpacity={Interactions.activeOpacity}
     >
       <View style={styles.purchaseHeader}>
         <Image source={{ uri: item.item.image }} style={styles.itemImage} />
@@ -218,7 +219,7 @@ export default function MyPurchases() {
           )}
 
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
               <Ionicons
                 name="chatbubble-outline"
                 size={16}

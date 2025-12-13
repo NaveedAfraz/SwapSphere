@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from "@/src/constants/theme";
 import ConversationList from "../../src/features/inbox/components/ConversationList";
 import InboxTabs from "../../src/features/inbox/components/InboxTabs";
 
@@ -90,6 +91,7 @@ export default function InboxScreen() {
         <TouchableOpacity
           onPress={() => router.replace("/(tabs)")}
           style={styles.backButton}
+          activeOpacity={Interactions.buttonOpacity}
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Interactions } from '@/src/constants/theme';
 
 interface ProfileHeaderProps {
   name: string;
@@ -26,7 +27,7 @@ export default function ProfileHeader({ name, avatar, memberSince, verified, onE
           )}
         </View>
       </View>
-      <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+      <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={Interactions.buttonOpacity}>
         <Ionicons name="create-outline" size={20} color="#3B82F6" />
       </TouchableOpacity>
     </View>

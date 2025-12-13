@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Interactions } from '@/src/constants/theme';
 
 interface Listing {
   id: string;
@@ -72,7 +73,7 @@ export default function MyListings() {
   );
 
   const renderListing = ({ item }: { item: Listing }) => (
-    <TouchableOpacity style={styles.listingCard}>
+    <TouchableOpacity style={styles.listingCard} activeOpacity={Interactions.activeOpacity}>
       <Image source={{ uri: item.image }} style={styles.listingImage} />
       <View style={styles.listingContent}>
         <Text style={styles.listingTitle} numberOfLines={2}>{item.title}</Text>
@@ -97,6 +98,7 @@ export default function MyListings() {
       <TouchableOpacity 
         style={styles.moreButton}
         onPress={() => Alert.alert('Options', 'Edit, Delete, Mark as Sold')}
+        activeOpacity={Interactions.buttonOpacity}
       >
         <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
       </TouchableOpacity>
@@ -114,6 +116,7 @@ export default function MyListings() {
               selectedFilter === filter && styles.filterButtonActive
             ]}
             onPress={() => setSelectedFilter(filter)}
+            activeOpacity={Interactions.buttonOpacity}
           >
             <Text style={[
               styles.filterText,

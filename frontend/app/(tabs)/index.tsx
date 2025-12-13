@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { View, ScrollView, StyleSheet, Text } from "react-native";
+import { Interactions } from "@/src/constants/theme";
 import Header from "@/src/features/listings/components/Header";
 import Categories from "@/src/features/listings/components/Categories";
-import FeaturedItems from "@/src/features/listings/components/FeaturedItems";
+import FeaturedItems from "@/src/features/FeaturedItems";
 import TrendingItems from "@/src/features/listings/components/TrendingItems";
 import OfferCard from "@/src/features/listings/components/OfferCard";
 import ListingCard from "@/src/features/listings/components/ListingCard";
@@ -218,6 +219,15 @@ export default function HomePage() {
     setIsDrawerVisible(!isDrawerVisible);
   };
 
+  const handleProductPress = (item: any) => {
+    // Navigate to product detail screen
+    console.log("Navigate to product:", item.id);
+  };
+
+  const handleMakeOffer = (item: any) => {
+    console.log("Make offer for:", item.id);
+  };
+
   return (
     <View style={styles.container}>
       <Header 
@@ -245,6 +255,8 @@ export default function HomePage() {
           items={featuredItems}
           liked={liked}
           toggleLike={toggleLike}
+          onProductPress={handleProductPress}
+          onMakeOffer={handleMakeOffer}
         />
 
         <TrendingItems items={trendingItems} />

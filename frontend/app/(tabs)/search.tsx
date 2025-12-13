@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Categories from "@/src/features/listings/components/Categories";
 import SearchBar from "@/src/features/search/components/SearchBar";
-import SearchResults from "@/src/features/search/components/SearchResults";
+import FeaturedItems from "@/src/features/FeaturedItems"
 
 const categories = [
   { id: 1, name: "Fashion", icon: "", color: "#6B7280" },
@@ -27,11 +27,7 @@ const searchResults = [
     price: "$1,299",
     location: "San Francisco, CA",
     rating: 4.9,
-    reviews: 127,
-    seller: "TechExpert",
-    verified: true,
-    condition: "Like New",
-    posted: "2 hours ago",
+    category: "Tech",
   },
   {
     id: 2,
@@ -40,11 +36,7 @@ const searchResults = [
     price: "$699",
     location: "New York, NY",
     rating: 4.8,
-    reviews: 89,
-    seller: "MobileHub",
-    verified: true,
-    condition: "Excellent",
-    posted: "5 hours ago",
+    category: "Tech",
   },
 ];
 
@@ -56,6 +48,15 @@ export default function SearchScreen() {
 
   const toggleLike = (id: number) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleMakeOffer = (item: any) => {
+    console.log("Make offer for:", item.title);
+    // TODO: Open offer modal
+  };
+
+  const handleProductPress = (item: any) => {
+    router.push(`/product/${item.id}`);
   };
 
   return (
@@ -82,11 +83,15 @@ export default function SearchScreen() {
 
         <Categories categories={categories} />
 
-        <SearchResults
-          results={searchResults}
+        <FeaturedItems
+          items={searchResults}
           liked={liked}
-          onLike={toggleLike}
-          onPress={(id) => console.log("Listing pressed:", id)}
+          toggleLike={toggleLike}
+          onMakeOffer={handleMakeOffer}
+          onProductPress={handleProductPress}
+          sectionTitle="Search Results"
+          showSeeAll={false}
+          useScrollView={false}
         />
       </ScrollView>
     </View>

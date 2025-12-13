@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from '@/src/constants/theme';
 
 const COLORS = {
   dark: "#111827",
@@ -142,7 +143,7 @@ export default function MyReviews({
       )}
 
       {isSellerMode && !item.response && (
-        <TouchableOpacity style={styles.respondButton}>
+        <TouchableOpacity style={styles.respondButton} activeOpacity={Interactions.buttonOpacity}>
           <Text style={styles.respondButtonText}>Respond</Text>
         </TouchableOpacity>
       )}
@@ -175,6 +176,7 @@ export default function MyReviews({
               selectedFilter === filter && styles.filterChipActive,
             ]}
             onPress={() => setSelectedFilter(filter)}
+            activeOpacity={Interactions.buttonOpacity}
           >
             {filter === "all" ? (
               <Text

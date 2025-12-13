@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Interactions } from '@/src/constants/theme';
 
 interface Conversation {
   id: number;
@@ -26,6 +27,7 @@ export default function ConversationList({ conversations, onPressConversation }:
           key={conversation.id} 
           style={styles.conversationItem}
           onPress={() => onPressConversation(conversation.id)}
+          activeOpacity={Interactions.activeOpacity}
         >
           <Image source={{ uri: conversation.avatar }} style={styles.avatar} />
           <View style={styles.conversationContent}>

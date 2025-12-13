@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from '@/src/constants/theme';
 
 const COLORS = {
   dark: "#111827",
@@ -161,7 +162,7 @@ export default function Settings() {
       style={[styles.settingItem, item.isDestructive && styles.destructiveItem]}
       onPress={item.onPress}
       disabled={item.type === "toggle"}
-      activeOpacity={0.7}
+      activeOpacity={Interactions.buttonOpacity}
     >
       <View style={styles.left}>
         <Ionicons

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Interactions } from '@/src/constants/theme';
 import SellerBadge from '@/src/features/listings/components/SellerBadge';
 import ProfileHeader from '@/src/features/profile/components/ProfileHeader';
 import ProfileStats from '@/src/features/profile/components/ProfileStats';
@@ -82,7 +83,7 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
-          <TouchableOpacity style={styles.editButton} onPress={() => console.log('Edit profile')}>
+          <TouchableOpacity style={styles.editButton} onPress={() => console.log('Edit profile')} activeOpacity={Interactions.buttonOpacity}>
             <Ionicons name="create-outline" size={20} color="#3B82F6" />
           </TouchableOpacity>
         </View>
@@ -93,6 +94,7 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={[styles.modeToggle, isSellerMode ? styles.modeToggleActive : null]} 
               onPress={() => setIsSellerMode(!isSellerMode)}
+              activeOpacity={Interactions.buttonOpacity}
             >
               <Ionicons name="storefront-outline" size={18} color={isSellerMode ? "#FFFFFF" : "#6B7280"} />
               <Text style={[styles.modeText, isSellerMode && styles.modeTextActive]}>Seller</Text>
@@ -100,6 +102,7 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={[styles.modeToggle, !isSellerMode ? styles.modeToggleActive : null]} 
               onPress={() => setIsSellerMode(!isSellerMode)}
+              activeOpacity={Interactions.buttonOpacity}
             >
               <Ionicons name="person-outline" size={18} color={!isSellerMode ? "#FFFFFF" : "#6B7280"} />
               <Text style={[styles.modeText, !isSellerMode && styles.modeTextActive]}>Customer</Text>
@@ -131,6 +134,7 @@ export default function ProfileScreen() {
                 item.isDestructive && styles.menuItemDestructive
               ]}
               onPress={() => handleMenuItemPress(item)}
+              activeOpacity={Interactions.activeOpacity}
             >
               <View style={styles.menuItemLeft}>
                 <Ionicons 

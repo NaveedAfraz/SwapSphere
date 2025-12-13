@@ -51,3 +51,10 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+// Universal interaction constants
+export const Interactions = {
+  activeOpacity: 0.9,
+  buttonOpacity: 0.8,
+  cardOpacity: 0.95,
+};

@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from '@/src/constants/theme';
 
 const COLORS = {
   dark: "#111827",
@@ -151,7 +152,7 @@ export default function Sales() {
     <TouchableOpacity
       style={styles.saleCard}
       onPress={() => setShowDetails(showDetails === item.id ? null : item.id)}
-      activeOpacity={0.9}
+      activeOpacity={Interactions.activeOpacity}
     >
       <View style={styles.saleHeader}>
         <Image source={{ uri: item.item.image }} style={styles.itemImage} />
@@ -217,7 +218,7 @@ export default function Sales() {
           <View style={styles.actionButtons}>
             {item.status === "pending" && (
               <>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
                   <Ionicons
                     name="cube-outline"
                     size={16}
@@ -225,7 +226,7 @@ export default function Sales() {
                   />
                   <Text style={styles.actionText}>Track</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
                   <Ionicons
                     name="chatbubble-outline"
                     size={16}
@@ -236,7 +237,7 @@ export default function Sales() {
               </>
             )}
             {item.status === "completed" && (
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
                 <Ionicons
                   name="repeat-outline"
                   size={16}
@@ -248,6 +249,7 @@ export default function Sales() {
             {item.status === "disputed" && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.disputeButton]}
+                activeOpacity={Interactions.buttonOpacity}
               >
                 <Ionicons
                   name="alert-circle-outline"
@@ -291,6 +293,7 @@ export default function Sales() {
               selectedFilter === f && styles.filterActive,
             ]}
             onPress={() => setSelectedFilter(f)}
+            activeOpacity={Interactions.buttonOpacity}
           >
             <Text
               style={[

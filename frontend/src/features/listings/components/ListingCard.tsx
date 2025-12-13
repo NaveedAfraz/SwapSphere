@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Heart, Star, MapPin, Shield, Clock } from 'lucide-react-native';
+import { Interactions } from '@/src/constants/theme';
 
 interface ListingCardProps {
   id: number;
@@ -36,10 +37,10 @@ export default function ListingCard({
   onPress,
 }: ListingCardProps) {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={Interactions.activeOpacity}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: image }} style={styles.image} />
-        <TouchableOpacity style={styles.likeBtn} onPress={onLike}>
+        <TouchableOpacity style={styles.likeBtn} onPress={onLike} activeOpacity={Interactions.buttonOpacity}>
           <Heart 
             size={20} 
             color={liked ? '#3B82F6' : '#fff'} 
@@ -81,7 +82,7 @@ export default function ListingCard({
               </View>
             )}
           </View>
-          <TouchableOpacity style={styles.contactBtn}>
+          <TouchableOpacity style={styles.contactBtn} activeOpacity={Interactions.buttonOpacity}>
             <Text style={styles.contactBtnText}>Contact</Text>
           </TouchableOpacity>
         </View>
