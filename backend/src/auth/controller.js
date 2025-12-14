@@ -103,13 +103,13 @@ const setupProfile = async (req, res) => {
       location,
     });
 
-    // Create seller profile if seller_mode is true
-    let seller = null;
-    if (seller_mode) {
+    // Create seller profile (always create for listing functionality)
+    let seller = await Seller.findOne({ where: { user_id: userId } });
+    if (!seller) {
       seller = await Seller.create({
         user_id: userId,
-        store_name: name, // Use profile name as store name
-        bio: bio,
+        store_name: name || `${name || "User"}'s Store`, // Use profile name as store name
+        bio: bio || '',
       });
     }
 

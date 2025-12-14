@@ -10,7 +10,8 @@ const {
   toggleFavorite,
   getFavorites,
   uploadImages,
-  setPrimaryImage
+  setPrimaryImage,
+  getMyListings
 } = require('./controller');
 const { authenticate } = require('../../src/common/middleware/auth');
 
@@ -22,6 +23,9 @@ router.get('/', getListings);
 
 // Search listings
 router.get('/search', searchListings);
+
+// Get current user's listings
+router.get('/my', authenticate, getMyListings);
 
 // Get a specific listing by ID
 router.get('/:id', getListing);

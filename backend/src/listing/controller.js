@@ -9,6 +9,49 @@ const {
   toggleFavorite: toggleFavoriteModel,
   getFavorites: getFavoritesModel,
 } = require("./model");
+const { uploadImage } = require("../services/s3Service");
+
+const getMyListings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      sort = "created_at",
+      order = "desc",
+    } = req.query;
+
+    // Get seller ID for this user
+    const sellerQuery = "SELECT id FROM sellers WHERE user_id = $1";
+    const sellerResult = await pool.query(sellerQuery, [userId]);
+
+    if (sellerResult.rows.length === 0) {
+      return res.json({
+        listings: [],
+        pagination: { total: 0, hasMore: false },
+      });
+    }
+
+    const sellerId = sellerResult.rows[0].id;
+
+    const filters = { seller_id: sellerId };
+    if (status) filters.status = status;
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort,
+      order,
+    };
+
+    const result = await getListingsModel(filters, options);
+    res.json(result);
+  } catch (error) {
+    console.error("Error getting my listings:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 const createListing = async (req, res) => {
   try {
@@ -24,6 +67,7 @@ const createListing = async (req, res) => {
       location,
       tags,
       metadata,
+      images,
     } = req.body;
 
     // Get seller ID for this user
@@ -38,18 +82,90 @@ const createListing = async (req, res) => {
 
     const sellerId = sellerResult.rows[0].id;
 
+    // Process images - upload to S3 if they're base64 or file data
+    let processedImages = [];
+    
+    if (images && Array.isArray(images)) {
+      for (let i = 0; i < images.length; i++) {
+        const imageData = images[i];
+        
+        let imageToProcess = null;
+        
+        // Handle different image formats
+        if (
+          typeof imageData === "string" &&
+          imageData.startsWith("data:image/")
+        ) {
+          imageToProcess = imageData;
+        } else if (
+          typeof imageData === "object" &&
+          imageData !== null &&
+          typeof imageData.url === "string" &&
+          imageData.url.startsWith("data:image/")
+        ) {
+          imageToProcess = imageData.url;
+        }
+        
+        // If we have a base64 image to process
+        if (
+          imageToProcess &&
+          typeof imageToProcess === "string" &&
+          imageToProcess.startsWith("data:image/")
+        ) {
+          try {
+            // Extract base64 data
+            const matches = imageToProcess.match(/^data:(.+?);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+              const mimeType = matches[1];
+              const base64Data = matches[2];
+              const buffer = Buffer.from(base64Data, "base64");
+              
+              // Generate filename
+              const fileName = `listing-image-${i + 1}.${mimeType.split("/")[1]}`;
+              
+              // Upload to S3
+              const s3Url = await uploadImage(buffer, fileName, mimeType);
+              
+              processedImages.push({
+                url: s3Url,
+                order: i,
+                alt_text: title || `Listing image ${i + 1}`,
+                mime_type: mimeType,
+                size_bytes: buffer.length,
+              });
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image ${i + 1} to S3:`, uploadError);
+            // Continue with other images if one fails
+          }
+        } else if (
+          typeof imageData === "string" &&
+          imageData.startsWith("http")
+        ) {
+          // If it's already a URL (S3 or other), use as-is
+          processedImages.push({
+            url: imageData,
+            order: i,
+            alt_text: title || `Listing image ${i + 1}`,
+          });
+        }
+      }
+    }
+
     const listing = await createListingModel({
       seller_id: sellerId,
+      user_id: userId,
       title,
       description,
-      price,
-      currency,
-      quantity,
+      price: parseFloat(price),
+      currency: currency || "USD",
+      quantity: parseInt(quantity) || 1,
       condition,
       category,
       location,
       tags,
       metadata,
+      images: processedImages,
     });
 
     res.status(201).json(listing);
@@ -386,4 +502,5 @@ module.exports = {
   getFavorites,
   uploadImages,
   setPrimaryImage,
+  getMyListings,
 };

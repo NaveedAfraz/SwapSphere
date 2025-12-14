@@ -7,7 +7,7 @@ const getMyProfile = async (req, res) => {
 
     // Get profile
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile) {
       return res.status(404).json({
         error: "Profile not found",
@@ -35,21 +35,23 @@ const getMyProfile = async (req, res) => {
         location: profile.location,
         website: profile.website,
         social_links: profile.social_links || {},
-        verification_status: profile.verification_status || 'not_verified',
+        verification_status: profile.verification_status || "not_verified",
         verification_documents: profile.verification_documents || [],
         is_seller: profile.seller_mode,
-        seller_info: seller ? {
-          business_name: seller.store_name,
-          business_description: seller.bio,
-          business_hours: seller.business_hours,
-          response_rate: seller.response_rate,
-          response_time: seller.response_time,
-          total_sales: seller.total_sales,
-          average_rating: seller.seller_rating,
-          total_reviews: seller.rating_count,
-        } : null,
+        seller_info: seller
+          ? {
+              business_name: seller.store_name,
+              business_description: seller.bio,
+              business_hours: seller.business_hours,
+              response_rate: seller.response_rate,
+              response_time: seller.response_time,
+              total_sales: seller.total_sales,
+              average_rating: seller.seller_rating,
+              total_reviews: seller.rating_count,
+            }
+          : null,
         preferences: profile.preferences || {
-          visibility: 'public',
+          visibility: "public",
           show_email: false,
           show_phone: false,
           allow_messages: true,
@@ -112,16 +114,18 @@ const getPublicProfile = async (req, res) => {
       cover_image_url: profile.cover_image_url,
       location: profile.location,
       website: profile.website,
-      verification_status: profile.verification_status || 'not_verified',
+      verification_status: profile.verification_status || "not_verified",
       is_seller: profile.seller_mode,
-      seller_info: seller ? {
-        business_name: seller.store_name,
-        business_description: seller.bio,
-        response_rate: seller.response_rate,
-        total_sales: seller.total_sales,
-        average_rating: seller.seller_rating,
-        total_reviews: seller.rating_count,
-      } : null,
+      seller_info: seller
+        ? {
+            business_name: seller.store_name,
+            business_description: seller.bio,
+            response_rate: seller.response_rate,
+            total_sales: seller.total_sales,
+            average_rating: seller.seller_rating,
+            total_reviews: seller.rating_count,
+          }
+        : null,
       stats: stats,
       created_at: profile.created_at,
     };
@@ -145,7 +149,7 @@ const updateProfile = async (req, res) => {
 
     // Get existing profile
     const existingProfile = await Profile.findByUserId(userId);
-    
+
     if (!existingProfile) {
       return res.status(404).json({
         error: "Profile not found",
@@ -175,7 +179,7 @@ const updateSellerInfo = async (req, res) => {
 
     // Get existing profile
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile || !profile.seller_mode) {
       return res.status(404).json({
         error: "Seller profile not found",
@@ -184,7 +188,7 @@ const updateSellerInfo = async (req, res) => {
 
     // Get existing seller info
     let seller = await Seller.findByUserId(userId);
-    
+
     if (seller) {
       // Update existing seller
       seller = await Seller.update(seller.id, sellerUpdates);
@@ -215,7 +219,7 @@ const uploadAvatar = async (req, res) => {
     const { avatar_url } = req.body;
 
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile) {
       return res.status(404).json({
         error: "Profile not found",
@@ -243,14 +247,16 @@ const uploadCoverImage = async (req, res) => {
     const { cover_image_url } = req.body;
 
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile) {
       return res.status(404).json({
         error: "Profile not found",
       });
     }
 
-    const updatedProfile = await Profile.update(profile.id, { cover_image_url });
+    const updatedProfile = await Profile.update(profile.id, {
+      cover_image_url,
+    });
 
     res.status(200).json({
       message: "Cover image uploaded successfully",
@@ -271,7 +277,7 @@ const submitVerification = async (req, res) => {
     const { document_type, document_url } = req.body;
 
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile) {
       return res.status(404).json({
         error: "Profile not found",
@@ -279,12 +285,12 @@ const submitVerification = async (req, res) => {
     }
 
     const updatedProfile = await Profile.update(profile.id, {
-      verification_status: 'pending',
+      verification_status: "pending",
       verification_documents: [document_url],
     });
 
     res.status(200).json({
-      status: 'pending',
+      status: "pending",
       message: "Verification submitted successfully",
     });
   } catch (error) {
@@ -300,16 +306,16 @@ const getProfileStats = async (userId) => {
   try {
     // Placeholder stats - would need actual queries to listings, reviews, etc.
     const pool = require("../auth/model").pool;
-    
-    // Get listings count
+
+    // Get listings stats
     const listingsResult = await pool.query(
-      "SELECT COUNT(*) as count, COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count FROM listings WHERE user_id = $1",
+      "SELECT COUNT(*) as count, COUNT(CASE WHEN is_published = true THEN 1 END) as active_count FROM listings WHERE seller_id = (SELECT id FROM sellers WHERE user_id = $1) AND deleted_at IS NULL",
       [userId]
     );
-    
+
     // Get reviews stats
     const reviewsResult = await pool.query(
-      "SELECT COUNT(*) as count, COALESCE(AVG(rating), 0) as avg_rating FROM reviews WHERE seller_id = $1",
+      "SELECT COUNT(*) as count, COALESCE(AVG(rating), 0) as avg_rating FROM reviews WHERE seller_id = (SELECT id FROM sellers WHERE user_id = $1)",
       [userId]
     );
 
@@ -345,7 +351,7 @@ const toggleSellerMode = async (req, res) => {
     const userId = req.user.id;
 
     const profile = await Profile.findByUserId(userId);
-    
+
     if (!profile) {
       return res.status(404).json({
         error: "Profile not found",
@@ -353,22 +359,22 @@ const toggleSellerMode = async (req, res) => {
     }
 
     const newSellerMode = !profile.seller_mode;
-    
+
     const updatedProfile = await Profile.update(profile.id, {
       seller_mode: newSellerMode,
     });
 
     // If becoming seller, create basic seller profile
-    if (newSellerMode && !await Seller.findByUserId(userId)) {
+    if (newSellerMode && !(await Seller.findByUserId(userId))) {
       await Seller.create({
         user_id: userId,
-        store_name: profile.name || 'Store',
+        store_name: profile.name || "Store",
         bio: profile.bio,
       });
     }
 
     res.status(200).json({
-      message: `Seller mode ${newSellerMode ? 'enabled' : 'disabled'}`,
+      message: `Seller mode ${newSellerMode ? "enabled" : "disabled"}`,
       profile: updatedProfile,
     });
   } catch (error) {

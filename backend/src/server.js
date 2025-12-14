@@ -21,8 +21,15 @@ const io = new Server(server, {
 app.use(helmet());
 app.use(cors());
 app.use(morgan("combined"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb", extended: true }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Increase timeout for large requests
+app.use((req, res, next) => {
+  req.setTimeout(300000); // 5 minutes
+  res.setTimeout(300000); // 5 minutes
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -31,8 +38,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Basic route
-app.get("/", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({ message: "SwapSphere API is running!" });
 });
 
@@ -44,6 +50,7 @@ io.on("connection", (socket) => {
     console.log("User disconnected:", socket.id);
   });
 });
+
 app.use("/api/auth", require("./auth/routes"));
 app.use("/api/profile", require("./profile/routes"));
 app.use("/api/listing", require("./listing/routes"));
