@@ -12,7 +12,7 @@ import { useDispatch } from "react-redux";
 import LottieView from "lottie-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import type { AppDispatch } from "../../store";
+import type { AppDispatch } from "../../src/store";
 import ReusableAuthForm from "@/src/features/auth/components/reusableAuthform";
 import ErrorModal from "@/src/features/auth/components/ErrorModal";
 import { loginThunk } from "@/src/features/auth/authThunks";

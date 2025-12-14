@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createOffer = async (buyerId, sellerId, offerData) => {
   const { listing_id, offered_price, offered_quantity, expires_at } = offerData;

@@ -8,7 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { useColorScheme } from "@/src/hooks/use-color-scheme";
 import { Provider } from "react-redux";
-import { store } from "../../store";
+import { store } from "../src/store";
 import { UserModeProvider } from "@/src/contexts/UserModeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 export default function RootLayout() {

@@ -7,21 +7,21 @@ const {
   confirmPayment,
   refundPayment
 } = require('./controller');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../../src/common/middleware/auth');
 
 // Create a new payment
-router.post('/', authenticateToken, createPayment);
+router.post('/', authenticate, createPayment);
 
 // Get payments for a specific order
-router.get('/order/:orderId', authenticateToken, getOrderPayments);
+router.get('/order/:orderId', authenticate, getOrderPayments);
 
 // Get a specific payment by ID
-router.get('/:id', authenticateToken, getPayment);
+router.get('/:id', authenticate, getPayment);
 
 // Confirm payment (webhook endpoint)
 router.post('/:id/confirm', confirmPayment);
 
 // Refund payment
-router.post('/:id/refund', authenticateToken, refundPayment);
+router.post('/:id/refund', authenticate, refundPayment);
 
 module.exports = router;

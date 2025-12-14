@@ -45,6 +45,17 @@ io.on("connection", (socket) => {
   });
 });
 app.use("/api/auth", require("./auth/routes"));
+app.use("/api/profile", require("./profile/routes"));
+app.use("/api/listing", require("./listing/routes"));
+app.use("/api/chat", require("./chat/routes"));
+app.use("/api/notification", require("./notification/routes"));
+app.use("/api/offer", require("./offer/routes"));
+app.use("/api/order", require("./order/routes"));
+app.use("/api/payment", require("./payment/routes"));
+app.use("/api/review", require("./review/routes"));
+app.use("/api/support", require("./support/routes"));
+app.use("/api/user", require("./user/routes"));
+
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {

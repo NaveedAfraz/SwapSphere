@@ -8,24 +8,24 @@ const {
   deleteNotification,
   getUnreadCount
 } = require('./controller');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../../src/common/middleware/auth');
 
 // Create a new notification (system/admin use)
-router.post('/', authenticateToken, createNotification);
+router.post('/', authenticate, createNotification);
 
 // Get notifications for current user
-router.get('/', authenticateToken, getNotifications);
+router.get('/', authenticate, getNotifications);
 
 // Get unread count for current user
-router.get('/unread-count', authenticateToken, getUnreadCount);
+router.get('/unread-count', authenticate, getUnreadCount);
 
 // Mark a notification as read
-router.post('/:id/read', authenticateToken, markAsRead);
+router.post('/:id/read', authenticate, markAsRead);
 
 // Mark all notifications as read
-router.post('/mark-all-read', authenticateToken, markAllAsRead);
+router.post('/mark-all-read', authenticate, markAllAsRead);
 
 // Delete a notification
-router.delete('/:id', authenticateToken, deleteNotification);
+router.delete('/:id', authenticate, deleteNotification);
 
 module.exports = router;

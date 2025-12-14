@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createListing = async (listingData) => {
   const { seller_id, title, description, price, currency, quantity, condition, category, location, tags, metadata } = listingData;

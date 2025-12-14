@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createNotification = async (userId, notificationData) => {
   const { type, payload, actor_id } = notificationData;

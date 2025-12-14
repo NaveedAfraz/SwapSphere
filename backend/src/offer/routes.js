@@ -11,33 +11,33 @@ const {
   counterOffer,
   cancelOffer
 } = require('./controller');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../../src/common/middleware/auth');
 
 // Create a new offer
-router.post('/', authenticateToken, createOffer);
+router.post('/', authenticate, createOffer);
 
 // Get current user's buyer offers
-router.get('/buyer', authenticateToken, getBuyerOffers);
+router.get('/buyer', authenticate, getBuyerOffers);
 
 // Get current user's seller offers
-router.get('/seller', authenticateToken, getSellerOffers);
+router.get('/seller', authenticate, getSellerOffers);
 
 // Get offers for a specific listing
 router.get('/listing/:listingId', getListingOffers);
 
 // Get a specific offer by ID
-router.get('/:id', authenticateToken, getOffer);
+router.get('/:id', authenticate, getOffer);
 
 // Accept an offer (seller only)
-router.post('/:id/accept', authenticateToken, acceptOffer);
+router.post('/:id/accept', authenticate, acceptOffer);
 
 // Decline an offer (seller only)
-router.post('/:id/decline', authenticateToken, declineOffer);
+router.post('/:id/decline', authenticate, declineOffer);
 
 // Create a counter offer (seller only)
-router.post('/:id/counter', authenticateToken, counterOffer);
+router.post('/:id/counter', authenticate, counterOffer);
 
 // Cancel an offer (buyer only)
-router.post('/:id/cancel', authenticateToken, cancelOffer);
+router.post('/:id/cancel', authenticate, cancelOffer);
 
 module.exports = router;

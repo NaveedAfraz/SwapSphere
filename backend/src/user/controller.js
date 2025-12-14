@@ -1,7 +1,7 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 const { getUserById, updateUserProfile, createSellerProfile: createSellerProfileModel } = require('./model');
 
 const getProfile = async (req, res) => {

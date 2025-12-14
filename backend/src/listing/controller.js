@@ -1,4 +1,4 @@
-const pool = require("../database/connection");
+const { pool } = require("../database/db");
 const {
   createListing: createListingModel,
   getListings: getListingsModel,

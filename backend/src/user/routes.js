@@ -9,27 +9,27 @@ const {
   createSellerProfile, 
   deleteAccount 
 } = require('./controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticate } = require('../../src/common/middleware/auth');
 
 // Get current user profile
-router.get('/profile', authenticateToken, getProfile);
+router.get('/profile', authenticate, getProfile);
 
 // Update user profile
-router.put('/profile', authenticateToken, updateProfile);
+router.put('/profile', authenticate, updateProfile);
 
 // Update user settings (email, phone, active status)
-router.put('/settings', authenticateToken, updateSettings);
+router.put('/settings', authenticate, updateSettings);
 
 // Upload avatar
-router.post('/avatar', authenticateToken, uploadAvatar);
+router.post('/avatar', authenticate, uploadAvatar);
 
 // Get seller profile by ID (public)
 router.get('/seller/:sellerId', getSellerProfile);
 
 // Create/update seller profile
-router.post('/seller', authenticateToken, createSellerProfile);
+router.post('/seller', authenticate, createSellerProfile);
 
 // Delete/deactivate account
-router.delete('/account', authenticateToken, deleteAccount);
+router.delete('/account', authenticate, deleteAccount);
 
 module.exports = router;

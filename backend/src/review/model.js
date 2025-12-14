@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createReview = async (reviewerId, reviewData) => {
   const { reviewee_id, order_id, rating, title, body } = reviewData;

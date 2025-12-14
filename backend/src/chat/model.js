@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createChat = async (userId, chatData) => {
   const { listing_id, participant_id } = chatData;

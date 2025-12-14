@@ -1,4 +1,4 @@
-const pool = require('../database/connection');
+const { pool } = require("../database/db");
 
 const createOrder = async (buyerId, sellerId, orderData) => {
   const { total_amount, currency, shipping_address, billing_info, metadata } = orderData;
