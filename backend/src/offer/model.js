@@ -48,15 +48,17 @@ const getOffersByUser = async (userId, userType, filters = {}, options = {}) => 
   const dataQuery = `
     SELECT o.*, l.title as listing_title, l.price as listing_price,
            li.url as listing_image,
-           ub.name as buyer_name, ub.email as buyer_email,
-           us.name as seller_name, s.store_name,
+           pb.name as buyer_name, pb.email as buyer_email,
+           ps.name as seller_name, s.store_name,
            (SELECT COUNT(*) FROM offers counter WHERE counter.counter_for = o.id) as counter_count
     FROM offers o
     JOIN listings l ON o.listing_id = l.id
     LEFT JOIN listing_images li ON l.id = li.listing_id AND li.is_primary = true
     LEFT JOIN users ub ON o.buyer_id = ub.id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
+    LEFT JOIN profiles ps ON us.id = ps.user_id
     WHERE ${whereConditions.join(' AND ')}
     ORDER BY o.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}
@@ -107,11 +109,11 @@ const getOffersByListing = async (listingId, filters = {}, options = {}) => {
   
   const dataQuery = `
     SELECT o.*, 
-           ub.name as buyer_name, ub.email as buyer_email,
-           p.avatar_key as buyer_avatar
+           pb.name as buyer_name, pb.email as buyer_email,
+           pb.avatar_key as buyer_avatar
     FROM offers o
     LEFT JOIN users ub ON o.buyer_id = ub.id
-    LEFT JOIN profiles p ON ub.id = p.user_id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     WHERE ${whereConditions.join(' AND ')}
     ORDER BY o.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}
@@ -144,15 +146,17 @@ const getOfferById = async (userId, offerId) => {
   const query = `
     SELECT o.*, l.title as listing_title, l.price as listing_price,
            li.url as listing_image,
-           ub.name as buyer_name, ub.email as buyer_email,
-           us.name as seller_name, s.store_name,
+           pb.name as buyer_name, pb.email as buyer_email,
+           ps.name as seller_name, s.store_name,
            (SELECT COUNT(*) FROM offers counter WHERE counter.counter_for = o.id) as counter_count
     FROM offers o
     JOIN listings l ON o.listing_id = l.id
     LEFT JOIN listing_images li ON l.id = li.listing_id AND li.is_primary = true
     LEFT JOIN users ub ON o.buyer_id = ub.id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
+    LEFT JOIN profiles ps ON us.id = ps.user_id
     WHERE o.id = $1 AND (o.buyer_id = $2 OR o.seller_id = $2)
   `;
   

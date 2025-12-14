@@ -159,6 +159,7 @@ export const logoutThunk = createAsyncThunk<
     { rejectWithValue }: { rejectWithValue: (value: string) => any }
   ) => {
     try {
+      // Call backend logout endpoint
       await apiClient.post("/logout");
     } catch (error: any) {
       // Even if backend call fails, we still want to clear local state
@@ -167,6 +168,16 @@ export const logoutThunk = createAsyncThunk<
         error.message
       );
       // Don't reject - we still want to clear local state
+    }
+
+    // Always clear local storage regardless of backend success
+    try {
+      await AsyncStorage.removeItem("authToken");
+      await AsyncStorage.removeItem("refreshToken");
+      await AsyncStorage.removeItem("pendingProfileUserId");
+      console.log("Local storage cleared successfully");
+    } catch (storageError) {
+      console.error("Failed to clear local storage:", storageError);
     }
   }
 );

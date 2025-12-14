@@ -82,7 +82,7 @@ export const selectProfileBio = (state: RootState): string | undefined =>
   selectCurrentProfile(state)?.bio;
 
 export const selectProfileAvatar = (state: RootState): string | undefined => 
-  selectCurrentProfile(state)?.avatar_url;
+  selectCurrentProfile(state)?.profile_picture_url || selectCurrentProfile(state)?.avatar_url;
 
 export const selectProfileCoverImage = (state: RootState): string | undefined => 
   selectCurrentProfile(state)?.cover_image_url;

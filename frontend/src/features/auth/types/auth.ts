@@ -7,6 +7,25 @@ export interface AuthUser {
   token?: string;
   sellerMode?: boolean;
   profileCompleted?: boolean;
+  profile?: {
+    id: string;
+    name?: string;
+    bio?: string;
+    seller_mode?: boolean;
+    rating_avg?: string;
+    rating_count?: number;
+    avatar_key?: string;
+    profile_picture_url?: string;
+    profile_picture_mime_type?: string;
+    profile_picture_size_bytes?: string;
+  };
+  seller?: {
+    id: string;
+    store_name?: string;
+    bio?: string;
+    seller_rating?: string;
+    total_sales?: string;
+  };
 }
 
 export interface AuthState {

@@ -32,12 +32,14 @@ const getPaymentsByOrder = async (orderId) => {
 const getPaymentById = async (userId, paymentId) => {
   const query = `
     SELECT p.*, o.total_amount, o.currency, o.buyer_id, o.seller_id,
-           ub.name as buyer_name, us.name as seller_name
+           pb.name as buyer_name, ps.name as seller_name
     FROM payments p
     JOIN orders o ON p.order_id = o.id
     LEFT JOIN users ub ON o.buyer_id = ub.id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
+    LEFT JOIN profiles ps ON us.id = ps.user_id
     WHERE p.id = $1 AND (o.buyer_id = $2 OR o.seller_id = $2)
   `;
   
@@ -112,12 +114,14 @@ const getPaymentsByUser = async (userId, userType, filters = {}, options = {}) =
   
   const dataQuery = `
     SELECT p.*, o.total_amount, o.currency,
-           ub.name as buyer_name, us.name as seller_name
+           pb.name as buyer_name, ps.name as seller_name
     FROM payments p
     JOIN orders o ON p.order_id = o.id
     LEFT JOIN users ub ON o.buyer_id = ub.id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
+    LEFT JOIN profiles ps ON us.id = ps.user_id
     WHERE ${whereConditions.join(' AND ')}
     ORDER BY p.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}

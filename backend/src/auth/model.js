@@ -61,10 +61,10 @@ const Profile = {
 
   // Create profile
   async create(profileData) {
-    const { user_id, name, bio, seller_mode, location } = profileData;
+    const { user_id, name, bio, seller_mode, location, avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes } = profileData;
     const result = await pool.query(
-      `INSERT INTO profiles (user_id, name, bio, seller_mode, location) 
-       VALUES ($1, $2, $3, $4, $5) 
+      `INSERT INTO profiles (user_id, name, bio, seller_mode, location, avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
       [
         user_id,
@@ -72,6 +72,10 @@ const Profile = {
         bio || null,
         seller_mode || false,
         location || null,
+        avatar_key || null,
+        profile_picture_url || null,
+        profile_picture_mime_type || null,
+        profile_picture_size_bytes || null,
       ]
     );
     return result.rows[0];
@@ -89,6 +93,18 @@ const Profile = {
       `UPDATE profiles SET ${setClause} 
        WHERE id = $1 RETURNING *`,
       [id, ...values]
+    );
+    return result.rows[0];
+  },
+
+  // Update profile picture
+  async updateProfilePicture(userId, pictureData) {
+    const { avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes } = pictureData;
+    const result = await pool.query(
+      `UPDATE profiles 
+       SET avatar_key = $2, profile_picture_url = $3, profile_picture_mime_type = $4, profile_picture_size_bytes = $5, updated_at = NOW()
+       WHERE user_id = $1 RETURNING *`,
+      [userId, avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes]
     );
     return result.rows[0];
   },

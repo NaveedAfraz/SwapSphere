@@ -34,9 +34,10 @@ const getNotificationsByUser = async (userId, filters = {}, options = {}) => {
   
   const dataQuery = `
     SELECT n.*, 
-           ua.name as actor_name, ua.avatar_key as actor_avatar
+           p.name as actor_name, p.avatar_key as actor_avatar
     FROM notifications n
     LEFT JOIN users ua ON n.actor_id = ua.id
+    LEFT JOIN profiles p ON ua.id = p.user_id
     WHERE ${whereConditions.join(' AND ')}
     ORDER BY n.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}

@@ -9,8 +9,13 @@ export interface Profile {
   user_id: string;
   username: string;
   display_name: string;
+  name?: string; // From backend profile setup
   bio?: string;
   avatar_url?: string;
+  profile_picture_url?: string; // From backend auth system
+  avatar_key?: string; // From backend auth system
+  profile_picture_mime_type?: string; // From backend auth system
+  profile_picture_size_bytes?: string; // From backend auth system
   cover_image_url?: string;
   location?: string;
   website?: string;
@@ -23,6 +28,9 @@ export interface Profile {
   verification_status: VerificationStatus;
   verification_documents?: string[];
   is_seller: boolean;
+  seller_mode?: boolean; // From backend auth system
+  rating_avg?: string; // From backend auth system
+  rating_count?: number; // From backend auth system
   seller_info?: {
     business_name?: string;
     business_description?: string;

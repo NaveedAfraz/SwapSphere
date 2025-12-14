@@ -74,7 +74,15 @@ export const createOfferThunk = createAsyncThunk<
   "offer/createOffer",
   async (offerData: CreateOfferPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>("/", offerData);
+      // Map frontend payload to backend expected format
+      const backendPayload = {
+        listing_id: offerData.listing_id,
+        offered_price: offerData.amount,
+        offered_quantity: 1, // Default quantity
+        expires_at: offerData.expires_at,
+      };
+      
+      const response = await apiClient.post<OfferResponse>("/", backendPayload);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -128,7 +136,7 @@ export const rejectOfferThunk = createAsyncThunk<
   "offer/rejectOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${offerId}/reject`);
+      const response = await apiClient.post<OfferResponse>(`/${offerId}/decline`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -146,11 +154,14 @@ export const counterOfferThunk = createAsyncThunk<
   "offer/counterOffer",
   async (counterData: CounterOfferPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${counterData.offer_id}/counter`, {
-        counter_amount: counterData.counter_amount,
-        counter_message: counterData.counter_message,
+      // Map frontend payload to backend expected format
+      const backendPayload = {
+        offered_price: counterData.counter_amount,
+        offered_quantity: 1, // Default quantity
         expires_at: counterData.expires_at,
-      });
+      };
+      
+      const response = await apiClient.post<OfferResponse>(`/${counterData.offer_id}/counter`, backendPayload);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -168,7 +179,7 @@ export const withdrawOfferThunk = createAsyncThunk<
   "offer/withdrawOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${offerId}/withdraw`);
+      const response = await apiClient.post<OfferResponse>(`/${offerId}/cancel`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -186,7 +197,7 @@ export const fetchSentOffersThunk = createAsyncThunk<
   "offer/fetchSentOffers",
   async (searchParams: OfferSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>("/sent", { params: searchParams });
+      const response = await apiClient.get<OffersResponse>("/buyer", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -204,7 +215,7 @@ export const fetchReceivedOffersThunk = createAsyncThunk<
   "offer/fetchReceivedOffers",
   async (searchParams: OfferSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>("/received", { params: searchParams });
+      const response = await apiClient.get<OffersResponse>("/seller", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =

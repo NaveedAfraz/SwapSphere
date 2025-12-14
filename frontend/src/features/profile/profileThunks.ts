@@ -12,6 +12,7 @@ import type {
   ProfileStatsResponse,
   VerificationResponse
 } from "./types/profile";
+import { RootState } from "../../store";
 
 const API_BASE = "http://192.168.0.104:5000/api/profile";
 

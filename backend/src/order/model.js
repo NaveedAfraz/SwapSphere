@@ -85,16 +85,18 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
   
   const dataQuery = `
     SELECT o.*, 
-           ub.name as buyer_name, ub.email as buyer_email,
-           us.name as seller_name, s.store_name,
+           pb.name as buyer_name, pb.email as buyer_email,
+           ps.name as seller_name, s.store_name,
            COUNT(oi.id) as item_count
     FROM orders o
     LEFT JOIN users ub ON o.buyer_id = ub.id
+    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
+    LEFT JOIN profiles ps ON us.id = ps.user_id
     LEFT JOIN order_items oi ON o.id = oi.order_id
     WHERE ${whereConditions.join(' AND ')}
-    GROUP BY o.id, ub.name, ub.email, us.name, s.store_name
+    GROUP BY o.id, pb.name, pb.email, ps.name, s.store_name
     ORDER BY o.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}
   `;
@@ -125,10 +127,10 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
 const getOrderById = async (userId, orderId) => {
   const query = `
     SELECT o.*, 
-           ub.name as buyer_name, ub.email as buyer_email,
-           us.name as seller_name, s.store_name,
-           pb.name as buyer_profile_name, pb.avatar_key as buyer_avatar,
-           ps.name as seller_profile_name, ps.avatar_key as seller_avatar
+           pb.name as buyer_name, pb.email as buyer_email,
+           ps.name as seller_name, s.store_name,
+           pb.avatar_key as buyer_avatar,
+           ps.avatar_key as seller_avatar
     FROM orders o
     LEFT JOIN users ub ON o.buyer_id = ub.id
     LEFT JOIN sellers s ON o.seller_id = s.id

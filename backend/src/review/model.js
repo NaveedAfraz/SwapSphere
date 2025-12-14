@@ -40,10 +40,11 @@ const getReviewsByUser = async (userId, options = {}) => {
   
   const dataQuery = `
     SELECT r.*, 
-           ur.name as reviewee_name, ur.avatar_key as reviewee_avatar,
+           pr.name as reviewee_name, pr.avatar_key as reviewee_avatar,
            o.id as order_id, o.created_at as order_date
     FROM reviews r
     LEFT JOIN users ur ON r.reviewee_id = ur.id
+    LEFT JOIN profiles pr ON ur.id = pr.user_id
     LEFT JOIN orders o ON r.order_id = o.id
     WHERE r.reviewer_id = $1
     ORDER BY r.created_at DESC
@@ -83,10 +84,11 @@ const getReviewsForUser = async (userId, options = {}) => {
   
   const dataQuery = `
     SELECT r.*, 
-           ur.name as reviewer_name, ur.avatar_key as reviewer_avatar,
+           pr.name as reviewer_name, pr.avatar_key as reviewer_avatar,
            o.id as order_id, o.created_at as order_date
     FROM reviews r
     LEFT JOIN users ur ON r.reviewer_id = ur.id
+    LEFT JOIN profiles pr ON ur.id = pr.user_id
     LEFT JOIN orders o ON r.order_id = o.id
     WHERE r.reviewee_id = $1
     ORDER BY r.created_at DESC
@@ -117,12 +119,14 @@ const getReviewsForUser = async (userId, options = {}) => {
 const getReviewById = async (userId, reviewId) => {
   const query = `
     SELECT r.*, 
-           ur.name as reviewee_name, ur.avatar_key as reviewee_avatar,
-           urev.name as reviewer_name, urev.avatar_key as reviewer_avatar,
+           pr.name as reviewee_name, pr.avatar_key as reviewee_avatar,
+           prev.name as reviewer_name, prev.avatar_key as reviewer_avatar,
            o.id as order_id, o.created_at as order_date
     FROM reviews r
     LEFT JOIN users ur ON r.reviewee_id = ur.id
+    LEFT JOIN profiles pr ON ur.id = pr.user_id
     LEFT JOIN users urev ON r.reviewer_id = urev.id
+    LEFT JOIN profiles prev ON urev.id = prev.user_id
     LEFT JOIN orders o ON r.order_id = o.id
     WHERE r.id = $1 AND (r.reviewer_id = $2 OR r.reviewee_id = $2)
   `;

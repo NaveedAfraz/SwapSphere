@@ -16,6 +16,7 @@ import ProfileHeader from "@/src/features/profile/components/ProfileHeader";
 import ProfileStats from "@/src/features/profile/components/ProfileStats";
 import { useUserMode } from "@/src/contexts/UserModeContext";
 import { fetchMyProfileThunk } from "@/src/features/profile/profileThunks";
+import { logoutThunk } from "@/src/features/auth/authThunks";
 import {
   selectCurrentProfile,
   selectProfileDisplayName,
@@ -127,15 +128,20 @@ export default function ProfileScreen() {
   ];
 
   const handleSignOut = () => {
-    // TODO: Implement sign out dispatch when auth slice is available
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => {
-          // dispatch(signOutThunk()); // TODO: Add when auth slice is ready
-          console.log("Sign out dispatched");
+        onPress: async () => {
+          try {
+            await dispatch(logoutThunk() as any);
+            // Navigate to sign-in screen after successful logout
+            router.replace("/(auth)/sign-in" as any);
+          } catch (error) {
+            console.error("Logout failed:", error);
+            Alert.alert("Error", "Failed to sign out. Please try again.");
+          }
         },
       },
     ]);

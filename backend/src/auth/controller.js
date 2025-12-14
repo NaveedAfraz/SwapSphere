@@ -1,6 +1,44 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User, Profile, Seller } = require("./model");
+const { uploadImage } = require("../services/s3Service");
+const crypto = require('crypto');
+
+// Helper function to upload profile picture to S3
+const uploadProfilePicture = async (userId, profilePictureData) => {
+  try {
+    const { profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes } = profilePictureData;
+    
+    // Convert base64 or data URL to buffer
+    let buffer;
+    if (profile_picture_url.startsWith('data:')) {
+      // Handle data URL (base64)
+      const base64Data = profile_picture_url.split(',')[1];
+      buffer = Buffer.from(base64Data, 'base64');
+    } else if (profile_picture_url.startsWith('file://')) {
+      // Handle file URI - this won't work in Node.js server environment
+      throw new Error('File URIs are not supported on server. Please use base64 data URLs from frontend.');
+    } else {
+      throw new Error('Unsupported image format. Please use base64 data URLs.');
+    }
+
+    // Generate unique filename
+    const fileExtension = profile_picture_mime_type.split('/')[1];
+    const uniqueFileName = `profile-pictures/${userId}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${fileExtension}`;
+
+    // Upload to S3
+    const s3Url = await uploadImage(buffer, uniqueFileName, profile_picture_mime_type);
+
+    return {
+      avatar_key: uniqueFileName,
+      profile_picture_url: s3Url,
+      profile_picture_mime_type: profile_picture_mime_type,
+      profile_picture_size_bytes: profile_picture_size_bytes,
+    };
+  } catch (error) {
+    throw new Error('Failed to upload profile picture: ' + error.message);
+  }
+};
 
 // Register basic user details
 const registerBasic = async (req, res) => {
@@ -57,7 +95,7 @@ const registerBasic = async (req, res) => {
 const setupProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, bio, seller_mode, location, password } = req.body;
+    const { name, bio, seller_mode, location, password, avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes } = req.body;
 
     // Validate user exists
     const user = await User.findById(userId);
@@ -94,17 +132,36 @@ const setupProfile = async (req, res) => {
       });
     }
 
-    // Create profile
+    // Handle profile picture upload to S3
+    let profilePictureData = {};
+    if (profile_picture_url && profile_picture_mime_type && profile_picture_size_bytes) {
+      try {
+        profilePictureData = await uploadProfilePicture(userId, {
+          profile_picture_url,
+          profile_picture_mime_type,
+          profile_picture_size_bytes,
+        });
+      } catch (uploadError) {
+        // Continue with profile setup even if picture upload fails
+        // But don't include picture data
+      }
+    }
+
+    // Create profile with picture support
     const profile = await Profile.create({
       user_id: userId,
       name,
       bio,
       seller_mode,
       location,
+      avatar_key: profilePictureData.avatar_key || null,
+      profile_picture_url: profilePictureData.profile_picture_url || null,
+      profile_picture_mime_type: profilePictureData.profile_picture_mime_type || null,
+      profile_picture_size_bytes: profilePictureData.profile_picture_size_bytes || null,
     });
 
     // Create seller profile (always create for listing functionality)
-    let seller = await Seller.findOne({ where: { user_id: userId } });
+    let seller = await Seller.findByUserId(userId);
     if (!seller) {
       seller = await Seller.create({
         user_id: userId,
@@ -132,6 +189,10 @@ const setupProfile = async (req, res) => {
           seller_mode: profile.seller_mode,
           rating_avg: profile.rating_avg,
           rating_count: profile.rating_count,
+          avatar_key: profile.avatar_key,
+          profile_picture_url: profile.profile_picture_url,
+          profile_picture_mime_type: profile.profile_picture_mime_type,
+          profile_picture_size_bytes: profile.profile_picture_size_bytes,
         },
         seller: seller ? {
           id: seller.id,
@@ -324,9 +385,92 @@ const googleAuth = async (req, res) => {
   }
 };
 
+// Logout user
+const logout = async (req, res) => {
+  try {
+    console.log("Logout request received from user:", req.user?.userId);
+    
+    // For JWT-based auth, logout is mainly client-side (token removal)
+    // But we can log the logout event or invalidate tokens if using a token blacklist
+    res.status(200).json({
+      message: "Logout successful",
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+};
+
+// Update profile picture
+const updateProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({
+        error: "User not authenticated",
+      });
+    }
+
+    const { avatar_key, profile_picture_url, profile_picture_mime_type, profile_picture_size_bytes } = req.body;
+
+    // Validate required fields
+    if (!profile_picture_url || !profile_picture_mime_type || !profile_picture_size_bytes) {
+      return res.status(400).json({
+        error: "profile_picture_url, profile_picture_mime_type, and profile_picture_size_bytes are required",
+      });
+    }
+
+    // Upload profile picture to S3
+    let profilePictureData = {};
+    try {
+      profilePictureData = await uploadProfilePicture(userId, {
+        profile_picture_url,
+        profile_picture_mime_type,
+        profile_picture_size_bytes,
+      });
+      console.log("Profile picture uploaded successfully:", profilePictureData.profile_picture_url);
+    } catch (uploadError) {
+      console.error("Profile picture upload failed:", uploadError);
+      return res.status(500).json({
+        error: "Failed to upload profile picture: " + uploadError.message,
+      });
+    }
+
+    // Update profile with new picture data
+    const updatedProfile = await Profile.updateProfilePicture(userId, profilePictureData);
+
+    if (!updatedProfile) {
+      return res.status(404).json({
+        error: "Profile not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Profile picture updated successfully",
+      profile: {
+        id: updatedProfile.id,
+        avatar_key: updatedProfile.avatar_key,
+        profile_picture_url: updatedProfile.profile_picture_url,
+        profile_picture_mime_type: updatedProfile.profile_picture_mime_type,
+        profile_picture_size_bytes: updatedProfile.profile_picture_size_bytes,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile picture error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   registerBasic,
   setupProfile,
   login,
   googleAuth,
+  logout,
+  updateProfilePicture,
 };

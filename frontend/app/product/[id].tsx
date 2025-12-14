@@ -16,6 +16,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchListingByIdThunk } from "@/src/features/listing/listingThunks";
 import { selectCurrentListing, selectListingStatus, selectListingError } from "@/src/features/listing/listingSelectors";
+import { createOfferThunk } from "@/src/features/offer/offerThunks";
+import { selectCreateStatus, selectCreateError } from "@/src/features/offer/offerSelectors";
+import { resetCreateStatus } from "@/src/features/offer/offerSlice";
 import SingleProduct from "@/src/features/SingleProduct";
 
 // Theme colors from saved context
@@ -48,6 +51,11 @@ export default function ProductDetailScreen() {
   const listingStatus = useSelector(selectListingStatus);
   const error = useSelector(selectListingError);
   const isLoading = listingStatus === 'loading';
+  
+  // Get offer state from Redux store
+  const offerCreateStatus = useSelector(selectCreateStatus);
+  const offerCreateError = useSelector(selectCreateError);
+  const isCreatingOffer = offerCreateStatus === 'loading';
   console.log(`ID: ${id}, CurrentListing: ${JSON.stringify(currentListing)}, Loading: ${isLoading}, Error: ${error}`);
   // Fetch product details and similar products
   useEffect(() => {
@@ -55,6 +63,14 @@ export default function ProductDetailScreen() {
       dispatch(fetchListingByIdThunk(id as string) as any);
     }
   }, [id, dispatch]);
+
+  // Handle offer creation errors from Redux state
+  useEffect(() => {
+    if (offerCreateError) {
+      Alert.alert("Error", offerCreateError);
+      dispatch(resetCreateStatus());
+    }
+  }, [offerCreateError, dispatch]);
 
   // Transform API listing data to match SingleProduct component expectations
   const transformListingForSingleProduct = (apiListing: any) => {
@@ -113,6 +129,7 @@ export default function ProductDetailScreen() {
     setOfferPrice("");
     setOfferMessage("");
     setShowOfferModal(true);
+    dispatch(resetCreateStatus());
   };
 
   const handleProductPress = (item: any) => {
@@ -126,31 +143,29 @@ export default function ProductDetailScreen() {
     }
 
     try {
-      const response = await fetch('http://192.168.0.104:5000/api/listing/offers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          listing_id: selectedListing?.id,
-          offer_price: parseFloat(offerPrice.replace('$', '')),
-          message: offerMessage,
-        }),
-      });
+      const result = await dispatch(createOfferThunk({
+        listing_id: selectedListing?.id,
+        amount: parseFloat(offerPrice.replace('$', '')),
+        message: offerMessage,
+      }) as any);
 
-      if (response.ok) {
+      if (result.meta.requestStatus === 'fulfilled') {
         Alert.alert(
           "Offer Sent!",
           `Your offer of ${offerPrice} for ${selectedListing?.title} has been sent to ${selectedListing?.seller_name || 'the seller'}`,
-          [{ text: "OK", onPress: () => setShowOfferModal(false) }]
+          [{ text: "OK", onPress: () => {
+            setShowOfferModal(false);
+            dispatch(resetCreateStatus());
+          }}]
         );
       } else {
-        throw new Error('Failed to send offer');
+        // Handle backend error messages properly
+        const errorMessage = result.payload || 'Failed to send offer';
+        Alert.alert("Error", errorMessage);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error && error.message.includes('fetch') 
-        ? 'Network error. Please check your internet connection and try again.'
-        : 'Failed to send offer. Please try again.';
+    } catch (error: any) {
+      // Fallback error handling
+      const errorMessage = error?.message || 'Failed to send offer. Please try again.';
       Alert.alert("Error", errorMessage);
     }
   };
@@ -194,12 +209,18 @@ export default function ProductDetailScreen() {
         visible={showOfferModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowOfferModal(false)}
+        onRequestClose={() => {
+          setShowOfferModal(false);
+          dispatch(resetCreateStatus());
+        }}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
           {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowOfferModal(false)}>
+            <TouchableOpacity onPress={() => {
+              setShowOfferModal(false);
+              dispatch(resetCreateStatus());
+            }}>
               <Ionicons name="close" size={24} color={COLORS.dark} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Make an Offer</Text>
@@ -253,10 +274,15 @@ export default function ProductDetailScreen() {
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[styles.submitButton, isCreatingOffer && styles.submitButtonDisabled]}
             onPress={handleSubmitOffer}
+            disabled={isCreatingOffer}
           >
-            <Text style={styles.submitButtonText}>Send Offer</Text>
+            {isCreatingOffer ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.submitButtonText}>Send Offer</Text>
+            )}
           </TouchableOpacity>
         </View>
       </Modal>
@@ -416,5 +442,8 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: "600",
+  },
+  submitButtonDisabled: {
+    backgroundColor: COLORS.muted,
   },
 });

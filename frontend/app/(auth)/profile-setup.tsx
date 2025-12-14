@@ -8,13 +8,18 @@ import {
   ActivityIndicator,
   StatusBar,
   Switch,
+  Image,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import LottieView from "lottie-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { AppDispatch, RootState } from "@/src/lib/store";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from 'expo-file-system/legacy';
+import { AppDispatch, RootState } from "@/src/store";
 import { updateProfileThunk } from "@/src/features/auth/authThunks";
 import { authScreenStyles } from "@/src/features/auth/styles/authScreenStyles";
 import { any } from "zod";
@@ -39,11 +44,71 @@ export default function ProfileSetupScreen() {
     password: "", // For OAuth users who want to set a password
   });
 
+  const [profilePicture, setProfilePicture] = useState<{
+    uri: string;
+    mime: string;
+    size: number;
+  } | null>(null);
+
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert("Permission Required", "Please grant camera roll permissions to upload a profile picture.");
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for profile picture
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        
+        try {
+          // Convert image URI to base64 using React Native FileSystem
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: 'base64',
+          });
+          
+          const base64dataUrl = `data:${asset.mimeType || 'image/jpeg'};base64,${base64}`;
+          
+          setProfilePicture({
+            uri: base64dataUrl,
+            mime: asset.mimeType || 'image/jpeg',
+            size: asset.fileSize || 0,
+          });
+        } catch (conversionError) {
+          // Fallback: try using the original URI (though this won't work with current backend)
+          setProfilePicture({
+            uri: asset.uri,
+            mime: asset.mimeType || 'image/jpeg',
+            size: asset.fileSize || 0,
+          });
+          
+          Alert.alert("Warning", "Image conversion failed. Using original URI which may not work with server.");
+        }
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    }
+  };
+
+  const removeProfilePicture = () => {
+    setProfilePicture(null);
   };
 
   const handleSubmit = async () => {
@@ -65,6 +130,14 @@ export default function ProfileSetupScreen() {
         location: formData.location ? { city: formData.location } : null,
       };
 
+      // Include profile picture data if selected
+      if (profilePicture) {
+        profileData.avatar_key = `profile_${Date.now()}`;
+        profileData.profile_picture_url = profilePicture.uri;
+        profileData.profile_picture_mime_type = profilePicture.mime;
+        profileData.profile_picture_size_bytes = profilePicture.size;
+      }
+
       // Only include password if it's provided (for OAuth users)
       if (formData.password) {
         profileData.password = formData.password;
@@ -72,19 +145,11 @@ export default function ProfileSetupScreen() {
 
       const result = await dispatch(updateProfileThunk(profileData)).unwrap();
 
-      console.log("Profile setup result:", result);
-
       if (result) {
-        console.log(
-          "Profile setup successful, navigating to home page automatically"
-        );
         // Navigate directly without showing alert
         router.replace("/(tabs)" as any);
-      } else {
-        console.log("No result returned from profile setup");
       }
     } catch (error) {
-      console.error("Profile setup error caught:", error);
       Alert.alert("Error", "Failed to update profile. Please try again.");
     }
   };
@@ -137,6 +202,82 @@ export default function ProfileSetupScreen() {
 
         <View style={authScreenStyles.formContainer}>
           <View style={authScreenStyles.handleBar} />
+
+          {/* Profile Picture Section */}
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <View style={{ position: 'relative' }}>
+              {/* Profile Picture Circle */}
+              <View
+                style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: 60,
+                  backgroundColor: '#f0f0f0',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: '#3498db',
+                  overflow: 'hidden',
+                }}
+              >
+                {profilePicture ? (
+                  <Image
+                    source={{ uri: profilePicture.uri }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 60,
+                    }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="person" size={40} color="#bdc3c7" />
+                )}
+              </View>
+              
+              {/* Camera Button */}
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  bottom: -5,
+                  right: -5,
+                  backgroundColor: '#3498db',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: '#fff',
+                }}
+                onPress={pickImage}
+              >
+                <Ionicons name="camera" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Profile Picture Actions */}
+            <View style={{ marginTop: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, color: '#7f8c8d', marginBottom: 8 }}>
+                Add a profile picture
+              </Text>
+              {profilePicture && (
+                <TouchableOpacity
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 6,
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderColor: '#e74c3c',
+                    borderRadius: 16,
+                  }}
+                  onPress={removeProfilePicture}
+                >
+                  <Text style={{ fontSize: 12, color: '#e74c3c' }}>Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
           <View style={{ gap: 20 }}>
             <View>
