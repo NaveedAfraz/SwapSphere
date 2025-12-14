@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SingleProduct, { getListingDetails } from "@/src/features/SingleProduct";
 
 // Theme colors from saved context
@@ -34,6 +35,7 @@ export default function ProductDetailScreen() {
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [offerPrice, setOfferPrice] = useState("");
   const [offerMessage, setOfferMessage] = useState("");
+  const insets = useSafeAreaInsets();
 
   const listing = getListingDetails(Number(id));
 
@@ -42,7 +44,8 @@ export default function ProductDetailScreen() {
     {
       id: 2,
       title: "MacBook Air M2 - 256GB",
-      image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
+      image:
+        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
       price: "$999",
       location: "Los Angeles, CA",
       rating: 4.8,
@@ -51,7 +54,8 @@ export default function ProductDetailScreen() {
     {
       id: 3,
       title: "Dell XPS 15 - 512GB",
-      image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400",
+      image:
+        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400",
       price: "$1,199",
       location: "Seattle, WA",
       rating: 4.7,
@@ -103,7 +107,7 @@ export default function ProductDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <SingleProduct
         listing={listing}
         onBack={handleBack}
@@ -119,7 +123,7 @@ export default function ProductDetailScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowOfferModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={(styles.modalContainer, { paddingTop: insets.top })}>
           {/* Modal Header */}
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowOfferModal(false)}>
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
+
     paddingBottom: 20,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,

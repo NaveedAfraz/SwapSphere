@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    zIndex: 1000,
+    zIndex: 99999,
   },
   drawer: {
     position: "absolute",
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: width * 0.85,
     backgroundColor: COLORS.white,
-    zIndex: 1001,
+    zIndex: 100000,
     shadowColor: COLORS.dark,
     shadowOffset: { width: 2, height: 0 },
     shadowOpacity: 0.15,

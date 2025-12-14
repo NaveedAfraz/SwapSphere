@@ -130,12 +130,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 0,
     backgroundColor: "transparent",
+    zIndex: 5,
   },
   tabBarWrapper: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    height: 100,
     paddingTop: Platform.OS === "ios" ? 20 : 12,
   },
   centerButtonShadow: {

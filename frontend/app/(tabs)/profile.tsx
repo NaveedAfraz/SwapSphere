@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'rea
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Interactions } from '@/src/constants/theme';
-import SellerBadge from '@/src/features/listings/components/SellerBadge';
+import SellerBadge from '@/src/features/listing/components/SellerBadge';
 import ProfileHeader from '@/src/features/profile/components/ProfileHeader';
 import ProfileStats from '@/src/features/profile/components/ProfileStats';
 import { useUserMode } from '@/src/contexts/UserModeContext';

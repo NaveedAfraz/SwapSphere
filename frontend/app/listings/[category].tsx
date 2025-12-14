@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FeaturedItems from "@/src/features/FeaturedItems";
 
 // Theme colors from saved context
@@ -172,6 +173,7 @@ export default function CategoryListingsScreen() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [offerPrice, setOfferPrice] = useState("");
   const [offerMessage, setOfferMessage] = useState("");
+  const insets = useSafeAreaInsets();
 
   // Filter listings based on category and other filters
   const filteredListings = mockListings
@@ -221,8 +223,11 @@ export default function CategoryListingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom }}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -548,7 +553,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 0,
     paddingBottom: 20,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,

@@ -9,7 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Categories from "@/src/features/listings/components/Categories";
+import Categories from "@/src/features/listing/components/Categories";
 import SearchBar from "@/src/features/search/components/SearchBar";
 import FeaturedItems from "@/src/features/FeaturedItems";
 

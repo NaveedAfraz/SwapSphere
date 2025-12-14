@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Categories from '@/src/features/listings/components/Categories';
-import ListingCard from '@/src/features/listings/components/ListingCard';
+import Categories from '@/src/features/listing/components/Categories';
+import ListingCard from '@/src/features/listing/components/ListingCard';
 
 const categories = [
   { id: 1, name: 'Fashion', icon: '', color: '#FFE66D' },

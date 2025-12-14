@@ -2,14 +2,14 @@ import React, { useState } from "react";
 import { View, ScrollView, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
-import Header from "@/src/features/listings/components/Header";
-import Categories from "@/src/features/listings/components/Categories";
+import Header from "@/src/features/listing/components/Header";
+import Categories from "@/src/features/listing/components/Categories";
 import FeaturedItems from "@/src/features/FeaturedItems";
-import TrendingItems from "@/src/features/listings/components/TrendingItems";
-import OfferCard from "@/src/features/listings/components/OfferCard";
-import ReviewsCarousel from "@/src/features/listings/components/ReviewsCarousel";
-import SellerBadge from "@/src/features/listings/components/SellerBadge";
-import SidebarDrawer from "@/src/features/listings/components/SidebarDrawer";
+import TrendingItems from "@/src/features/listing/components/TrendingItems";
+import OfferCard from "@/src/features/listing/components/OfferCard";
+import ReviewsCarousel from "@/src/features/listing/components/ReviewsCarousel";
+import SellerBadge from "@/src/features/listing/components/SellerBadge";
+import SidebarDrawer from "@/src/features/listing/components/SidebarDrawer";
 
 // Dummy data (marketplace-focused)
 const categories = [

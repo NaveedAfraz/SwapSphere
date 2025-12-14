@@ -1,4 +1,4 @@
-import type { RootState } from '@/src/lib/store/index';
+import type { RootState } from '../../store';
 import type { AuthState, AuthUser } from './types/auth';
 
 // Basic selectors
