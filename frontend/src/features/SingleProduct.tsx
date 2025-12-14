@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Interactions } from "@/src/constants/theme";
+import { useUserMode } from "@/src/contexts/UserModeContext";
+import type { Listing } from "./listing/types/listing";
 
 // Theme colors from saved context
 const COLORS = {
@@ -26,98 +28,25 @@ const COLORS = {
   warning: "#F59E0B",
 };
 
-interface Listing {
-  id: number;
-  title: string;
-  image: string;
-  price: string;
-  location: string;
+// Extended interface for SingleProduct component with additional fields
+interface SingleProductListing extends Listing {
+  images: string[]; // Array of image URLs for gallery
   rating: number;
   reviews: number;
   seller: string;
   verified: boolean;
-  condition: string;
   posted: string;
-  category: string;
-  description: string;
-  images: string[];
 }
 
 interface SingleProductProps {
-  listing: Listing;
+  listing: SingleProductListing;
   onBack: () => void;
-  onMakeOffer?: (listing: Listing) => void;
-  onContactSeller?: (listing: Listing) => void;
-  onBuyNow?: (listing: Listing) => void;
+  onMakeOffer?: (listing: SingleProductListing) => void;
+  onContactSeller?: (listing: SingleProductListing) => void;
+  onBuyNow?: (listing: SingleProductListing) => void;
   onProductPress?: (item: any) => void;
   similarListings?: any[];
 }
-
-// Mock detailed listing data
-const getListingDetails = (id: number): Listing | null => {
-  const listings: Record<number, Listing> = {
-    1: {
-      id: 1,
-      title: 'MacBook Pro 16" - Like New Condition',
-      image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=1200",
-      images: [
-        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=1200",
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200",
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=1200",
-      ],
-      price: "$1,299",
-      location: "San Francisco, CA",
-      rating: 4.9,
-      reviews: 127,
-      seller: "TechExpert",
-      verified: true,
-      condition: "Like New",
-      posted: "2 hours ago",
-      category: "Tech",
-      description: "Excellent condition MacBook Pro 16\" with M1 Pro chip. 16GB RAM, 512GB SSD. Used for light work only, no scratches or dents. Includes original charger and box.",
-    },
-    2: {
-      id: 2,
-      title: "Vintage Leather Jacket - Excellent Condition",
-      image: "https://images.unsplash.com/photo-1551488831-00ddbb6a9538?w=1200",
-      images: [
-        "https://images.unsplash.com/photo-1551488831-00ddbb6a9538?w=1200",
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=1200",
-      ],
-      price: "$189",
-      location: "New York, NY",
-      rating: 4.7,
-      reviews: 89,
-      seller: "VintageStore",
-      verified: true,
-      condition: "Excellent",
-      posted: "5 hours ago",
-      category: "Fashion",
-      description: "Beautiful vintage leather jacket in excellent condition. Size M, genuine leather. Perfect for fall/winter seasons. Minor wear consistent with age.",
-    },
-    3: {
-      id: 3,
-      title: "iPhone 13 Pro • 256GB - Good Condition",
-      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200",
-      images: [
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200",
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=1200",
-      ],
-      price: "$599",
-      location: "Los Angeles, CA",
-      rating: 4.8,
-      reviews: 62,
-      seller: "MobileHub",
-      verified: false,
-      condition: "Good",
-      posted: "1 day ago",
-      category: "Tech",
-      description: "iPhone 13 Pro 256GB in good working condition. Battery health 85%. Some minor scratches on back, screen is perfect. Unlocked for all carriers.",
-    },
-  };
-
-  return listings[id] || null;
-};
 
 export default function SingleProduct({
   listing,
@@ -130,6 +59,7 @@ export default function SingleProduct({
 }: SingleProductProps) {
   const [liked, setLiked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const { isSellerMode } = useUserMode();
 
   const toggleLike = () => {
     setLiked(!liked);
@@ -174,7 +104,9 @@ export default function SingleProduct({
     if (onBuyNow) {
       onBuyNow(listing);
     } else {
-      Alert.alert("Purchase", "Purchase functionality coming soon!", [{ text: "OK" }]);
+      Alert.alert("Purchase", "Purchase functionality coming soon!", [
+        { text: "OK" },
+      ]);
     }
   };
 
@@ -194,50 +126,72 @@ export default function SingleProduct({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.headerButton} activeOpacity={Interactions.buttonOpacity}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.headerButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleShare} style={styles.headerButton} activeOpacity={Interactions.buttonOpacity}>
-          <Ionicons name="share-outline" size={24} color={COLORS.dark} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={toggleLike}
+            style={styles.headerButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={liked ? "heart" : "heart-outline"}
+              size={24}
+              color={liked ? "#DC2626" : "#111827"}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={styles.headerButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={24} color="#111827" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
         {/* Product Images */}
         <View style={styles.imageSection}>
           <View style={styles.mainImageContainer}>
-            <Image 
-              source={{ uri: listing.images[currentImageIndex] }} 
-              style={styles.mainImage} 
+            <Image
+              source={{ uri: listing.images[currentImageIndex] }}
+              style={styles.mainImage}
             />
             {listing.images.length > 1 && (
               <View style={styles.imageNavigation}>
-                <TouchableOpacity 
-                  style={styles.imageNavButton} 
+                <TouchableOpacity
+                  style={[
+                    styles.imageNavButton,
+                    currentImageIndex === 0 && styles.imageNavButtonDisabled,
+                  ]}
                   onPress={prevImage}
                   disabled={currentImageIndex === 0}
-                  activeOpacity={Interactions.buttonOpacity}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name="chevron-back" 
-                    size={20} 
-                    color={currentImageIndex === 0 ? COLORS.muted : COLORS.dark} 
-                  />
+                  <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
-                <Text style={styles.imageCounter}>
-                  {currentImageIndex + 1} / {listing.images.length}
-                </Text>
-                <TouchableOpacity 
-                  style={styles.imageNavButton} 
+                <View style={styles.imageCounterContainer}>
+                  <Text style={styles.imageCounter}>
+                    {currentImageIndex + 1} / {listing.images.length}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.imageNavButton,
+                    currentImageIndex === listing.images.length - 1 &&
+                      styles.imageNavButtonDisabled,
+                  ]}
                   onPress={nextImage}
                   disabled={currentImageIndex === listing.images.length - 1}
-                  activeOpacity={Interactions.buttonOpacity}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name="chevron-forward" 
-                    size={20} 
-                    color={currentImageIndex === listing.images.length - 1 ? COLORS.muted : COLORS.dark} 
-                  />
+                  <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             )}
@@ -245,22 +199,26 @@ export default function SingleProduct({
 
           {/* Thumbnail Images */}
           {listing.images.length > 1 && (
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.thumbnailContainer}
+              contentContainerStyle={styles.thumbnailContent}
             >
               {listing.images.map((image, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
                     styles.thumbnail,
-                    currentImageIndex === index && styles.thumbnailActive
+                    currentImageIndex === index && styles.thumbnailActive,
                   ]}
                   onPress={() => setCurrentImageIndex(index)}
-                  activeOpacity={Interactions.activeOpacity}
+                  activeOpacity={0.7}
                 >
-                  <Image source={{ uri: image }} style={styles.thumbnailImage} />
+                  <Image
+                    source={{ uri: image }}
+                    style={styles.thumbnailImage}
+                  />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -269,59 +227,72 @@ export default function SingleProduct({
 
         {/* Product Info */}
         <View style={styles.infoSection}>
-          {/* Title and Price */}
-          <View style={styles.titleRow}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>{listing.title}</Text>
+          {/* Title, Price and Condition */}
+          <View style={styles.titleSection}>
+            <View style={styles.titlePriceRow}>
+              <View style={styles.titleContainer}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {listing.title}
+                </Text>
+                <Text style={styles.price}>{listing.price}</Text>
+              </View>
               <View style={styles.conditionBadge}>
                 <Text style={styles.conditionText}>{listing.condition}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={toggleLike} style={styles.likeButton} activeOpacity={Interactions.buttonOpacity}>
-              <Ionicons 
-                name={liked ? "heart" : "heart-outline"} 
-                size={24} 
-                color={liked ? COLORS.error : COLORS.dark} 
-              />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.price}>{listing.price}</Text>
 
-          {/* Location and Posted Time */}
-          <View style={styles.metaRow}>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-outline" size={16} color={COLORS.muted} />
-              <Text style={styles.location}>{listing.location}</Text>
+            {/* Location and Posted Time */}
+            <View style={styles.metaRow}>
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-outline" size={16} color="#6B7280" />
+                <Text style={styles.location}>
+                  {listing.location?.city && listing.location?.state
+                    ? `${listing.location.city}, ${listing.location.state}`
+                    : listing.location?.city ||
+                      listing.location?.state ||
+                      "Unknown Location"}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <Text style={styles.postedTime}>{listing.posted}</Text>
             </View>
-            <Text style={styles.postedTime}>{listing.posted}</Text>
           </View>
 
           {/* Seller Info */}
           <View style={styles.sellerSection}>
-            <Text style={styles.sectionTitle}>Seller Information</Text>
             <View style={styles.sellerCard}>
+              <View style={styles.sellerAvatar}>
+                <Text style={styles.sellerInitial}>
+                  {listing.seller.charAt(0).toUpperCase()}
+                </Text>
+              </View>
               <View style={styles.sellerInfo}>
                 <View style={styles.sellerHeader}>
                   <Text style={styles.sellerName}>{listing.seller}</Text>
                   {listing.verified && (
                     <View style={styles.verifiedBadge}>
-                      <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-                      <Text style={styles.verifiedText}>Verified</Text>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#10B981"
+                      />
                     </View>
                   )}
                 </View>
                 <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={14} color={COLORS.warning} />
+                  <Ionicons name="star" size={16} color="#F59E0B" />
                   <Text style={styles.rating}>{listing.rating}</Text>
-                  <Text style={styles.reviews}>({listing.reviews} reviews)</Text>
+                  <Text style={styles.reviews}>
+                    ({listing.reviews} reviews)
+                  </Text>
                 </View>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.contactButton}
                 onPress={handleContactSellerPress}
-                activeOpacity={Interactions.buttonOpacity}
+                activeOpacity={0.8}
               >
-                <Text style={styles.contactButtonText}>Contact Seller</Text>
+                <Ionicons name="chatbubble-outline" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -332,47 +303,64 @@ export default function SingleProduct({
             <Text style={styles.description}>{listing.description}</Text>
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionSection}>
-            <TouchableOpacity 
-              style={styles.offerButton}
-              onPress={handleMakeOfferPress}
-              activeOpacity={Interactions.buttonOpacity}
-            >
-              <Text style={styles.offerButtonText}>Make Offer</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.buyButton}
-              onPress={handleBuyNowPress}
-              activeOpacity={Interactions.buttonOpacity}
-            >
-              <Text style={styles.buyButtonText}>Buy Now</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Similar Listings */}
           {similarListings.length > 0 && (
             <View style={styles.similarSection}>
-              <Text style={styles.sectionTitle}>Similar Listings</Text>
-              {similarListings.map((item) => (
-                <TouchableOpacity 
-                  key={item.id} 
-                  style={styles.similarItem}
-                  onPress={() => onProductPress?.(item)}
-                  activeOpacity={Interactions.activeOpacity}
-                >
-                  <Image source={{ uri: item.image }} style={styles.similarImage} />
-                  <View style={styles.similarInfo}>
-                    <Text style={styles.similarTitle}>{item.title}</Text>
-                    <Text style={styles.similarPrice}>{item.price}</Text>
-                    <Text style={styles.similarLocation}>{item.location}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              <Text style={styles.sectionTitle}>Similar Items</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.similarContent}
+              >
+                {similarListings.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.similarItem}
+                    onPress={() => onProductPress?.(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={{ uri: item.image }}
+                      style={styles.similarImage}
+                    />
+                    <View style={styles.similarInfo}>
+                      <Text style={styles.similarTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.similarPrice}>{item.price}</Text>
+                      <Text style={styles.similarLocation} numberOfLines={1}>
+                        {item.location}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Fixed Bottom Actions - Only show if not in seller mode */}
+      {!isSellerMode && (
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={styles.offerButton}
+            onPress={handleMakeOfferPress}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pricetag-outline" size={20} color="#3B82F6" />
+            <Text style={styles.offerButtonText}>Make Offer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.buyButton}
+            onPress={handleBuyNowPress}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cart-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.buyButtonText}>Buy Now</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -380,287 +368,374 @@ export default function SingleProduct({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: "#F9FAFB",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 16,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: "#F3F4F6",
   },
   headerButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 4,
   },
   imageSection: {
-    backgroundColor: COLORS.white,
-    marginBottom: 16,
+    backgroundColor: "#FFFFFF",
+    marginBottom: 12,
   },
   mainImageContainer: {
     position: "relative",
+    width: "100%",
+    height: 380,
+    backgroundColor: "#F9FAFB",
   },
   mainImage: {
     width: "100%",
-    height: 300,
+    height: "100%",
     resizeMode: "cover",
   },
   imageNavigation: {
     position: "absolute",
-    bottom: 16,
-    left: 20,
-    right: 20,
+    bottom: 20,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 20,
-    padding: 8,
+    justifyContent: "center",
+    gap: 12,
   },
   imageNavButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 18,
+    backdropFilter: "blur(10px)",
+  },
+  imageNavButtonDisabled: {
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+  imageCounterContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backdropFilter: "blur(10px)",
   },
   imageCounter: {
-    color: COLORS.white,
-    fontSize: 14,
+    color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
   thumbnailContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 16,
+  },
+  thumbnailContent: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
   thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    marginRight: 8,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: "#F3F4F6",
+    overflow: "hidden",
   },
   thumbnailActive: {
-    borderColor: COLORS.accent,
+    borderColor: "#3B82F6",
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   thumbnailImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 6,
     resizeMode: "cover",
   },
   infoSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+    gap: 12,
   },
-  titleRow: {
-    marginBottom: 16,
+  titleSection: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 16,
+    gap: 16,
+  },
+  titlePriceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
   },
   titleContainer: {
-    marginBottom: 8,
+    flex: 1,
+    gap: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
-    color: COLORS.dark,
-    letterSpacing: -0.5,
-    lineHeight: 32,
-  },
-  conditionBadge: {
-    backgroundColor: COLORS.subtleBg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    marginTop: 8,
-  },
-  conditionText: {
-    fontSize: 14,
-    color: COLORS.muted,
-    fontWeight: "500",
+    color: "#111827",
+    letterSpacing: -0.6,
+    lineHeight: 34,
   },
   price: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: COLORS.accent,
-    marginTop: 8,
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#3B82F6",
+    letterSpacing: -0.8,
   },
-  likeButton: {
-    alignSelf: "flex-end",
-    padding: 8,
+  conditionBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  conditionText: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   metaRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    gap: 12,
   },
   locationContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
   location: {
     fontSize: 14,
-    color: COLORS.muted,
-    marginLeft: 6,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  divider: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
   },
   postedTime: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   sellerSection: {
-    backgroundColor: COLORS.white,
-    padding: 20,
+    backgroundColor: "#FFFFFF",
+    padding: 18,
     borderRadius: 16,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.dark,
-    marginBottom: 12,
   },
   sellerCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
+  },
+  sellerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#3B82F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sellerInitial: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   sellerInfo: {
     flex: 1,
+    gap: 4,
   },
   sellerHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: 6,
   },
   sellerName: {
     fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.dark,
-    marginRight: 8,
+    fontWeight: "700",
+    color: "#111827",
+    letterSpacing: -0.2,
   },
   verifiedBadge: {
-    flexDirection: "row",
+    width: 20,
+    height: 20,
     alignItems: "center",
-    backgroundColor: COLORS.success + "20",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  verifiedText: {
-    fontSize: 12,
-    color: COLORS.success,
-    fontWeight: "600",
-    marginLeft: 4,
+    justifyContent: "center",
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
   rating: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.dark,
-    marginLeft: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
   },
   reviews: {
     fontSize: 14,
-    color: COLORS.muted,
-    marginLeft: 4,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   contactButton: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  contactButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "600",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#3B82F6",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   descriptionSection: {
-    backgroundColor: COLORS.white,
+    backgroundColor: "#FFFFFF",
     padding: 20,
     borderRadius: 16,
-    marginBottom: 20,
-  },
-  description: {
-    fontSize: 16,
-    color: COLORS.dark,
-    lineHeight: 24,
-  },
-  actionSection: {
-    flexDirection: "row",
-    paddingBottom: 40,
     gap: 12,
   },
-  offerButton: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    letterSpacing: -0.3,
   },
-  offerButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.accent,
-  },
-  buyButton: {
-    flex: 1,
-    backgroundColor: COLORS.accent,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  buyButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.white,
+  description: {
+    fontSize: 15,
+    color: "#111827",
+    lineHeight: 24,
+    fontWeight: "400",
+    letterSpacing: 0.1,
   },
   similarSection: {
-    backgroundColor: COLORS.white,
+    backgroundColor: "#FFFFFF",
     padding: 20,
     borderRadius: 16,
-    marginBottom: 20,
+    gap: 16,
+  },
+  similarContent: {
+    gap: 12,
+    paddingRight: 20,
   },
   similarItem: {
-    flexDirection: "row",
-    backgroundColor: COLORS.subtleBg,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+    width: 180,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   similarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 12,
+    width: "100%",
+    height: 140,
+    resizeMode: "cover",
+    backgroundColor: "#F3F4F6",
   },
   similarInfo: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 12,
+    gap: 6,
   },
   similarTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.dark,
-    marginBottom: 4,
+    color: "#111827",
+    lineHeight: 18,
+    letterSpacing: -0.1,
   },
   similarPrice: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
-    color: COLORS.accent,
-    marginBottom: 4,
+    color: "#3B82F6",
+    letterSpacing: -0.3,
   },
   similarLocation: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  bottomActions: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    padding: 16,
+    paddingBottom: 24,
+    gap: 12,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  offerButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#3B82F6",
+    paddingVertical: 16,
+    borderRadius: 14,
+  },
+  offerButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3B82F6",
+    letterSpacing: -0.2,
+  },
+  buyButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#3B82F6",
+    paddingVertical: 16,
+    borderRadius: 14,
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buyButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
 });
-
-// Export the function to get listing details for use in screens
-export { getListingDetails };

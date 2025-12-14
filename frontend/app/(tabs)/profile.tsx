@@ -29,34 +29,34 @@ import {
   selectProfileSoldItems,
 } from "@/src/features/profile/profileSelectors";
 
-const sellerMenuItems = [
-  { id: 1, title: "My Listings", icon: "grid-outline", count: 12 },
-  { id: 2, title: "Sales", icon: "cash-outline", count: 8 },
-  { id: 3, title: "Reviews", icon: "star-outline", count: 15 },
-  { id: 4, title: "Settings", icon: "settings-outline", count: null },
-  { id: 5, title: "Help & Support", icon: "help-circle-outline", count: null },
-  {
-    id: 6,
-    title: "Sign Out",
-    icon: "log-out-outline",
-    count: null,
-    isDestructive: true,
-  },
-];
+// const sellerMenuItems = [
+//   { id: 1, title: "My Listings", icon: "grid-outline", count: 12 },
+//   { id: 2, title: "Sales", icon: "cash-outline", count: 8 },
+//   { id: 3, title: "Reviews", icon: "star-outline", count: 15 },
+//   { id: 4, title: "Settings", icon: "settings-outline", count: null },
+//   { id: 5, title: "Help & Support", icon: "help-circle-outline", count: null },
+//   {
+//     id: 6,
+//     title: "Sign Out",
+//     icon: "log-out-outline",
+//     count: null,
+//     isDestructive: true,
+//   },
+// ];
 
-const customerMenuItems = [
-  { id: 1, title: "My Purchases", icon: "bag-outline", count: 5 },
-  { id: 2, title: "My Reviews", icon: "star-outline", count: 3 },
-  { id: 3, title: "Settings", icon: "settings-outline", count: null },
-  { id: 4, title: "Help & Support", icon: "help-circle-outline", count: null },
-  {
-    id: 5,
-    title: "Sign Out",
-    icon: "log-out-outline",
-    count: null,
-    isDestructive: true,
-  },
-];
+// const customerMenuItems = [
+//   { id: 1, title: "My Purchases", icon: "bag-outline", count: 5 },
+//   { id: 2, title: "My Reviews", icon: "star-outline", count: 3 },
+//   { id: 3, title: "Settings", icon: "settings-outline", count: null },
+//   { id: 4, title: "Help & Support", icon: "help-circle-outline", count: null },
+//   {
+//     id: 5,
+//     title: "Sign Out",
+//     icon: "log-out-outline",
+//     count: null,
+//     isDestructive: true,
+//   },
+// ];
 
 export default function ProfileScreen() {
   const [selectedItem, setSelectedItem] = useState<number | null>(null);

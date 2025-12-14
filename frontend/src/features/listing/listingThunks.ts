@@ -8,6 +8,7 @@ import type {
   ListingResponse,
   SingleListingResponse,
   ListingImage,
+  Listing,
 } from "./types/listing";
 
 const API_BASE = "http://192.168.0.104:5000/api/listing";
@@ -53,18 +54,21 @@ export const fetchListingsThunk = createAsyncThunk<
 );
 
 export const fetchListingByIdThunk = createAsyncThunk<
-  SingleListingResponse,
+  Listing,
   string,
   { rejectValue: string }
 >(
   "listing/fetchListingById",
   async (listingId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<SingleListingResponse>(
+      console.log('Fetching listing with ID:', listingId);
+      const response = await apiClient.get<Listing>(
         `/${listingId}`
       );
+      console.log('API response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('Error fetching listing:', error);
       const errorMessage =
         error.response?.data?.error ||
         error.message ||

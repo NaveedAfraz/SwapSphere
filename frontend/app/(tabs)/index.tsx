@@ -1,59 +1,46 @@
-import React, { useState } from "react";
-import { View, ScrollView, StyleSheet, Text } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  FlatList,
+  RefreshControl,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Interactions } from "@/src/constants/theme";
+import { useDispatch, useSelector } from "react-redux";
+import { useRouter } from "expo-router";
 import Header from "@/src/features/listing/components/Header";
 import Categories from "@/src/features/listing/components/Categories";
 import FeaturedItems from "@/src/features/FeaturedItems";
 import TrendingItems from "@/src/features/listing/components/TrendingItems";
-import OfferCard from "@/src/features/listing/components/OfferCard";
 import ReviewsCarousel from "@/src/features/listing/components/ReviewsCarousel";
 import SellerBadge from "@/src/features/listing/components/SellerBadge";
 import SidebarDrawer from "@/src/features/listing/components/SidebarDrawer";
+import { fetchListingsThunk } from "@/src/features/listing/listingThunks";
+import {
+  selectListings,
+  selectListingStatus,
+  selectListingError,
+  selectIsListingsLoading,
+  selectPagination,
+} from "@/src/features/listing/listingSelectors";
+import type { Listing } from "@/src/features/listing/types/listing";
 
-// Dummy data (marketplace-focused)
+// Categories data
 const categories = [
-  { id: 1, name: "Fashion", icon: "", color: "#FFE66D" },
-  { id: 2, name: "Tech", icon: "", color: "#95E1D3" },
+  { id: 1, name: "Electronics", icon: "", color: "#95E1D3" },
+  { id: 2, name: "Fashion", icon: "", color: "#FFE66D" },
   { id: 3, name: "Home", icon: "", color: "#F6C1C1" },
-  { id: 4, name: "Fitness", icon: "", color: "#F38181" },
+  { id: 4, name: "Sports", icon: "", color: "#F38181" },
+  { id: 5, name: "Books", icon: "", color: "#A8E6CF" },
+  { id: 6, name: "Toys", icon: "", color: "#FFD3B6" },
+  { id: 7, name: "Automotive", icon: "", color: "#FFAAA5" },
+  { id: 8, name: "Health", icon: "", color: "#C7CEEA" },
+  { id: 9, name: "Other", icon: "", color: "#B2E1D4" },
 ];
 
-const featuredItems = [
-  {
-    id: 1,
-    title: 'MacBook Pro 16" • Like New',
-    image:
-      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=1200",
-    category: "Electronics",
-    rating: 4.9,
-    price: "$1,299",
-    location: "San Francisco, CA",
-    seller: "TechExpert",
-  },
-  {
-    id: 2,
-    title: "iPhone 13 Pro • 256GB",
-    image:
-      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200",
-    category: "Electronics",
-    rating: 4.8,
-    price: "$699",
-    location: "New York, NY",
-    seller: "MobileHub",
-  },
-  {
-    id: 3,
-    title: "Vintage Leather Jacket • Excellent",
-    image: "https://images.unsplash.com/photo-1551488831-00ddbb6a9538?w=1200",
-    category: "Fashion",
-    rating: 4.7,
-    price: "$189",
-    location: "Brooklyn, NY",
-    seller: "VintageStore",
-  },
-];
-
+// Mock data for components that don't have real data yet
 const trendingItems = [
   {
     id: 1,
@@ -72,103 +59,6 @@ const trendingItems = [
     name: "Camera Lens",
     trend: "+15%",
     image: "https://images.unsplash.com/photo-1606400082777-ef05f3c5cde2?w=400",
-  },
-];
-
-const offers = [
-  {
-    id: 1,
-    title: "Premium Wireless Headphones — Limited Deal",
-    image:
-      "https://images.unsplash.com/photo-1518440849672-0c2dda6c3f2e?w=1200",
-    discount: "50% OFF",
-    originalPrice: "$199",
-    discountedPrice: "$99",
-    timeLeft: "2h 30m",
-    category: "Electronics",
-  },
-  {
-    id: 2,
-    title: "Designer Handbag — Seasonal Offer",
-    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=1200",
-    discount: "30% OFF",
-    originalPrice: "$299",
-    discountedPrice: "$209",
-    timeLeft: "5h 15m",
-    category: "Fashion",
-  },
-];
-
-const listings = [
-  {
-    id: 1,
-    title: 'MacBook Pro 16" - Like New Condition',
-    image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
-    price: "$1,299",
-    location: "San Francisco, CA",
-    rating: 4.9,
-    reviews: 127,
-    seller: "TechExpert",
-    verified: true,
-    condition: "Like New",
-    posted: "2 hours ago",
-    category: "Electronics",
-  },
-  {
-    id: 2,
-    title: "Vintage Leather Jacket - Excellent Condition",
-    image: "https://images.unsplash.com/photo-1551488831-00ddbb6a9538?w=800",
-    price: "$189",
-    location: "New York, NY",
-    rating: 4.7,
-    reviews: 89,
-    seller: "FashionHub",
-    verified: true,
-    condition: "Excellent",
-    posted: "5 hours ago",
-    category: "Fashion",
-  },
-  {
-    id: 3,
-    title: "Professional Camera Kit - Barely Used",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b242ccaa?w=800",
-    price: "$2,450",
-    location: "Los Angeles, CA",
-    rating: 4.8,
-    reviews: 156,
-    seller: "PhotoPro",
-    verified: true,
-    condition: "Like New",
-    posted: "1 day ago",
-    category: "Electronics",
-  },
-  {
-    id: 4,
-    title: "Designer Handbag - Authentic",
-    image: "https://images.unsplash.com/photo-1584917865442-486d0547a7f5?w=800",
-    price: "$890",
-    location: "Chicago, IL",
-    rating: 4.9,
-    reviews: 234,
-    seller: "LuxuryBoutique",
-    verified: true,
-    condition: "Excellent",
-    posted: "3 days ago",
-    category: "Fashion",
-  },
-  {
-    id: 5,
-    title: "Gaming Console Bundle - Complete Set",
-    image: "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800",
-    price: "$450",
-    location: "Houston, TX",
-    rating: 4.6,
-    reviews: 178,
-    seller: "GameZone",
-    verified: false,
-    condition: "Good",
-    posted: "1 week ago",
-    category: "Gaming",
   },
 ];
 
@@ -239,11 +129,69 @@ const sellers = [
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [liked, setLiked] = useState<Record<number, boolean>>({});
+  const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const dispatch = useDispatch();
 
-  const toggleLike = (id: number) => {
+  // Redux state
+  const listings = useSelector(selectListings);
+  const listingStatus = useSelector(selectListingStatus);
+  const listingError = useSelector(selectListingError);
+  const isLoading = useSelector(selectIsListingsLoading);
+  const pagination = useSelector(selectPagination);
+
+  // Fetch listings on component mount
+  useEffect(() => {
+    dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any);
+  }, [dispatch]);
+
+  // Pull to refresh
+  const handleRefresh = () => {
+    setRefreshing(true);
+    dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any).finally(() =>
+      setRefreshing(false)
+    );
+  };
+
+  // Transform listing data for FeaturedItems component
+  const transformListings = (listings: Listing[]) => {
+    return listings.map((listing) => ({
+      id: listing.id, // Keep UUID as string
+      title: listing.title,
+      image:
+        listing.primary_image_url ||
+        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
+      price: `$${listing.price}`,
+      location: listing.location?.city || "Unknown",
+      rating: listing.seller_rating || 0,
+      seller: listing.seller_name || "Unknown",
+      condition: listing.condition || "Unknown",
+      posted: getTimeAgo(listing.created_at),
+      category: listing.category || "Other",
+    }));
+  };
+
+  // Helper function to format time ago
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 3600) {
+      return `${Math.floor(seconds / 60)} minutes ago`;
+    } else if (seconds < 86400) {
+      return `${Math.floor(seconds / 3600)} hours ago`;
+    } else if (seconds < 604800) {
+      return `${Math.floor(seconds / 86400)} days ago`;
+    } else {
+      return `${Math.floor(seconds / 604800)} weeks ago`;
+    }
+  };
+
+  const toggleLike = (id: number | string) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -252,13 +200,20 @@ export default function HomePage() {
   };
 
   const handleProductPress = (item: any) => {
-    // Navigate to product detail screen
-    console.log("Navigate to product:", item.id);
+    // Alert the press with ID
+    alert(`Product pressed with ID: ${item.id}`);
+    
+    // Navigate directly with UUID
+    router.push(`/product/${item.id}`);
   };
 
   const handleMakeOffer = (item: any) => {
-    console.log("Make offer for:", item.id);
+    // Navigate directly with UUID
+    router.push(`/product/${item.id}/offer`);
   };
+
+  const featuredItems = transformListings(listings.slice(0, 6));
+  const latestListings = transformListings(listings.slice(6, 12));
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -268,35 +223,34 @@ export default function HomePage() {
         onMenuPress={toggleDrawer}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing && isLoading}
+            onRefresh={handleRefresh}
+            colors={["#3B82F6"]}
+            tintColor="#3B82F6"
+          />
+        }
+      >
         <Categories categories={categories} />
 
-        {/* Special Offers Section */}
-        {/* <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Special Offers</Text>
-          {offers.map((offer) => (
-            <OfferCard
-              key={offer.id}
-              {...offer}
-              onPress={() => console.log("Offer pressed:", offer.id)}
-            />
-          ))}
-        </View> */}
-
+        {/* Featured Items Section */}
         <FeaturedItems
           items={featuredItems}
           liked={liked}
           toggleLike={toggleLike}
           onProductPress={handleProductPress}
           onMakeOffer={handleMakeOffer}
-          sectionTitle="Featured"
+          sectionTitle="Featured Items"
         />
 
         <TrendingItems items={trendingItems} />
 
         {/* Latest Listings Section */}
         <FeaturedItems
-          items={listings}
+          items={latestListings}
           liked={liked}
           toggleLike={toggleLike}
           onProductPress={handleProductPress}
@@ -311,12 +265,27 @@ export default function HomePage() {
             <SellerBadge
               key={seller.id}
               {...seller}
-              onPress={() => console.log("Seller pressed:", seller.id)}
+              // onPress={() => {
+              //   router.push(`/seller/${seller.id}`);
+              // }}
             />
           ))}
         </View>
 
         <ReviewsCarousel reviews={reviews} />
+
+        {/* Loading and Error States */}
+        {isLoading && listings.length === 0 && (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading listings...</Text>
+          </View>
+        )}
+
+        {listingError && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error: {listingError}</Text>
+          </View>
+        )}
       </ScrollView>
 
       <SidebarDrawer
@@ -342,5 +311,23 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 20,
     letterSpacing: -0.5,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  errorContainer: {
+    padding: 20,
+    backgroundColor: "#FEE2E2",
+    margin: 20,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#DC2626",
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,11 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useDispatch, useSelector } from "react-redux";
 import { Interactions } from '@/src/constants/theme';
+import { fetchTransactionsThunk } from '../../payment/paymentThunks';
+import { selectTransactions, selectPaymentStatus } from '../../payment/paymentSelectors';
+import type { Transaction } from '../../payment/types/payment';
 
 const COLORS = {
   dark: "#111827",
@@ -24,106 +28,21 @@ const COLORS = {
   chipBg: "#F3F4F6",
 };
 
-interface Sale {
-  id: string;
-  item: {
-    title: string;
-    image: string;
-    price: number;
-  };
-  buyer: {
-    name: string;
-    avatar: string;
-    rating: number;
-  };
-  saleDate: string;
-  status: "completed" | "pending" | "disputed";
-  paymentStatus: "paid" | "pending" | "refunded";
-  shippingStatus?: "shipped" | "processing" | "delivered";
-}
-
-const mockSales: Sale[] = [
-  {
-    id: "1",
-    item: {
-      title: "iPhone 13 Pro - Excellent Condition",
-      image:
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400",
-      price: 899,
-    },
-    buyer: {
-      name: "Sarah Johnson",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400",
-      rating: 4.8,
-    },
-    saleDate: "2024-01-15",
-    status: "completed",
-    paymentStatus: "paid",
-    shippingStatus: "delivered",
-  },
-  {
-    id: "2",
-    item: {
-      title: "MacBook Air M1 - 2020",
-      image:
-        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400",
-      price: 799,
-    },
-    buyer: {
-      name: "Mike Chen",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-      rating: 4.9,
-    },
-    saleDate: "2024-01-18",
-    status: "pending",
-    paymentStatus: "paid",
-    shippingStatus: "processing",
-  },
-  {
-    id: "3",
-    item: {
-      title: "AirPods Pro - Like New",
-      image:
-        "https://images.unsplash.com/photo-1606214174585-fe25d285063f?w=400",
-      price: 179,
-    },
-    buyer: {
-      name: "Emily Davis",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-      rating: 4.7,
-    },
-    saleDate: "2024-01-20",
-    status: "disputed",
-    paymentStatus: "pending",
-    shippingStatus: "shipped",
-  },
-];
-
-const getStatusColor = (status: Sale["status"]) =>
-  status === "completed"
+const getStatusColor = (status: Transaction["status"]) =>
+  status === "succeeded"
     ? COLORS.success
-    : status === "pending"
+    : status === "pending" || status === "processing"
+    ? COLORS.warning
+    : status === "failed" || status === "cancelled" || status === "refunded"
+    ? COLORS.error
+    : COLORS.muted;
+
+const getPaymentStatusColor = (status: Transaction["status"]) =>
+  status === "succeeded"
+    ? COLORS.success
+    : status === "pending" || status === "processing"
     ? COLORS.warning
     : COLORS.error;
-
-const getPaymentStatusColor = (status: Sale["paymentStatus"]) =>
-  status === "paid"
-    ? COLORS.success
-    : status === "pending"
-    ? COLORS.warning
-    : COLORS.error;
-
-const getShippingStatusColor = (status?: Sale["shippingStatus"]) => {
-  if (!status) return COLORS.muted;
-  return status === "delivered"
-    ? COLORS.success
-    : status === "shipped"
-    ? COLORS.accent
-    : COLORS.warning;
-};
 
 const renderStars = (rating: number, size = 14) => (
   <View style={styles.starContainer}>
@@ -140,27 +59,45 @@ const renderStars = (rating: number, size = 14) => (
 
 export default function Sales() {
   const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "completed" | "pending" | "disputed"
+    "all" | "succeeded" | "pending" | "processing" | "failed" | "cancelled" | "refunded"
   >("all");
   const [showDetails, setShowDetails] = useState<string | null>(null);
 
-  const filteredSales = mockSales.filter(
-    (s) => selectedFilter === "all" || s.status === selectedFilter
+  // Redux integration
+  const dispatch = useDispatch();
+  const transactions = useSelector(selectTransactions);
+  const paymentStatus = useSelector(selectPaymentStatus);
+
+  // Fetch transactions on component mount
+  useEffect(() => {
+    dispatch(fetchTransactionsThunk({ page: 1, limit: 20 }) as any);
+  }, [dispatch]);
+
+  // Filter transactions to show only sales (seller transactions)
+  const salesTransactions = (transactions || []).filter((transaction: Transaction) => 
+    transaction.metadata?.type === 'sale' || transaction.amount > 0 // Assuming positive amounts are sales
   );
 
-  const renderSale = ({ item }: { item: Sale }) => (
+  const filteredSales = salesTransactions.filter((transaction: Transaction) => 
+    selectedFilter === "all" || transaction.status === selectedFilter
+  );
+
+  const renderSale = ({ item }: { item: Transaction }) => (
     <TouchableOpacity
       style={styles.saleCard}
       onPress={() => setShowDetails(showDetails === item.id ? null : item.id)}
       activeOpacity={Interactions.activeOpacity}
     >
       <View style={styles.saleHeader}>
-        <Image source={{ uri: item.item.image }} style={styles.itemImage} />
+        <Image 
+          source={{ uri: item.metadata?.listing_image || 'https://via.placeholder.com/64' }} 
+          style={styles.itemImage} 
+        />
         <View style={styles.itemInfo}>
           <Text style={styles.itemTitle} numberOfLines={2}>
-            {item.item.title}
+            {item.metadata?.listing_title || item.description || 'Transaction'}
           </Text>
-          <Text style={styles.itemPrice}>${item.item.price}</Text>
+          <Text style={styles.itemPrice}>${item.amount}</Text>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -173,11 +110,11 @@ export default function Sales() {
             <View
               style={[
                 styles.badge,
-                { backgroundColor: getPaymentStatusColor(item.paymentStatus) },
+                { backgroundColor: getPaymentStatusColor(item.status) },
               ]}
             >
               <Text style={styles.badgeText}>
-                {item.paymentStatus.toUpperCase()}
+                {item.payment_method.toUpperCase()}
               </Text>
             </View>
           </View>
@@ -185,33 +122,32 @@ export default function Sales() {
       </View>
 
       <View style={styles.buyerInfo}>
-        <Image source={{ uri: item.buyer.avatar }} style={styles.buyerAvatar} />
+        <Image 
+          source={{ uri: item.metadata?.buyer_avatar || 'https://via.placeholder.com/32' }} 
+          style={styles.buyerAvatar} 
+        />
         <View style={styles.buyerDetails}>
-          <Text style={styles.buyerName}>{item.buyer.name}</Text>
-          {renderStars(item.buyer.rating)}
+          <Text style={styles.buyerName}>
+            {item.metadata?.buyer_name || 'Buyer'}
+          </Text>
+          {renderStars(Number(item.metadata?.buyer_rating || 0))}
         </View>
-        <Text style={styles.saleDate}>{item.saleDate}</Text>
+        <Text style={styles.saleDate}>
+          {new Date(item.created_at).toLocaleDateString()}
+        </Text>
       </View>
 
       {showDetails === item.id && (
         <View style={styles.expandedDetails}>
-          {item.shippingStatus && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Transaction ID</Text>
+            <Text style={styles.detailValue}>{item.id}</Text>
+          </View>
+
+          {item.payment_intent_id && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Shipping</Text>
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor: getShippingStatusColor(
-                      item.shippingStatus
-                    ),
-                  },
-                ]}
-              >
-                <Text style={styles.badgeText}>
-                  {item.shippingStatus.toUpperCase()}
-                </Text>
-              </View>
+              <Text style={styles.detailLabel}>Payment Intent</Text>
+              <Text style={styles.detailValue}>{item.payment_intent_id}</Text>
             </View>
           )}
 
@@ -236,7 +172,7 @@ export default function Sales() {
                 </TouchableOpacity>
               </>
             )}
-            {item.status === "completed" && (
+            {item.status === "succeeded" && (
               <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
                 <Ionicons
                   name="repeat-outline"
@@ -246,7 +182,7 @@ export default function Sales() {
                 <Text style={styles.actionText}>Sell Again</Text>
               </TouchableOpacity>
             )}
-            {item.status === "disputed" && (
+            {(item.status === "failed" || item.status === "cancelled") && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.disputeButton]}
                 activeOpacity={Interactions.buttonOpacity}
@@ -267,25 +203,29 @@ export default function Sales() {
     </TouchableOpacity>
   );
 
+  // Calculate stats from real data
+  const totalRevenue = salesTransactions.reduce((sum: number, transaction: Transaction) => sum + transaction.amount, 0);
+  const averageRating = 0; // This would come from review data in a real implementation
+
   return (
     <View style={styles.container}>
       <View style={styles.statsContainer}>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>$1,877</Text>
+          <Text style={styles.statValue}>${totalRevenue.toFixed(0)}</Text>
           <Text style={styles.statLabel}>Revenue</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statValue}>{salesTransactions.length}</Text>
           <Text style={styles.statLabel}>Sales</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>4.8</Text>
+          <Text style={styles.statValue}>{averageRating}</Text>
           <Text style={styles.statLabel}>Rating</Text>
         </View>
       </View>
 
       <View style={styles.filterContainer}>
-        {(["all", "completed", "pending", "disputed"] as const).map((f) => (
+        {(["all", "succeeded", "pending", "processing", "failed", "cancelled", "refunded"] as const).map((f) => (
           <TouchableOpacity
             key={f}
             style={[
@@ -301,7 +241,7 @@ export default function Sales() {
                 selectedFilter === f && styles.filterTextActive,
               ]}
             >
-              {f.toUpperCase()}
+              {f.charAt(0).toUpperCase() + f.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -310,9 +250,16 @@ export default function Sales() {
       <FlatList
         data={filteredSales}
         renderItem={renderSale}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20 }}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="cash-outline" size={48} color={COLORS.muted} />
+            <Text style={styles.emptyText}>No sales found</Text>
+            <Text style={styles.emptySubtext}>Start making sales to see them here</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -440,4 +387,34 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 12, fontWeight: "600", color: COLORS.accent },
 
   disputeButton: { backgroundColor: COLORS.error, borderColor: COLORS.error },
+
+  // Empty state styles
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.muted,
+    marginTop: 16,
+    textAlign: "center",
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.muted,
+    marginTop: 4,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  detailValue: {
+    fontSize: 14,
+    color: COLORS.muted,
+    fontWeight: "500",
+  },
 });

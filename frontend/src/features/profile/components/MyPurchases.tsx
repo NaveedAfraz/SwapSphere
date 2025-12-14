@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,13 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Interactions } from '@/src/constants/theme';
+import { useDispatch, useSelector } from "react-redux";
+import { Interactions } from "@/src/constants/theme";
+import { fetchTransactionsThunk } from "../../payment/paymentThunks";
+import {
+  selectTransactions,
+  selectPaymentStatus,
+} from "../../payment/paymentSelectors";
 
 const COLORS = {
   dark: "#111827",
@@ -87,91 +93,56 @@ const renderStars = (rating: number, size = 14) => (
 
 export default function MyPurchases() {
   const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "delivered" | "shipping" | "processing" | "cancelled"
+    "all" | "pending" | "processing" | "completed" | "cancelled"
   >("all");
-  const [showDetails, setShowDetails] = useState<string | null>(null);
 
-  const mockPurchases: Purchase[] = [
-    {
-      id: "1",
-      item: {
-        title: "Vintage Leather Jacket",
-        image:
-          "https://images.unsplash.com/photo-1551488831-00ddc6d65544?w=400",
-        price: 189,
-        condition: "Excellent",
-      },
-      seller: {
-        name: "Alex Vintage",
-        avatar:
-          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-        rating: 4.9,
-      },
-      purchaseDate: "2024-01-18",
-      status: "delivered",
-      paymentStatus: "paid",
-      trackingNumber: "1Z999AA10123456784",
-      estimatedDelivery: "2024-01-20",
-    },
-    {
-      id: "2",
-      item: {
-        title: "Canon EOS Rebel T7i",
-        image:
-          "https://images.unsplash.com/photo-1516035069379-859e2e5d5d7c?w=400",
-        price: 549,
-        condition: "Like New",
-      },
-      seller: {
-        name: "Photo Pro Store",
-        avatar:
-          "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-        rating: 4.8,
-      },
-      purchaseDate: "2024-01-20",
-      status: "shipping",
-      paymentStatus: "paid",
-      trackingNumber: "1Z999AA10123456785",
-      estimatedDelivery: "2024-01-25",
-    },
-    {
-      id: "3",
-      item: {
-        title: "Gaming PC Setup",
-        image:
-          "https://images.unsplash.com/photo-1597872200968-1b80694e5c71?w=400",
-        price: 1200,
-        condition: "Good",
-      },
-      seller: {
-        name: "TechGuru",
-        avatar:
-          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400",
-        rating: 4.7,
-      },
-      purchaseDate: "2024-01-22",
-      status: "processing",
-      paymentStatus: "pending",
-    },
-  ];
+  // Redux integration using payment thunks/selectors
+  const dispatch = useDispatch();
+  const transactions = useSelector(selectTransactions);
+  const paymentStatus = useSelector(selectPaymentStatus);
 
-  const filteredPurchases = mockPurchases.filter(
-    (p) => selectedFilter === "all" || p.status === selectedFilter
+  // Fetch transactions on component mount
+  useEffect(() => {
+    dispatch(fetchTransactionsThunk({ page: 1, limit: 20 }) as any);
+  }, [dispatch]);
+
+  // Filter transactions to show only purchases (buyer transactions)
+  const purchaseTransactions = (transactions || []).filter(
+    (transaction: any) =>
+      transaction.type === "purchase" || transaction.buyer_id === "current_user" // Adjust based on actual Transaction type
   );
 
-  const renderPurchase = ({ item }: { item: Purchase }) => (
+  const filteredPurchases = purchaseTransactions.filter(
+    (transaction: any) =>
+      selectedFilter === "all" || transaction.status === selectedFilter
+  );
+
+  const [showDetails, setShowDetails] = useState<string | null>(null);
+
+  const renderPurchase = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.purchaseCard}
       onPress={() => setShowDetails(showDetails === item.id ? null : item.id)}
       activeOpacity={Interactions.activeOpacity}
     >
       <View style={styles.purchaseHeader}>
-        <Image source={{ uri: item.item.image }} style={styles.itemImage} />
+        <Image
+          source={{
+            uri:
+              item.listing?.images?.[0]?.url ||
+              "https://via.placeholder.com/64",
+          }}
+          style={styles.itemImage}
+        />
         <View style={styles.itemInfo}>
-          <Text style={styles.itemTitle}>{item.item.title}</Text>
-          <Text style={styles.itemPrice}>${item.item.price}</Text>
+          <Text style={styles.itemTitle}>
+            {item.listing?.title || "Unknown Item"}
+          </Text>
+          <Text style={styles.itemPrice}>
+            ${item.amount || item.listing?.price || 0}
+          </Text>
           <Text style={styles.itemCondition}>
-            {item.item.condition} Condition
+            {item.listing?.condition || "N/A"} Condition
           </Text>
 
           <View style={styles.statusRow}>
@@ -181,16 +152,18 @@ export default function MyPurchases() {
                 { backgroundColor: getStatusColor(item.status) },
               ]}
             >
-              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+              <Text style={styles.statusText}>
+                {(item.status || "").toUpperCase()}
+              </Text>
             </View>
             <View
               style={[
                 styles.statusBadge,
-                { backgroundColor: getPaymentStatusColor(item.paymentStatus) },
+                { backgroundColor: getPaymentStatusColor(item.payment_status) },
               ]}
             >
               <Text style={styles.statusText}>
-                {item.paymentStatus.toUpperCase()}
+                {(item.payment_status || "").toUpperCase()}
               </Text>
             </View>
           </View>
@@ -199,27 +172,36 @@ export default function MyPurchases() {
 
       <View style={styles.sellerInfo}>
         <Image
-          source={{ uri: item.seller.avatar }}
+          source={{
+            uri: item.seller?.avatar_url || "https://via.placeholder.com/32",
+          }}
           style={styles.sellerAvatar}
         />
         <View style={styles.sellerDetails}>
-          <Text style={styles.sellerName}>{item.seller.name}</Text>
-          {renderStars(item.seller.rating)}
+          <Text style={styles.sellerName}>
+            {item.seller?.display_name || "Unknown Seller"}
+          </Text>
+          {renderStars(item.seller?.rating || 0)}
         </View>
-        <Text style={styles.purchaseDate}>{item.purchaseDate}</Text>
+        <Text style={styles.purchaseDate}>
+          {new Date(item.created_at).toLocaleDateString()}
+        </Text>
       </View>
 
       {showDetails === item.id && (
         <View style={styles.expandedDetails}>
-          {item.trackingNumber && (
+          {item.tracking_number && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Tracking</Text>
-              <Text style={styles.trackingNumber}>{item.trackingNumber}</Text>
+              <Text style={styles.trackingNumber}>{item.tracking_number}</Text>
             </View>
           )}
 
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              activeOpacity={Interactions.buttonOpacity}
+            >
               <Ionicons
                 name="chatbubble-outline"
                 size={16}
@@ -240,6 +222,14 @@ export default function MyPurchases() {
         renderItem={renderPurchase}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="bag-outline" size={48} color={COLORS.muted} />
+            <Text style={styles.emptyText}>No purchases found</Text>
+            <Text style={styles.emptySubtext}>Start browsing and making purchases to see them here</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -333,4 +323,28 @@ const styles = StyleSheet.create({
   },
 
   actionButtonText: { fontSize: 12, fontWeight: "600", color: COLORS.accent },
+
+  // Empty state styles
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.muted,
+    marginTop: 16,
+    textAlign: "center",
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.muted,
+    marginTop: 4,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

@@ -35,21 +35,30 @@ export interface Listing {
   id: string;
   title: string;
   description: string;
-  price: number;
+  price: string; // API returns string, not number
   category: Category;
   condition: Condition;
-  images: ListingImage[];
+  primary_image_url?: string; // API returns single primary image URL
   location: Location;
   seller_id: string;
   seller_name?: string;
   seller_avatar?: string;
   seller_rating?: number;
-  status: "active" | "sold" | "pending" | "removed";
-  is_favorite?: boolean;
-  view_count: number;
-  favorite_count: number;
+  seller_verified?: boolean;
+  store_name?: string;
+  tags?: string[];
+  is_published: boolean;
+  is_favorite?: boolean; // Added for favorite tracking
+  visibility: "public" | "private";
+  view_count: string; // API returns string
+  favorites_count: string; // API returns string
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
+  search_vector?: string;
+  metadata?: any;
+  quantity: number;
+  currency: string;
 }
 
 export interface ListingState {

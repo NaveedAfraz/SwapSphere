@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,21 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Interactions } from '@/src/constants/theme';
+import { useDispatch, useSelector } from "react-redux";
+import { Interactions } from "@/src/constants/theme";
+import { 
+  fetchMyReviewsThunk, 
+  fetchReceivedReviewsThunk 
+} from "../../review/reviewThunks";
+import { 
+  selectMyReviews, 
+  selectReceivedReviews, 
+  selectReviewStatus 
+} from "../../review/reviewSelectors";
+import type { Review } from "../../review/types/review";
 
 const COLORS = {
   dark: "#111827",
@@ -23,21 +35,6 @@ const COLORS = {
   chipBg: "#F3F4F6",
 };
 
-interface Review {
-  id: string;
-  reviewer: {
-    name: string;
-    avatar: string;
-    rating: number;
-  };
-  item: string;
-  rating: number;
-  comment: string;
-  date: string;
-  response?: string;
-  isSellerReview: boolean;
-}
-
 const renderStars = (rating: number, size = 16) => (
   <View style={styles.starContainer}>
     {[1, 2, 3, 4, 5].map((star) => (
@@ -50,53 +47,55 @@ const renderStars = (rating: number, size = 16) => (
     ))}
   </View>
 );
-const mockReviews: Review[] = [
-  {
-    id: "1",
-    reviewer: {
-      name: "Sarah Johnson",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400",
-      rating: 4.8,
-    },
-    item: "iPhone 13 Pro - Excellent Condition",
-    rating: 5,
-    comment:
-      "Perfect condition! Exactly as described. Fast shipping and great communication.",
-    date: "2 days ago",
-    response: "Thank you so much! Glad you're happy with your purchase.",
-    isSellerReview: true,
-  },
-  {
-    id: "2",
-    reviewer: {
-      name: "Mike Chen",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-      rating: 4.9,
-    },
-    item: "MacBook Air M1 - 2020",
-    rating: 4,
-    comment: "Good laptop, minor scratches as mentioned. Works perfectly.",
-    date: "1 week ago",
-    isSellerReview: true,
-  },
-  {
-    id: "3",
-    reviewer: {
-      name: "Emily Davis",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-      rating: 4.7,
-    },
-    item: "Vintage Camera Collection",
-    rating: 5,
-    comment:
-      "Amazing collection! Each piece was carefully packaged and in great condition.",
-    date: "2 weeks ago",
-    isSellerReview: false,
-  },
-];
+// Mock data commented out - now using Redux state
+// const mockReviews: Review[] = [
+//   {
+//     id: "1",
+//     reviewer: {
+//       name: "Sarah Johnson",
+//       avatar:
+//         "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400",
+//       rating: 4.8,
+//     },
+//     item: "iPhone 13 Pro - Excellent Condition",
+//     rating: 5,
+//     comment:
+//       "Perfect condition! Exactly as described. Fast shipping and great communication.",
+//     date: "2 days ago",
+//     response: "Thank you so much! Glad you're happy with your purchase.",
+//     isSellerReview: true,
+//   },
+//   {
+//     id: "2",
+//     reviewer: {
+//       name: "Mike Chen",
+//       avatar:
+//         "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+//       rating: 4.9,
+//     },
+//     item: "MacBook Air M1 - 2020",
+//     rating: 4,
+//     comment: "Good laptop, minor scratches as mentioned. Works perfectly.",
+//     date: "1 week ago",
+//     isSellerReview: true,
+//   },
+//   {
+//     id: "3",
+//     reviewer: {
+//       name: "Emily Davis",
+//       avatar:
+//         "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
+//       rating: 4.7,
+//     },
+//     item: "Vintage Camera Collection",
+//     rating: 5,
+//     comment:
+//       "Amazing collection! Each piece was carefully packaged and in great condition.",
+//     date: "2 weeks ago",
+//     isSellerReview: false,
+//   },
+// ];
+
 export default function MyReviews({
   isSellerMode = true,
 }: {
@@ -106,8 +105,23 @@ export default function MyReviews({
     "all" | "5" | "4" | "3" | "2" | "1"
   >("all");
 
-  const filteredReviews = mockReviews.filter((r) => {
-    if (r.isSellerReview !== isSellerMode) return false;
+  // Redux integration
+  const dispatch = useDispatch();
+  const myReviews = useSelector(selectMyReviews);
+  const receivedReviews = useSelector(selectReceivedReviews);
+  const reviewStatus = useSelector(selectReviewStatus);
+
+  // Fetch reviews on component mount
+  useEffect(() => {
+    if (isSellerMode) {
+      dispatch(fetchReceivedReviewsThunk({ page: 1, limit: 20 }) as any);
+    } else {
+      dispatch(fetchMyReviewsThunk({ page: 1, limit: 20 }) as any);
+    }
+  }, [dispatch, isSellerMode]);
+
+  const reviews = isSellerMode ? receivedReviews : myReviews;
+  const filteredReviews = (reviews || []).filter((r: Review) => {
     if (selectedFilter === "all") return true;
     return r.rating === Number(selectedFilter);
   });
@@ -116,17 +130,17 @@ export default function MyReviews({
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
         <Image
-          source={{ uri: item.reviewer.avatar }}
+          source={{ uri: item.reviewer_avatar || 'https://via.placeholder.com/40' }}
           style={styles.reviewerAvatar}
         />
         <View style={styles.reviewerInfo}>
-          <Text style={styles.reviewerName}>{item.reviewer.name}</Text>
-          {renderStars(item.reviewer.rating, 14)}
+          <Text style={styles.reviewerName}>{item.reviewer_name || 'Anonymous'}</Text>
+          {renderStars(5, 14)} {/* Reviewer rating not available in Review type */}
         </View>
-        <Text style={styles.reviewDate}>{item.date}</Text>
+        <Text style={styles.reviewDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
 
-      <Text style={styles.reviewedItem}>{item.item}</Text>
+      <Text style={styles.reviewedItem}>{item.listing_title || 'Unknown Item'}</Text>
 
       <View style={styles.ratingContainer}>
         {renderStars(item.rating)}
@@ -138,7 +152,7 @@ export default function MyReviews({
       {item.response && (
         <View style={styles.responseContainer}>
           <Text style={styles.responseLabel}>Your Response</Text>
-          <Text style={styles.responseText}>{item.response}</Text>
+          <Text style={styles.responseText}>{item.response.comment}</Text>
         </View>
       )}
 
@@ -150,19 +164,28 @@ export default function MyReviews({
     </View>
   );
 
+  // Calculate stats from real data
+  const averageRating = reviews.length > 0 
+    ? (reviews.reduce((sum: number, r: Review) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : '0.0';
+  
+  const positivePercentage = reviews.length > 0
+    ? Math.round((reviews.filter((r: Review) => r.rating >= 4).length / reviews.length) * 100)
+    : 0;
+
   return (
     <View style={styles.container}>
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>4.8</Text>
+          <Text style={styles.statValue}>{averageRating}</Text>
           <Text style={styles.statLabel}>Average Rating</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{mockReviews.length}</Text>
+          <Text style={styles.statValue}>{reviews.length}</Text>
           <Text style={styles.statLabel}>Total Reviews</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>98%</Text>
+          <Text style={styles.statValue}>{positivePercentage}%</Text>
           <Text style={styles.statLabel}>Positive</Text>
         </View>
       </View>
@@ -214,6 +237,20 @@ export default function MyReviews({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="star-outline" size={48} color={COLORS.muted} />
+            <Text style={styles.emptyText}>
+              {isSellerMode ? 'No reviews received yet' : 'No reviews given yet'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {isSellerMode 
+                ? 'Start making great sales to earn reviews from buyers'
+                : 'Start making purchases and leave reviews for sellers'
+              }
+            </Text>
+          </View>
+        }
       />
     </View>
   );
@@ -349,4 +386,28 @@ const styles = StyleSheet.create({
   },
 
   respondButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.white },
+
+  // Empty state styles
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.muted,
+    marginTop: 16,
+    textAlign: "center",
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.muted,
+    marginTop: 4,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

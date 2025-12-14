@@ -1,7 +1,14 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import React from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 interface ImageGalleryProps {
   images: string[];
@@ -9,7 +16,11 @@ interface ImageGalleryProps {
   onRemoveImage: (index: number) => void;
 }
 
-export default function ImageGallery({ images, onAddImages, onRemoveImage }: ImageGalleryProps) {
+export default function ImageGallery({
+  images,
+  onAddImages,
+  onRemoveImage,
+}: ImageGalleryProps) {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -31,7 +42,7 @@ export default function ImageGallery({ images, onAddImages, onRemoveImage }: Ima
       {images.map((image, index) => (
         <View key={index} style={styles.imageContainer}>
           <Image source={{ uri: image }} style={styles.image} />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.removeImageButton}
             onPress={() => onRemoveImage(index)}
           >
@@ -47,20 +58,22 @@ const styles = StyleSheet.create({
   addPhotoButton: {
     width: 100,
     height: 100,
-    backgroundColor: '#f3f4f6',
+    marginTop: 8,
+    backgroundColor: "#f3f4f6",
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   addPhotoText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginTop: 4,
   },
   imageContainer: {
     marginRight: 12,
-    position: 'relative',
+    marginTop: 8,
+    position: "relative",
   },
   image: {
     width: 100,
@@ -68,10 +81,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   removeImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: -8,
     right: -8,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 12,
   },
 });

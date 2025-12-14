@@ -1,10 +1,17 @@
 import React from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
 import { Heart, Star, MapPin } from "lucide-react-native";
 import { Interactions } from "@/src/constants/theme";
 
 interface FeaturedItem {
-  id: number;
+  id: string | number;
   title: string;
   image: string;
   category: string;
@@ -15,8 +22,8 @@ interface FeaturedItem {
 
 interface FeaturedItemsProps {
   items: FeaturedItem[];
-  liked: Record<number, boolean>;
-  toggleLike: (id: number) => void;
+  liked: Record<string | number, boolean>;
+  toggleLike: (id: string | number) => void;
   onMakeOffer?: (item: FeaturedItem) => void;
   onProductPress?: (item: FeaturedItem) => void;
   sectionTitle?: string;
@@ -46,13 +53,16 @@ export default function FeaturedItems({
       </View>
 
       {items.map((item) => (
-        <TouchableOpacity 
-          key={item.id} 
+        <TouchableOpacity
+          key={item.id}
           style={styles.featuredCard}
           onPress={() => onProductPress?.(item)}
           activeOpacity={Interactions.activeOpacity}
         >
-          <Image source={{ uri: item.image }} style={styles.featuredImage} />
+          <Image 
+            source={{ uri: item.image }} 
+            style={styles.featuredImage}
+          />
           <TouchableOpacity
             style={styles.likeBtn}
             onPress={() => toggleLike(item.id)}
@@ -81,7 +91,7 @@ export default function FeaturedItems({
             </View>
             <View style={styles.featuredFooter}>
               <Text style={styles.price}>{item.price}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.bookBtn}
                 onPress={() => onMakeOffer?.(item)}
                 activeOpacity={Interactions.buttonOpacity}
@@ -96,7 +106,9 @@ export default function FeaturedItems({
   );
 
   if (useScrollView) {
-    return <ScrollView showsVerticalScrollIndicator={false}>{content}</ScrollView>;
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>{content}</ScrollView>
+    );
   }
 
   return content;
