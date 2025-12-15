@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User, Profile, Seller } = require("./model");
 const { uploadImage } = require("../services/s3Service");
+const { pool } = require("../database/db");
 const crypto = require('crypto');
 
 // Helper function to upload profile picture to S3
@@ -466,6 +467,45 @@ const updateProfilePicture = async (req, res) => {
   }
 };
 
+// Get current user info (for auth hydration)
+const getMe = async (req, res) => {
+  try {
+    // User should be authenticated via middleware
+    if (!req.user) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Get user data using the custom findById method
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get user profile data separately
+    const profileResult = await pool.query(
+      "SELECT * FROM profiles WHERE user_id = $1",
+      [req.user.id]
+    );
+    const profile = profileResult.rows[0];
+
+    // Return user data in expected format
+    res.status(200).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        sellerMode: profile?.seller_mode || false,
+        profileCompleted: !!profile,
+      },
+      token: req.headers.authorization?.replace('Bearer ', ''), // Return current token
+    });
+  } catch (error) {
+    console.error("Get me error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
   registerBasic,
   setupProfile,
@@ -473,4 +513,5 @@ module.exports = {
   googleAuth,
   logout,
   updateProfilePicture,
+  getMe,
 };

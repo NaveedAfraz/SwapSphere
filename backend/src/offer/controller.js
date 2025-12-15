@@ -5,7 +5,8 @@ const {
   getOffersByListing,
   getOfferById,
   updateOfferStatus,
-  createCounterOffer
+  createCounterOffer,
+  updateOffer
 } = require('./model');
 const { createNotification, updateNotificationStatus } = require('../notification/model');
 
@@ -180,14 +181,8 @@ const acceptOffer = async (req, res) => {
     
     const offer = await updateOfferStatus(sellerId, id, 'accepted');
     
-    console.log('=== OFFER ACCEPTANCE DEBUG ===');
-    console.log('Offer ID:', id);
-    console.log('Seller ID:', sellerId);
-    console.log('Seller User ID:', sellerUserId);
-    console.log('Updated offer:', offer);
-    
     // Update existing notification status for seller
-    console.log('Looking for notification with user_id:', sellerUserId, 'and offer_id:', id);
+    // console.log('Looking for notification with user_id:', sellerUserId, 'and offer_id:', id);
     const existingNotificationQuery = `
       SELECT id FROM notifications 
       WHERE user_id = $1 AND type = 'offer_received' 
@@ -195,7 +190,7 @@ const acceptOffer = async (req, res) => {
     `;
     const existingNotificationResult = await pool.query(existingNotificationQuery, [sellerUserId, id]);
     
-    console.log('Found notifications:', existingNotificationResult.rows.length, existingNotificationResult.rows);
+    // console.log('Found notifications:', existingNotificationResult.rows.length, existingNotificationResult.rows);
     
     if (existingNotificationResult.rows.length > 0) {
       console.log('Found notification to update:', existingNotificationResult.rows[0]);
@@ -367,6 +362,21 @@ const cancelOffer = async (req, res) => {
   }
 };
 
+const updateOfferController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { counter_amount, counter_message, expires_at } = req.body;
+    
+    const updatedOffer = await updateOffer(userId, id, { counter_amount, counter_message, expires_at });
+    
+    res.json(updatedOffer);
+  } catch (error) {
+    console.error('Error updating offer:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createOffer,
   getBuyerOffers,
@@ -376,5 +386,6 @@ module.exports = {
   acceptOffer,
   declineOffer,
   counterOffer,
-  cancelOffer
+  cancelOffer,
+  updateOffer: updateOfferController
 };

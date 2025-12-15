@@ -236,20 +236,15 @@ const createCounterOffer = async (sellerId, originalOfferId, counterData) => {
       throw new Error('Cannot counter offer that is not pending');
     }
     
-    // Update original offer status to countered
-    await pool.query('UPDATE offers SET status = $1 WHERE id = $2', ['countered', originalOfferId]);
-    
-    // Create counter offer
-    const counterQuery = `
-      INSERT INTO offers (listing_id, buyer_id, seller_id, offered_price, offered_quantity, expires_at, counter_for)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    // Update the existing offer with counter offer details
+    const updateQuery = `
+      UPDATE offers 
+      SET offered_price = $1, offered_quantity = $2, expires_at = $3, status = 'countered', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
       RETURNING *
     `;
     
-    const result = await pool.query(counterQuery, [
-      original.listing_id,
-      original.buyer_id,
-      sellerId,
+    const result = await pool.query(updateQuery, [
       offered_price,
       offered_quantity || 1,
       expires_at,
@@ -277,6 +272,46 @@ const expireOffers = async () => {
   return result.rows;
 };
 
+const updateOffer = async (userId, offerId, updateData) => {
+  const { counter_amount, expires_at } = updateData;
+  
+  await pool.query("BEGIN");
+  
+  try {
+    // First verify the user owns this offer
+    const offerCheck = await pool.query(
+      'SELECT * FROM offers WHERE id = $1 AND buyer_id = $2',
+      [offerId, userId]
+    );
+    
+    if (offerCheck.rows.length === 0) {
+      throw new Error('Offer not found or not authorized');
+    }
+    
+    // Update the offer
+    const updateQuery = `
+      UPDATE offers 
+      SET offered_price = $1, expires_at = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3 AND buyer_id = $4
+      RETURNING *
+    `;
+    
+    const result = await pool.query(updateQuery, [
+      counter_amount,
+      expires_at || null,
+      offerId,
+      userId
+    ]);
+    
+    await pool.query('COMMIT');
+    
+    return result.rows[0];
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    throw error;
+  }
+};
+
 module.exports = {
   createOffer,
   getOffersByUser,
@@ -284,5 +319,6 @@ module.exports = {
   getOfferById,
   updateOfferStatus,
   createCounterOffer,
+  updateOffer,
   expireOffers
 };

@@ -6,6 +6,7 @@ const {
   googleAuth,
   logout,
   updateProfilePicture,
+  getMe,
 } = require("./controller");
 const { authenticate } = require('../../src/common/middleware/auth');
 
@@ -28,5 +29,8 @@ router.post("/logout", logout);
 
 // Update profile picture (requires authentication)
 router.post("/update-profile-picture", authenticate ,updateProfilePicture);
+
+// Get current user info (for auth hydration)
+router.get("/me", authenticate, getMe);
 
 module.exports = router;

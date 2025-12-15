@@ -9,7 +9,8 @@ const {
   acceptOffer,
   declineOffer,
   counterOffer,
-  cancelOffer
+  cancelOffer,
+  updateOffer
 } = require('./controller');
 const { authenticate } = require('../../src/common/middleware/auth');
 
@@ -39,5 +40,8 @@ router.post('/:id/counter', authenticate, counterOffer);
 
 // Cancel an offer (buyer only)
 router.post('/:id/cancel', authenticate, cancelOffer);
+
+// Update an offer (buyer or seller depending on ownership)
+router.put('/:id', authenticate, updateOffer);
 
 module.exports = router;

@@ -7,7 +7,8 @@ const {
   sendMessage,
   getChatMessages,
   markAsRead,
-  deleteMessage
+  deleteMessage,
+  findChatByUsers
 } = require('./controller');
 const { authenticate } = require('../../src/common/middleware/auth');
 
@@ -16,6 +17,9 @@ router.post('/', authenticate, createChat);
 
 // Get all chats for current user
 router.get('/', authenticate, getChats);
+
+// Find chat by users and optionally listing ID
+router.get('/find-by-users', authenticate, findChatByUsers);
 
 // Get a specific chat by ID
 router.get('/:id', authenticate, getChat);
