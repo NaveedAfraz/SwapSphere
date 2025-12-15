@@ -3,7 +3,7 @@ const { pool } = require("../database/db");
 const getUserById = async (userId) => {
   const query = `
     SELECT u.id, u.email, u.phone, u.created_at, u.is_active,
-           p.id as profile_id, p.name, p.avatar_key, p.bio, 
+           p.id as profile_id, p.name, p.profile_picture_url, p.bio, 
            p.seller_mode, p.rating_avg, p.rating_count, p.location,
            s.id as seller_id, s.store_name, s.seller_rating, s.total_sales
     FROM users u
@@ -28,7 +28,7 @@ const getUserById = async (userId) => {
     profile: {
       id: user.profile_id,
       name: user.name,
-      avatar_key: user.avatar_key,
+      profile_picture_url: user.profile_picture_url,
       bio: user.bio,
       seller_mode: user.seller_mode,
       rating_avg: user.rating_avg,

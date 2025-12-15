@@ -395,3 +395,50 @@ END$$;
 CREATE INDEX IF NOT EXISTS idx_listings_search_vector ON listings USING GIN (search_vector); ERROR:  relation "messages" does not exist 
 
 SQL state: 42P01  using pgadin and neon   
+
+-- Add profile picture support to profiles table
+-- This query adds a profile_picture_url column to store the full URL of the profile picture
+-- The existing avatar_key column can be used for S3 key storage
+
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS profile_picture_url TEXT,
+ADD COLUMN IF NOT EXISTS profile_picture_mime_type TEXT,
+ADD COLUMN IF NOT EXISTS profile_picture_size_bytes BIGINT;
+
+-- Add index for faster profile picture lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_avatar_key ON profiles (avatar_key);
+CREATE INDEX IF NOT EXISTS idx_profiles_picture_url ON profiles (profile_picture_url);
+
+-- Add comment to document the columns
+COMMENT ON COLUMN profiles.avatar_key IS 'S3 storage key for profile picture image';
+COMMENT ON COLUMN profiles.profile_picture_url IS 'Full URL of the profile picture image';
+COMMENT ON COLUMN profiles.profile_picture_mime_type IS 'MIME type of profile picture (e.g., image/jpeg, image/png)';
+COMMENT ON COLUMN profiles.profile_picture_size_bytes IS 'Size of profile picture in bytes';
+
+-- Add status column to notifications table
+-- This will help track the current status of offers within notifications
+-- Note: is_read field already exists for read/unread state
+
+DO $$ BEGIN
+  -- Check if the status column already exists
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'notifications' 
+    AND column_name = 'status'
+  ) THEN
+    -- Add the status column for offer status tracking
+    ALTER TABLE notifications 
+    ADD COLUMN status TEXT;
+    
+    -- Create index for better performance on status queries
+    CREATE INDEX IF NOT EXISTS idx_notifications_status 
+    ON notifications (status);
+    
+    -- Add comment to explain the purpose
+    COMMENT ON COLUMN notifications.status IS 'Current status of the related entity (e.g., offer status: pending, accepted, declined, etc.)';
+    
+    -- Add comment for is_read field for clarity
+    COMMENT ON COLUMN notifications.is_read IS 'Whether the notification has been read by the user (true/false)';
+    
+  END IF;
+END $$;

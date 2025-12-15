@@ -4,7 +4,9 @@ import axios from "axios";
 import type {
   UpdateProfilePayload,
   ToggleSellerModePayload,
+  UserProfile,
   UserResponse,
+  UserByIdResponse,
   UserStats,
 } from "./types/user";
 
@@ -41,6 +43,51 @@ export const getUserProfileThunk = createAsyncThunk<
       error.response?.data?.error ||
       error.message ||
       "Failed to fetch user profile";
+    return rejectWithValue(errorMessage);
+  }
+});
+
+export const getUserByIdThunk = createAsyncThunk<
+  UserResponse,
+  string,
+  { rejectValue: string }
+>("user/getById", async (userId: string, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get<UserByIdResponse>(`/${userId}`);
+
+    // Transform the API response to match UserProfile interface
+    const userProfile: UserProfile = {
+      id: response.data.id,
+      name: response.data.profile?.name || "",
+      bio: response.data.profile?.bio || "",
+      avatar: response.data.profile?.profile_picture_url || "",
+      location: response.data.profile?.location
+        ? {
+            city: response.data.profile.location.city,
+            state: undefined,
+            country: undefined,
+            coordinates: undefined,
+          }
+        : undefined,
+      seller_mode: response.data.profile?.seller_mode || false,
+      rating: response.data.profile?.rating_avg
+        ? parseFloat(response.data.profile.rating_avg)
+        : 0,
+      review_count: response.data.profile?.rating_count || 0,
+      response_rate: undefined,
+      avg_response_time: undefined,
+      verification_status: undefined,
+      created_at: response.data.created_at,
+      updated_at: response.data.created_at,
+    };
+
+    return { user: userProfile };
+  } catch (error: any) {
+    console.log(error);
+    const errorMessage =
+      error.response?.data?.error ||
+      error.message ||
+      "Failed to fetch user details";
     return rejectWithValue(errorMessage);
   }
 });

@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { UserState, UserProfile, UserStats } from './types/user';
+import type { UserState, UserProfile, UserStats, UserResponse } from './types/user';
 
 const initialState: UserState = {
   profile: null,
@@ -8,6 +8,7 @@ const initialState: UserState = {
   error: null,
   updateStatus: 'idle',
   updateError: null,
+  fetchedUser: null,
 };
 
 const userSlice = createSlice({
@@ -54,10 +55,25 @@ const userSlice = createSlice({
         }
         state.error = null;
       })
-      .addCase('user/getProfile/rejected', (state: UserState, action: any) => {
+      .addCase('user/getProfile/rejected', (state: UserState, action: PayloadAction<string>) => {
         state.status = 'error';
-        state.error = action.payload as string || 'Failed to fetch profile';
-      });
+        state.error = action.payload;
+      })
+
+      // Handle get user by ID thunk
+      .addCase('user/getById/pending', (state: UserState) => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase('user/getById/fulfilled', (state: UserState, action: PayloadAction<UserResponse>) => {
+        state.status = 'success';
+        state.fetchedUser = action.payload.user;
+        state.error = null;
+      })
+      .addCase('user/getById/rejected', (state: UserState, action: PayloadAction<string>) => {
+        state.status = 'error';
+        state.error = action.payload;
+      })
 
     // Handle update profile thunk
     builder

@@ -1,7 +1,10 @@
 import type { RootState } from '../../store';
 import type { NotificationStateType, Notification, NotificationType, NotificationPriority } from './types/notification';
 
-// Basic selectors
+// Import Ionicons for type checking
+import { Ionicons } from '@expo/vector-icons';
+
+// Essential selectors used in notifications screen
 export const selectNotificationState = (state: RootState): NotificationStateType => state.notification;
 
 export const selectNotifications = (state: RootState): Notification[] => 
@@ -19,31 +22,10 @@ export const selectNotificationStatus = (state: RootState): string =>
 export const selectNotificationError = (state: RootState): string | null => 
   selectNotificationState(state).error;
 
-export const selectCreateStatus = (state: RootState): string => 
-  selectNotificationState(state).createStatus;
+export const selectUnreadCount = (state: RootState): number => 
+  selectUnreadNotifications(state).length;
 
-export const selectCreateError = (state: RootState): string | null => 
-  selectNotificationState(state).createError;
-
-export const selectUpdateStatus = (state: RootState): string => 
-  selectNotificationState(state).updateStatus;
-
-export const selectUpdateError = (state: RootState): string | null => 
-  selectNotificationState(state).updateError;
-
-export const selectNotificationPagination = (state: RootState) => 
-  selectNotificationState(state).pagination;
-
-export const selectNotificationFilters = (state: RootState) => 
-  selectNotificationState(state).filters;
-
-export const selectNotificationSettings = (state: RootState) => 
-  selectNotificationState(state).settings;
-
-export const selectNotificationStats = (state: RootState) => 
-  selectNotificationState(state).stats;
-
-// Derived selectors
+// Essential derived selectors
 export const selectIsNotificationLoading = (state: RootState): boolean => 
   selectNotificationStatus(state) === 'loading';
 
@@ -53,103 +35,75 @@ export const selectIsNotificationError = (state: RootState): boolean =>
 export const selectIsNotificationSuccess = (state: RootState): boolean => 
   selectNotificationStatus(state) === 'success';
 
-export const selectIsCreateNotificationLoading = (state: RootState): boolean => 
-  selectCreateStatus(state) === 'loading';
-
-export const selectIsCreateNotificationError = (state: RootState): boolean => 
-  selectCreateStatus(state) === 'error';
-
-export const selectIsCreateNotificationSuccess = (state: RootState): boolean => 
-  selectCreateStatus(state) === 'success';
-
-export const selectIsUpdateNotificationLoading = (state: RootState): boolean => 
-  selectUpdateStatus(state) === 'loading';
-
-export const selectIsUpdateNotificationError = (state: RootState): boolean => 
-  selectUpdateStatus(state) === 'error';
-
-export const selectIsUpdateNotificationSuccess = (state: RootState): boolean => 
-  selectUpdateStatus(state) === 'success';
-
-export const selectHasMoreNotifications = (state: RootState): boolean => 
-  selectNotificationPagination(state).hasMore;
-
-export const selectTotalNotifications = (state: RootState): number => 
-  selectNotificationPagination(state).total;
-
-export const selectUnreadCount = (state: RootState): number => 
-  selectNotificationStats(state).unread_count;
-
-export const selectReadCount = (state: RootState): number => 
-  selectNotificationStats(state).read_count;
-
-// Notification-specific selectors
+// Essential notification-specific selectors
 export const selectNotificationById = (state: RootState, notificationId: string): Notification | undefined => 
   selectNotifications(state).find(notification => notification.id === notificationId);
 
-export const selectUnreadNotificationById = (state: RootState, notificationId: string): Notification | undefined => 
-  selectUnreadNotifications(state).find(notification => notification.id === notificationId);
-
+// Database-specific selectors
 export const selectNotificationsByType = (state: RootState, type: NotificationType): Notification[] => 
   selectNotifications(state).filter(notification => notification.type === type);
+
+export const selectNotificationsByActor = (state: RootState, actorId: string): Notification[] => 
+  selectNotifications(state).filter(notification => notification.actor_id === actorId);
 
 export const selectUnreadNotificationsByType = (state: RootState, type: NotificationType): Notification[] => 
   selectUnreadNotifications(state).filter(notification => notification.type === type);
 
+export const selectRecentNotifications = (state: RootState, limit: number = 10): Notification[] => 
+  selectNotifications(state)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit);
+
+export const selectNotificationsByDateRange = (state: RootState, startDate: string, endDate: string): Notification[] => 
+  selectNotifications(state).filter(notification => {
+    const notificationDate = new Date(notification.created_at);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    return notificationDate >= start && notificationDate <= end;
+  });
+
+// Essential priority-based selectors (using payload)
 export const selectNotificationsByPriority = (state: RootState, priority: NotificationPriority): Notification[] => 
-  selectNotifications(state).filter(notification => notification.priority === priority);
+  selectNotifications(state).filter(notification => {
+    return notification.payload?.priority === priority;
+  });
 
 export const selectUnreadNotificationsByPriority = (state: RootState, priority: NotificationPriority): Notification[] => 
-  selectUnreadNotifications(state).filter(notification => notification.priority === priority);
+  selectUnreadNotifications(state).filter(notification => {
+    return notification.payload?.priority === priority;
+  });
 
 export const selectReadNotifications = (state: RootState): Notification[] => 
   selectNotifications(state).filter(notification => notification.is_read);
 
-export const selectExpiredNotifications = (state: RootState): Notification[] => {
-  const now = new Date();
-  return selectNotifications(state).filter(notification => 
-    notification.expires_at && new Date(notification.expires_at) < now
-  );
-};
-
-export const selectNotificationsWithAction = (state: RootState): Notification[] => 
-  selectNotifications(state).filter(notification => notification.action_url);
-
-export const selectUnreadNotificationsWithAction = (state: RootState): Notification[] => 
-  selectUnreadNotifications(state).filter(notification => notification.action_url);
-
-// Type-based selectors
+// Essential type-based selectors for database notification types
 export const selectMessageNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'message');
+  selectNotificationsByType(state, 'message_received');
 
 export const selectOfferNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'offer');
-
-export const selectOrderNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'order');
+  selectNotifications(state).filter(notification => 
+    notification.type === 'offer_received' || 
+    notification.type === 'offer_countered' || 
+    notification.type === 'offer_accepted' || 
+    notification.type === 'offer_declined'
+  );
 
 export const selectPaymentNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'payment');
+  selectNotificationsByType(state, 'payment_received');
 
 export const selectReviewNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'review');
+  selectNotificationsByType(state, 'review_received');
 
 export const selectListingNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'listing');
+  selectNotifications(state).filter(notification => 
+    notification.type === 'listing_favorited' || 
+    notification.type === 'listing_sold'
+  );
 
 export const selectSystemNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'system');
+  selectNotificationsByType(state, 'system_update');
 
-export const selectPromotionNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'promotion');
-
-export const selectReminderNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'reminder');
-
-export const selectAlertNotifications = (state: RootState): Notification[] => 
-  selectNotificationsByType(state, 'alert');
-
-// Priority-based selectors
+// Essential priority-based selectors
 export const selectUrgentNotifications = (state: RootState): Notification[] => 
   selectNotificationsByPriority(state, 'urgent');
 
@@ -174,185 +128,128 @@ export const selectUnreadMediumPriorityNotifications = (state: RootState): Notif
 export const selectUnreadLowPriorityNotifications = (state: RootState): Notification[] => 
   selectUnreadNotificationsByPriority(state, 'low');
 
-// Settings selectors
-export const selectPushEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).push_enabled;
-
-export const selectEmailEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).email_enabled;
-
-export const selectMessageNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).message_notifications;
-
-export const selectOfferNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).offer_notifications;
-
-export const selectOrderNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).order_notifications;
-
-export const selectPaymentNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).payment_notifications;
-
-export const selectReviewNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).review_notifications;
-
-export const selectListingNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).listing_notifications;
-
-export const selectSystemNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).system_notifications;
-
-export const selectPromotionNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).promotion_notifications;
-
-export const selectReminderNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).reminder_notifications;
-
-export const selectAlertNotificationsEnabled = (state: RootState): boolean => 
-  selectNotificationSettings(state).alert_notifications;
-
-// Time-based selectors
-export const selectRecentNotifications = (state: RootState, hours: number = 24): Notification[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setHours(cutoffDate.getHours() - hours);
-  return selectNotifications(state).filter(notification => 
-    new Date(notification.created_at) >= cutoffDate
-  );
-};
-
-export const selectRecentUnreadNotifications = (state: RootState, hours: number = 24): Notification[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setHours(cutoffDate.getHours() - hours);
-  return selectUnreadNotifications(state).filter(notification => 
-    new Date(notification.created_at) >= cutoffDate
-  );
-};
-
-export const selectOldNotifications = (state: RootState, days: number = 7): Notification[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-  return selectNotifications(state).filter(notification => 
-    new Date(notification.created_at) < cutoffDate
-  );
-};
-
-export const selectOldUnreadNotifications = (state: RootState, days: number = 7): Notification[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-  return selectUnreadNotifications(state).filter(notification => 
-    new Date(notification.created_at) < cutoffDate
-  );
-};
-
-// Complex selectors
+// Essential complex selectors
 export const selectNotificationsNeedingAction = (state: RootState): Notification[] => 
   selectUnreadNotifications(state).filter(notification => 
-    notification.action_url && 
-    (notification.priority === 'urgent' || notification.priority === 'high')
+    notification.payload?.action_url && 
+    (notification.payload?.priority === 'urgent' || notification.payload?.priority === 'high')
   );
 
 export const selectCriticalNotifications = (state: RootState): Notification[] => 
   selectUnreadNotifications(state).filter(notification => 
-    notification.priority === 'urgent' && 
-    (notification.type === 'alert' || notification.type === 'system')
+    notification.payload?.priority === 'urgent' && 
+    (notification.payload?.category === 'alert' || notification.type === 'system_update')
   );
 
-export const selectNotificationSummary = (state: RootState) => {
-  const unread = selectUnreadNotifications(state);
-  const urgent = selectUnreadUrgentNotifications(state);
-  const high = selectUnreadHighPriorityNotifications(state);
-  const needingAction = selectNotificationsNeedingAction(state);
+// Notification payload helpers for database structure
+export const getNotificationTitle = (notification: Notification): string => {
+  const { type, payload } = notification;
   
-  return {
-    totalUnread: unread.length,
-    urgentCount: urgent.length,
-    highPriorityCount: high.length,
-    needingActionCount: needingAction.length,
-    hasCritical: urgent.some(n => n.type === 'alert' || n.type === 'system'),
-    oldestUnread: unread.length > 0 ? unread[unread.length - 1].created_at : null,
-    newestUnread: unread.length > 0 ? unread[0].created_at : null,
-  };
+  switch (type) {
+    case 'offer_received':
+      return `New offer on ${payload?.listing_title || 'your listing'}`;
+    case 'offer_countered':
+      return `Counter offer on ${payload?.listing_title || 'your listing'}`;
+    case 'offer_accepted':
+      return `Offer accepted on ${payload?.listing_title || 'your listing'}`;
+    case 'offer_declined':
+      return `Offer declined on ${payload?.listing_title || 'your listing'}`;
+    case 'message_received':
+      return `New message from ${payload?.sender_name || 'someone'}`;
+    case 'listing_favorited':
+      return `${payload?.user_name || 'Someone'} favorited your listing`;
+    case 'listing_sold':
+      return `Your listing ${payload?.listing_title || ''} has been sold`;
+    case 'payment_received':
+      return `Payment received for ${payload?.order_id || 'your order'}`;
+    case 'review_received':
+      return `New review from ${payload?.reviewer_name || 'someone'}`;
+    case 'system_update':
+      return payload?.title || 'System update';
+    default:
+      return 'New notification';
+  }
 };
 
-export const selectNotificationTypeStats = (state: RootState) => {
-  const notifications = selectNotifications(state);
-  const stats: Record<NotificationType, { total: number; unread: number; read: number }> = {
-    message: { total: 0, unread: 0, read: 0 },
-    offer: { total: 0, unread: 0, read: 0 },
-    order: { total: 0, unread: 0, read: 0 },
-    payment: { total: 0, unread: 0, read: 0 },
-    review: { total: 0, unread: 0, read: 0 },
-    listing: { total: 0, unread: 0, read: 0 },
-    system: { total: 0, unread: 0, read: 0 },
-    promotion: { total: 0, unread: 0, read: 0 },
-    reminder: { total: 0, unread: 0, read: 0 },
-    alert: { total: 0, unread: 0, read: 0 },
-  };
+export const getNotificationMessage = (notification: Notification): string => {
+  const { type, payload } = notification;
   
-  notifications.forEach(notification => {
-    stats[notification.type].total++;
-    if (notification.is_read) {
-      stats[notification.type].read++;
-    } else {
-      stats[notification.type].unread++;
-    }
-  });
-  
-  return stats;
+  switch (type) {
+    case 'offer_received':
+      return `$${payload?.offered_price || 0} for ${payload?.offered_quantity || 1} item(s)`;
+    case 'offer_countered':
+      return `$${payload?.offered_price || 0} counter offer`;
+    case 'offer_accepted':
+      return `Your offer of $${payload?.offered_price || 0} was accepted`;
+    case 'offer_declined':
+      return `Your offer of $${payload?.offered_price || 0} was declined`;
+    case 'message_received':
+      return payload?.message_preview || 'Tap to read message';
+    case 'listing_favorited':
+      return payload?.listing_title || 'Your listing';
+    case 'listing_sold':
+      return `Sold for $${payload?.sale_price || 0}`;
+    case 'payment_received':
+      return `$${payload?.amount || 0} payment received`;
+    case 'review_received':
+      return payload?.review_text || 'Tap to read review';
+    case 'system_update':
+      return payload?.message || 'System notification';
+    default:
+      return 'Tap to view details';
+  }
 };
 
-export const selectNotificationPriorityStats = (state: RootState) => {
-  const notifications = selectNotifications(state);
-  const stats: Record<NotificationPriority, { total: number; unread: number; read: number }> = {
-    low: { total: 0, unread: 0, read: 0 },
-    medium: { total: 0, unread: 0, read: 0 },
-    high: { total: 0, unread: 0, read: 0 },
-    urgent: { total: 0, unread: 0, read: 0 },
-  };
-  
-  notifications.forEach(notification => {
-    stats[notification.priority].total++;
-    if (notification.is_read) {
-      stats[notification.priority].read++;
-    } else {
-      stats[notification.priority].unread++;
-    }
-  });
-  
-  return stats;
+export const getNotificationIcon = (type: NotificationType): keyof typeof Ionicons.glyphMap => {
+  switch (type) {
+    case 'offer_received':
+      return 'cash-outline';
+    case 'offer_countered':
+      return 'sync-outline';
+    case 'offer_accepted':
+      return 'checkmark-circle-outline';
+    case 'offer_declined':
+      return 'close-circle-outline';
+    case 'message_received':
+      return 'chatbubble-outline';
+    case 'listing_favorited':
+      return 'heart-outline';
+    case 'listing_sold':
+      return 'bag-check-outline';
+    case 'payment_received':
+      return 'card-outline';
+    case 'review_received':
+      return 'star-outline';
+    case 'system_update':
+      return 'information-circle-outline';
+    default:
+      return 'notifications-outline';
+  }
 };
 
-export const selectNotificationHealthScore = (state: RootState): number => {
-  const stats = selectNotificationStats(state);
-  const total = stats.total_notifications;
-  if (total === 0) return 100;
-  
-  const readRate = (stats.read_count / total) * 100;
-  const expiredRate = (stats.expired_count / total) * 100;
-  
-  // Health score considers read rate and penalizes expired notifications
-  return Math.max(0, Math.min(100, readRate - (expiredRate * 2)));
-};
-
-export const selectNotificationEngagementRate = (state: RootState): number => {
-  const stats = selectNotificationStats(state);
-  const total = stats.total_notifications;
-  if (total === 0) return 0;
-  
-  return (stats.read_count / total) * 100;
-};
-
-export const selectNotificationResponseTime = (state: RootState): number | null => {
-  const readNotifications = selectReadNotifications(state);
-  const notificationsWithReadTime = readNotifications.filter(n => n.read_at);
-  
-  if (notificationsWithReadTime.length === 0) return null;
-  
-  const totalResponseTime = notificationsWithReadTime.reduce((total, notification) => {
-    const created = new Date(notification.created_at);
-    const read = new Date(notification.read_at!);
-    return total + (read.getTime() - created.getTime());
-  }, 0);
-  
-  return totalResponseTime / notificationsWithReadTime.length / (1000 * 60); // in minutes
+export const getNotificationColor = (type: NotificationType): string => {
+  switch (type) {
+    case 'offer_received':
+      return '#3B82F6';
+    case 'offer_countered':
+      return '#F59E0B';
+    case 'offer_accepted':
+      return '#10B981';
+    case 'offer_declined':
+      return '#DC2626';
+    case 'message_received':
+      return '#8B5CF6';
+    case 'listing_favorited':
+      return '#EC4899';
+    case 'listing_sold':
+      return '#10B981';
+    case 'payment_received':
+      return '#10B981';
+    case 'review_received':
+      return '#F59E0B';
+    case 'system_update':
+      return '#6B7280';
+    default:
+      return '#6B7280';
+  }
 };

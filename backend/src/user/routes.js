@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
   getProfile, 
+  getUserById,
   updateProfile, 
   updateSettings, 
   uploadAvatar, 
@@ -13,6 +14,9 @@ const { authenticate } = require('../../src/common/middleware/auth');
 
 // Get current user profile
 router.get('/profile', authenticate, getProfile);
+
+// Get user by ID (public)
+router.get('/:userId', getUserById);
 
 // Update user profile
 router.put('/profile', authenticate, updateProfile);

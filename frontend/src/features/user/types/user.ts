@@ -42,6 +42,7 @@ export interface UserState {
   error: string | null;
   updateStatus: UserStatus;
   updateError: string | null;
+  fetchedUser: UserProfile | null;
 }
 
 export interface UpdateProfilePayload {
@@ -67,4 +68,30 @@ export interface ToggleSellerModePayload {
 export interface UserResponse {
   user: UserProfile;
   stats?: UserStats;
+}
+
+export interface UserByIdResponse {
+  id: string;
+  email: string;
+  is_active: boolean;
+  phone?: string;
+  created_at: string;
+  profile: {
+    id: string;
+    name?: string;
+    bio?: string;
+    profile_picture_url?: string;
+    location?: {
+      city?: string;
+    };
+    rating_avg: string;
+    rating_count: number;
+    seller_mode: boolean;
+  };
+  seller?: {
+    id: string;
+    store_name: string;
+    seller_rating: string;
+    total_sales: string;
+  };
 }

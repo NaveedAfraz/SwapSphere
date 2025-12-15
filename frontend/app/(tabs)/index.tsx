@@ -18,6 +18,7 @@ import ReviewsCarousel from "@/src/features/listing/components/ReviewsCarousel";
 import SellerBadge from "@/src/features/listing/components/SellerBadge";
 import SidebarDrawer from "@/src/features/listing/components/SidebarDrawer";
 import { fetchListingsThunk } from "@/src/features/listing/listingThunks";
+import { fetchUnreadCountThunk } from "@/src/features/notification/notificationThunks";
 import {
   selectListings,
   selectListingStatus,
@@ -25,6 +26,7 @@ import {
   selectIsListingsLoading,
   selectPagination,
 } from "@/src/features/listing/listingSelectors";
+import { selectUnreadCount } from "@/src/features/notification/notificationSelectors";
 import type { Listing } from "@/src/features/listing/types/listing";
 
 // Categories data
@@ -142,18 +144,28 @@ export default function HomePage() {
   const listingError = useSelector(selectListingError);
   const isLoading = useSelector(selectIsListingsLoading);
   const pagination = useSelector(selectPagination);
+  const unreadCount = useSelector(selectUnreadCount);
 
-  // Fetch listings on component mount
+  // Fetch listings and unread count on component mount
   useEffect(() => {
     dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any);
+    dispatch(fetchUnreadCountThunk() as any);
   }, [dispatch]);
 
   // Pull to refresh
   const handleRefresh = () => {
     setRefreshing(true);
-    dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any).finally(() =>
+    Promise.all([
+      dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any),
+      dispatch(fetchUnreadCountThunk() as any)
+    ]).finally(() =>
       setRefreshing(false)
     );
+  };
+
+  const handleNotificationPress = () => {
+    // Navigate to notifications screen
+    router.push('/notifications');
   };
 
   // Transform listing data for FeaturedItems component
@@ -221,6 +233,8 @@ export default function HomePage() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onMenuPress={toggleDrawer}
+        unreadCount={unreadCount}
+        onNotificationPress={handleNotificationPress}
       />
 
       <ScrollView

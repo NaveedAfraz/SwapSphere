@@ -199,21 +199,27 @@ const offerSlice = createSlice({
     // Handle accept offer thunk
     builder
       .addCase('offer/acceptOffer/fulfilled', (state: OfferStateType, action: PayloadAction<{ offer: Offer }>) => {
-        const updatedOffer = action.payload.offer;
-        const updateInArray = (array: Offer[]) => {
-          const index = array.findIndex(offer => offer.id === updatedOffer.id);
-          if (index !== -1) {
-            array[index] = updatedOffer;
+        if (action.payload && action.payload.offer) {
+          const updatedOffer = action.payload.offer;
+          const updateInArray = (array: Offer[]) => {
+            const index = array.findIndex(offer => offer.id === updatedOffer.id);
+            if (index !== -1) {
+              array[index] = updatedOffer;
+            }
+          };
+          
+          updateInArray(state.offers);
+          updateInArray(state.sentOffers);
+          updateInArray(state.receivedOffers);
+          
+          if (state.currentOffer?.id === updatedOffer.id) {
+            state.currentOffer = updatedOffer;
           }
-        };
-        
-        updateInArray(state.offers);
-        updateInArray(state.sentOffers);
-        updateInArray(state.receivedOffers);
-        
-        if (state.currentOffer?.id === updatedOffer.id) {
-          state.currentOffer = updatedOffer;
         }
+      })
+      .addCase('offer/acceptOffer/rejected', (state: OfferStateType, action: any) => {
+        state.updateStatus = 'error';
+        state.updateError = action.payload as string || 'Failed to accept offer';
       });
 
     // Handle reject offer thunk

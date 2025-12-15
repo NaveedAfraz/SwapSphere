@@ -11,9 +11,6 @@ import type {
   NotificationResponse, 
   NotificationsResponse,
   UnreadCountResponse,
-  NotificationSettingsResponse,
-  UpdateNotificationSettingsPayload,
-  NotificationStatsResponse,
   PushNotificationPayload,
   EmailNotificationPayload
 } from "./types/notification";
@@ -44,7 +41,7 @@ export const fetchNotificationsThunk = createAsyncThunk<
   { rejectValue: string }
 >(
   "notification/fetchNotifications",
-  async (searchParams: NotificationSearchParams, { rejectWithValue }) => {
+  async (searchParams: NotificationSearchParams = {}, { rejectWithValue }) => {
     try {
       const response = await apiClient.get<NotificationsResponse>("/", { params: searchParams });
       return response.data;
@@ -129,16 +126,16 @@ export const deleteNotificationThunk = createAsyncThunk<
 
 export const markAsReadThunk = createAsyncThunk<
   void,
-  MarkAsReadPayload,
+  string, // Single notification ID
   { rejectValue: string }
 >(
   "notification/markAsRead",
-  async (payload: MarkAsReadPayload, { rejectWithValue }) => {
+  async (notificationId: string, { rejectWithValue }) => {
     try {
-      await apiClient.post("/mark-read", payload);
+      await apiClient.post(`/mark-read/${notificationId}`);
     } catch (error: any) {
       const errorMessage =
-        error.response?.data?.error || error.message || "Failed to mark notifications as read";
+        error.response?.data?.error || error.message || "Failed to mark notification as read";
       return rejectWithValue(errorMessage);
     }
   }
@@ -250,59 +247,8 @@ export const fetchNotificationsByPriorityThunk = createAsyncThunk<
   }
 );
 
-export const fetchNotificationSettingsThunk = createAsyncThunk<
-  NotificationSettingsResponse,
-  void,
-  { rejectValue: string }
->(
-  "notification/fetchNotificationSettings",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.get<NotificationSettingsResponse>("/settings");
-      return response.data;
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error || error.message || "Failed to fetch notification settings";
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const updateNotificationSettingsThunk = createAsyncThunk<
-  NotificationSettingsResponse,
-  UpdateNotificationSettingsPayload,
-  { rejectValue: string }
->(
-  "notification/updateNotificationSettings",
-  async (settings: UpdateNotificationSettingsPayload, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.put<NotificationSettingsResponse>("/settings", settings);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error || error.message || "Failed to update notification settings";
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const fetchNotificationStatsThunk = createAsyncThunk<
-  NotificationStatsResponse,
-  void,
-  { rejectValue: string }
->(
-  "notification/fetchNotificationStats",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.get<NotificationStatsResponse>("/stats");
-      return response.data;
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error || error.message || "Failed to fetch notification stats";
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
+// Removed unused thunks: fetchNotificationSettingsThunk, updateNotificationSettingsThunk, fetchNotificationStatsThunk
+// These were removed as part of the notification slice cleanup since settings and stats are no longer used
 
 export const sendPushNotificationThunk = createAsyncThunk<
   void,

@@ -1,79 +1,199 @@
-import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import ChatScreen from '@/src/features/inbox/components/ChatScreen';
+import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useDispatch, useSelector } from "react-redux";
+import ChatScreen from "@/src/features/inbox/components/ChatScreen";
+import {
+  fetchChatByIdThunk,
+  fetchMessagesThunk,
+  subscribeToChatThunk,
+  unsubscribeFromChatThunk,
+} from "@/src/features/inbox/chatThunks";
+import {
+  selectCurrentChat,
+  selectChatMessages,
+  selectConversationInfo,
+  selectIsChatLoading,
+} from "@/src/features/inbox/chatSelectors";
+import {
+  getUserByIdThunk,
+  getUserProfileThunk,
+} from "@/src/features/user/userThunks";
+import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
+import {
+  selectFetchedUser,
+} from "@/src/features/user/userSelectors";
+import { fetchOfferByIdThunk } from "@/src/features/offer/offerThunks";
+import {
+  selectCurrentOffer,
+  selectOfferStatus,
+} from "@/src/features/offer/offerSelectors";
 
 export default function ConversationScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  const dispatch = useDispatch();
 
-  // Mock user and item data - in a real app, this would come from your API/context
-  const mockConversations = {
-    '1': {
-      name: 'Sarah Johnson',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-      itemName: 'iPhone 13 Pro',
-      itemImage: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
-      originalPrice: 899,
-      currentOffer: 150,
-      isOwnOffer: false,
-    },
-    '2': {
-      name: 'Mike Chen',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
-      itemName: 'MacBook Air M1',
-      itemImage: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400',
-      originalPrice: 799,
-      currentOffer: 650,
-      isOwnOffer: true,
-    },
-    '3': {
-      name: 'Emily Davis',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=emily',
-      itemName: 'AirPods Pro',
-      itemImage: 'https://images.unsplash.com/photo-1606210947703-9d1e5d3d8b5a?w=400',
-      originalPrice: 179,
-      currentOffer: 160,
-      isOwnOffer: false,
-    },
-    '4': {
-      name: 'Alex Thompson',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
-      itemName: 'Gaming PC Setup',
-      itemImage: 'https://images.unsplash.com/photo-1597872200968-1b80694e5c71?w=400',
-      originalPrice: 1200,
-      currentOffer: 950,
-      isOwnOffer: true,
-    },
-    '5': {
-      name: 'Lisa Park',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lisa',
-      itemName: 'Vintage Camera',
-      itemImage: 'https://images.unsplash.com/photo-1526170379881-4e43600e7a6c?w=400',
-      originalPrice: 450,
-      currentOffer: 400,
-      isOwnOffer: false,
-    },
-  };
+  // Redux state
+  const currentUser = useSelector(selectAuthUser);
+  const currentChat = useSelector(selectCurrentChat);
+  const isLoading = useSelector(selectIsChatLoading);
+  const fetchedUser = useSelector(selectFetchedUser);
+  const currentOffer = useSelector(selectCurrentOffer);
+  const offerStatus = useSelector(selectOfferStatus);
+  const messages = useSelector((state: any) =>
+    selectChatMessages(state, conversationId as string)
+  );
+  const conversationInfo = useSelector((state: any) =>
+    selectConversationInfo(state, conversationId as string)
+  );
 
-  const conversation = mockConversations[conversationId as keyof typeof mockConversations] || {
-    name: 'Unknown User',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
-    itemName: 'Unknown Item',
-    itemImage: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
-    originalPrice: 0,
-    currentOffer: 0,
-    isOwnOffer: false,
-  };
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch offer data if conversationId might be an offer ID
+  // useEffect(() => {
+  //   if (conversationId && !currentChat && !currentOffer && offerStatus !== 'loading') {
+  //     console.log('=== TRYING TO FETCH OFFER BY ID ===');
+  //     console.log('conversationId:', conversationId);
+  //     console.log('currentChat:', currentChat);
+  //     console.log('currentOffer:', currentOffer);
+  //     console.log('offerStatus:', offerStatus);
+
+  //     // Try to fetch as offer ID
+  //     dispatch(fetchOfferByIdThunk(conversationId as string) as any)
+  //       .then((res: any) => {
+  //         console.log("Offer fetched successfully", res);
+  //       })
+  //       .catch((error: any) => {
+  //         console.log("Not an offer ID, continuing with user fetch:", error.message);
+  //       });
+  //   }
+  // }, [conversationId, currentChat, currentOffer, offerStatus, dispatch]);
+
+  useEffect(() => {
+    if (conversationId) {
+      // Fetch chat details and messages
+      dispatch(fetchChatByIdThunk(conversationId as string) as any);
+      dispatch(fetchMessagesThunk({ chatId: conversationId as string }) as any);
+
+      // Subscribe to real-time updates
+      dispatch(subscribeToChatThunk(conversationId as string) as any);
+    }
+
+    return () => {
+      // Cleanup subscription when component unmounts
+      if (conversationId) {
+        dispatch(unsubscribeFromChatThunk(conversationId as string) as any);
+      }
+    };
+  }, [conversationId, dispatch]);
+
+  // Fetch current user profile if not available
+  // useEffect(() => {
+  //   if (!currentUser) {
+  //     dispatch(getUserProfileThunk() as any);
+  //   }
+  // }, [currentUser, dispatch]);
+
+  // Separate effect for fetching user details to avoid repeated subscriptions
+  useEffect(() => {
+    if (conversationId && currentUser && conversationId !== currentUser.id) {
+      dispatch(getUserByIdThunk(conversationId as string) as any);
+    }
+  }, [conversationId, currentUser, dispatch]);
+
+  // Also fetch user details when there's no current chat (new chat scenario)
+  useEffect(() => {
+    if (conversationId && !currentChat && !isLoading) {
+      // Always try to fetch user details even if not authenticated
+      dispatch(getUserByIdThunk(conversationId as string) as any)
+        .then((res: any) => {
+          setError(null);
+        })
+        .catch((error: any) => {
+          setError(error.message);
+        });
+    }
+  }, [conversationId, currentChat, isLoading, dispatch]);
+
+  // Check if user is authenticated
+  if (!currentUser && !fetchedUser) {
+    return (
+      <ChatScreen
+        conversationId={conversationId as string}
+        userName="Please Login"
+        userAvatar=""
+        isLoading={false}
+      />
+    );
+  }
+
+  // Handle loading state
+  if (isLoading && !currentChat) {
+    return (
+      <ChatScreen
+        conversationId={conversationId as string}
+        userName="Loading..."
+        userAvatar=""
+        isLoading={true}
+      />
+    );
+  }
+
+  // Handle error state - show chat box instead of error
+  if (error || (!currentChat && !isLoading)) {
+    // Show fetched user details if available
+    const userName = fetchedUser?.name || "New Chat";
+    const userAvatar = fetchedUser?.avatar || "";
+
+    // Prepare offer data if available
+    const offerProps = currentOffer
+      ? {
+          itemName: currentOffer.listing_title || "",
+          itemImage: currentOffer.listing_image || "",
+          originalPrice: 0, // Offer doesn't contain original price, would need separate fetch
+          currentOffer: currentOffer.amount || 0,
+          isOwnOffer: currentOffer.buyer_id === currentUser?.id,
+          offerStatus: currentOffer.status || "pending",
+        }
+      : {};
+
+    return (
+      <ChatScreen
+        conversationId={conversationId as string}
+        userName={userName}
+        userAvatar={userAvatar}
+        isLoading={false}
+        {...offerProps}
+      />
+    );
+  }
+
+  // Use real conversation data if available
+  if (conversationInfo) {
+    return (
+      <ChatScreen
+        conversationId={conversationId as string}
+        userName={conversationInfo.name}
+        userAvatar={conversationInfo.avatar}
+        itemName={conversationInfo.itemName}
+        itemImage={conversationInfo.itemImage}
+        originalPrice={conversationInfo.originalPrice}
+        currentOffer={conversationInfo.currentOffer}
+        isOwnOffer={conversationInfo.isOwnOffer}
+        messages={messages}
+        onSendMessage={(message: string) => {
+          // Handle sending message
+        }}
+      />
+    );
+  }
+
+  // Fallback - no conversation or offer data found
   return (
     <ChatScreen
       conversationId={conversationId as string}
-      userName={conversation.name}
-      userAvatar={conversation.avatar}
-      itemName={conversation.itemName}
-      itemImage={conversation.itemImage}
-      originalPrice={conversation.originalPrice}
-      currentOffer={conversation.currentOffer}
-      isOwnOffer={conversation.isOwnOffer}
+      userName="Unknown User"
+      userAvatar=""
+      isLoading={false}
     />
   );
 }

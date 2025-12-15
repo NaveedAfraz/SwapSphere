@@ -170,6 +170,17 @@ export default function ProductDetailScreen() {
     }
   };
 
+  const handleContactSeller = () => {
+    // Navigate to chat with the seller
+    // Use seller ID from the listing to create/open a conversation
+    const sellerId = currentListing?.seller_id;
+    if (sellerId) {
+      router.push(`/inbox/${sellerId}`);
+    } else {
+      Alert.alert("Error", "Unable to contact seller at this time.");
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -200,6 +211,7 @@ export default function ProductDetailScreen() {
         listing={transformListingForSingleProduct(currentListing)!}
         onBack={handleBack}
         onMakeOffer={handleMakeOffer}
+        onContactSeller={handleContactSeller}
         onProductPress={handleProductPress}
         similarListings={similarListings}
       />

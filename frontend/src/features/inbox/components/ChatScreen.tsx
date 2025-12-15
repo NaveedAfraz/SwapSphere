@@ -13,11 +13,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
-import MessageBubble from "./MessageBubble";
-import MessageInput from "./MessageInput";
-import OfferNegotiation from "./OfferNegotiation";
+import type { Message } from "../types/chat";
 
-interface Message {
+// Helper interface for UI message display
+interface UIMessage {
   id: string;
   text: string;
   timestamp: string;
@@ -25,6 +24,25 @@ interface Message {
   senderName?: string;
   senderAvatar?: string;
 }
+
+// Transform Message to UIMessage for display
+const transformMessage = (
+  message: Message,
+  currentUserId?: string
+): UIMessage => ({
+  id: message.id,
+  text: message.body || "",
+  timestamp: new Date(message.created_at).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+  isOwn: message.sender_id === currentUserId,
+  senderName: message.sender?.profile?.name,
+  senderAvatar: message.sender?.profile?.avatar_key,
+});
+import MessageBubble from "./MessageBubble";
+import MessageInput from "./MessageInput";
+import OfferNegotiation from "./OfferNegotiation";
 
 interface ChatScreenProps {
   conversationId: string;
@@ -35,9 +53,15 @@ interface ChatScreenProps {
   originalPrice?: number;
   currentOffer?: number;
   isOwnOffer?: boolean;
+  offerStatus?: string; // Add offer status prop
+  isLoading?: boolean;
+  error?: string;
+  messages?: Message[];
+  onSendMessage?: (message: string) => void;
+  currentUserId?: string; // Add current user ID for message ownership
 }
 
-const mockMessages: Message[] = [
+const mockUIMessages: UIMessage[] = [
   {
     id: "1",
     text: "Hi! Is this item still available?",
@@ -85,9 +109,19 @@ export default function ChatScreen({
   originalPrice = 899,
   currentOffer = 150,
   isOwnOffer = false,
+  offerStatus,
+  isLoading = false,
+  error,
+  messages: propMessages,
+  onSendMessage,
+  currentUserId,
 }: ChatScreenProps) {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [uiMessages, setUiMessages] = useState<UIMessage[]>(
+    propMessages
+      ? propMessages.map((msg) => transformMessage(msg, currentUserId))
+      : mockUIMessages
+  );
   const [offer, setOffer] = useState(currentOffer);
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
@@ -97,10 +131,24 @@ export default function ChatScreen({
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [messages]);
+  }, [uiMessages]);
+
+  // Update UI messages when prop messages change
+  useEffect(() => {
+    if (propMessages) {
+      setUiMessages(
+        propMessages.map((msg) => transformMessage(msg, currentUserId))
+      );
+    }
+  }, [propMessages, currentUserId]);
 
   const handleSendMessage = (text: string) => {
-    const newMessage: Message = {
+    if (onSendMessage) {
+      onSendMessage(text);
+      return;
+    }
+
+    const newUIMessage: UIMessage = {
       id: Date.now().toString(),
       text,
       timestamp: new Date().toLocaleTimeString([], {
@@ -110,11 +158,11 @@ export default function ChatScreen({
       isOwn: true,
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    setUiMessages((prev) => [...prev, newUIMessage]);
 
     // Simulate a response after 1 second
     setTimeout(() => {
-      const responseMessage: Message = {
+      const responseUIMessage: UIMessage = {
         id: (Date.now() + 1).toString(),
         text: "Thanks for your message! I'll get back to you soon.",
         timestamp: new Date().toLocaleTimeString([], {
@@ -125,14 +173,15 @@ export default function ChatScreen({
         senderName: userName,
         senderAvatar: userAvatar,
       };
-      setMessages((prev) => [...prev, responseMessage]);
+
+      setUiMessages((prev) => [...prev, responseUIMessage]);
     }, 1000);
   };
 
   const handleOfferUpdate = (newOffer: number) => {
     setOffer(newOffer);
 
-    const offerMessage: Message = {
+    const offerUIMessage: UIMessage = {
       id: Date.now().toString(),
       text: `Updated offer to $${newOffer}`,
       timestamp: new Date().toLocaleTimeString([], {
@@ -142,30 +191,29 @@ export default function ChatScreen({
       isOwn: true,
     };
 
-    setMessages((prev) => [...prev, offerMessage]);
-
-    // Simulate response to offer update
-    setTimeout(() => {
-      const responseMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text:
-          newOffer >= originalPrice * 0.8
-            ? `Great! I can accept $${newOffer}.`
-            : `Hmm, $${newOffer} is a bit low. Could we meet somewhere in the middle?`,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isOwn: false,
-        senderName: userName,
-        senderAvatar: userAvatar,
-      };
-      setMessages((prev) => [...prev, responseMessage]);
-    }, 1000);
+    setUiMessages((prev) => [...prev, offerUIMessage]);
   };
 
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Loading conversation...</Text>
+      </View>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
   const handleAcceptOffer = () => {
-    const acceptMessage: Message = {
+    const acceptUIMessage: UIMessage = {
       id: Date.now().toString(),
       text: `Great! I accept your offer of $${offer}. Let's proceed with the transaction.`,
       timestamp: new Date().toLocaleTimeString([], {
@@ -175,10 +223,10 @@ export default function ChatScreen({
       isOwn: true,
     };
 
-    setMessages((prev) => [...prev, acceptMessage]);
+    setUiMessages((prev) => [...prev, acceptUIMessage]);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
+  const renderMessage = ({ item }: { item: UIMessage }) => (
     <MessageBubble
       message={item.text}
       timestamp={item.timestamp}
@@ -187,6 +235,13 @@ export default function ChatScreen({
       senderName={item.senderName}
     />
   );
+
+  // Handle avatar URL - use full URL if available, otherwise fallback
+  const avatarUrl = userAvatar && userAvatar.trim() !== "" && userAvatar.startsWith("http")
+    ? userAvatar
+    : userAvatar && userAvatar.trim() !== ""
+      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName.replace(/\s+/g, '').toLowerCase()}`
+      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName.replace(/\s+/g, '').toLowerCase()}`;
 
   return (
     <View
@@ -204,7 +259,10 @@ export default function ChatScreen({
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Image source={{ uri: userAvatar }} style={styles.avatar} />
+        <Image
+          source={{ uri: avatarUrl }}
+          style={styles.avatar}
+        />
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{userName}</Text>
           <Text style={styles.onlineStatus}>Online</Text>
@@ -225,7 +283,11 @@ export default function ChatScreen({
         currentOffer={offer}
         isOwnOffer={isOwnOffer}
         onOfferUpdate={handleOfferUpdate}
-        onAcceptOffer={!isOwnOffer ? handleAcceptOffer : undefined}
+        onAcceptOffer={
+          !isOwnOffer && offerStatus !== "accepted"
+            ? handleAcceptOffer
+            : undefined
+        }
       />
 
       {/* Messages */}
@@ -236,7 +298,7 @@ export default function ChatScreen({
       >
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={uiMessages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           style={styles.messagesList}
@@ -253,6 +315,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#DC2626",
+    textAlign: "center",
   },
   header: {
     flexDirection: "row",

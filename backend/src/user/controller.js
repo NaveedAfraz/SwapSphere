@@ -21,6 +21,23 @@ const getProfile = async (req, res) => {
   }
 };
 
+const getUserByIdController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await getUserById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error getting user by ID:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -177,6 +194,7 @@ const deleteAccount = async (req, res) => {
 
 module.exports = {
   getProfile,
+  getUserById: getUserByIdController,
   updateProfile,
   updateSettings,
   uploadAvatar,

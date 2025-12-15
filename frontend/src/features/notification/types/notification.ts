@@ -1,36 +1,40 @@
 export type NotificationStatus = "idle" | "loading" | "success" | "error";
 
+// Database-based notification types matching the backend
 export type NotificationType = 
-  | "message"
-  | "offer"
-  | "order"
-  | "payment"
-  | "review"
-  | "listing"
-  | "system"
-  | "promotion"
-  | "reminder"
-  | "alert";
+  | "offer_received"
+  | "offer_countered" 
+  | "offer_accepted"
+  | "offer_declined"
+  | "message_received"
+  | "listing_favorited"
+  | "listing_sold"
+  | "payment_received"
+  | "review_received"
+  | "system_update";
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
 
+// Database-aligned Notification interface
 export interface Notification {
   id: string;
   user_id: string;
+  actor_id?: string;
   type: NotificationType;
-  priority: NotificationPriority;
-  title: string;
-  message: string;
-  data?: any; // Additional data related to the notification
-  action_url?: string; // URL to navigate when notification is tapped
-  action_text?: string; // Text for action button
+  payload: any; // JSONB payload containing notification-specific data
   is_read: boolean;
-  is_push_sent: boolean;
-  is_email_sent: boolean;
-  expires_at?: string;
+  status?: string; // Offer status field (e.g., 'pending', 'accepted', 'declined')
+  delivered_at?: string;
   created_at: string;
-  updated_at: string;
-  read_at?: string;
+  // Optional fields for enhanced functionality
+  actor?: {
+    id: string;
+    email?: string;
+    profile?: {
+      name?: string;
+      avatar_key?: string;
+    };
+  };
 }
 
 export interface NotificationStateType {
@@ -39,10 +43,6 @@ export interface NotificationStateType {
   currentNotification: Notification | null;
   status: NotificationStatus;
   error: string | null;
-  createStatus: NotificationStatus;
-  createError: string | null;
-  updateStatus: NotificationStatus;
-  updateError: string | null;
   pagination: {
     page: number;
     limit: number;
@@ -50,63 +50,27 @@ export interface NotificationStateType {
     hasMore: boolean;
   };
   filters: {
-    type?: NotificationType;
-    priority?: NotificationPriority;
-    is_read?: boolean;
-    startDate?: string;
-    endDate?: string;
-    sortBy?: "created_at" | "updated_at" | "priority";
-    sortOrder?: "asc" | "desc";
+    sortBy?: string;
+    sortOrder?: string;
   };
-  settings: {
-    push_enabled: boolean;
-    email_enabled: boolean;
-    message_notifications: boolean;
-    offer_notifications: boolean;
-    order_notifications: boolean;
-    payment_notifications: boolean;
-    review_notifications: boolean;
-    listing_notifications: boolean;
-    system_notifications: boolean;
-    promotion_notifications: boolean;
-    reminder_notifications: boolean;
-    alert_notifications: boolean;
-  };
-  stats: {
-    total_notifications: number;
-    unread_count: number;
-    read_count: number;
-    push_sent_count: number;
-    email_sent_count: number;
-    expired_count: number;
-    type_distribution: Record<NotificationType, number>;
-    priority_distribution: Record<NotificationPriority, number>;
-  };
+  // Removed unused properties: createStatus, createError, updateStatus, updateError, settings, stats
 }
 
 export interface CreateNotificationPayload {
   user_id: string;
   type: NotificationType;
-  priority: NotificationPriority;
-  title: string;
-  message: string;
-  data?: any;
-  action_url?: string;
-  action_text?: string;
-  expires_at?: string;
+  payload: any; // JSONB payload matching backend structure
+  actor_id?: string;
 }
 
 export interface UpdateNotificationPayload {
-  title?: string;
-  message?: string;
-  data?: any;
-  action_url?: string;
-  action_text?: string;
-  expires_at?: string;
+  payload?: any;
+  is_read?: boolean;
+  delivered_at?: string;
 }
 
 export interface MarkAsReadPayload {
-  notification_ids: string[];
+  notification_id: string; // Single notification ID for database structure
 }
 
 export interface MarkAllAsReadPayload {
@@ -119,27 +83,31 @@ export interface BulkDeletePayload {
 
 export interface NotificationSearchParams {
   type?: NotificationType;
-  priority?: NotificationPriority;
   is_read?: boolean;
+  actor_id?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
   limit?: number;
-  sortBy?: "created_at" | "updated_at" | "priority";
+  sortBy?: "created_at" | "delivered_at";
   sortOrder?: "asc" | "desc";
 }
 
 export interface NotificationResponse {
-  notification: Notification;
+  success: boolean;
+  data: Notification;
 }
 
 export interface NotificationsResponse {
-  notifications: Notification[];
+  success: boolean;
+  data: Notification[];
   pagination: {
     page: number;
     limit: number;
     total: number;
-    hasMore: boolean;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
   };
 }
 
@@ -147,28 +115,8 @@ export interface UnreadCountResponse {
   unread_count: number;
 }
 
-export interface NotificationSettingsResponse {
-  settings: NotificationStateType["settings"];
-}
-
-export interface UpdateNotificationSettingsPayload {
-  push_enabled?: boolean;
-  email_enabled?: boolean;
-  message_notifications?: boolean;
-  offer_notifications?: boolean;
-  order_notifications?: boolean;
-  payment_notifications?: boolean;
-  review_notifications?: boolean;
-  listing_notifications?: boolean;
-  system_notifications?: boolean;
-  promotion_notifications?: boolean;
-  reminder_notifications?: boolean;
-  alert_notifications?: boolean;
-}
-
-export interface NotificationStatsResponse {
-  stats: NotificationStateType["stats"];
-}
+// Removed NotificationSettingsResponse and related interfaces as settings are no longer used
+// Removed NotificationStatsResponse and related interfaces as stats are no longer used
 
 export interface PushNotificationPayload {
   user_id: string;

@@ -12,12 +12,16 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onMenuPress?: () => void;
+  unreadCount?: number;
+  onNotificationPress?: () => void;
 }
 
 export default function Header({
   searchQuery,
   setSearchQuery,
   onMenuPress,
+  unreadCount = 0,
+  onNotificationPress,
 }: HeaderProps) {
   return (
     <View style={styles.header}>
@@ -26,9 +30,15 @@ export default function Header({
           <Menu size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <Text style={styles.logo}>Discover</Text>
-        <TouchableOpacity style={styles.notificationBtn}>
+        <TouchableOpacity style={styles.notificationBtn} onPress={onNotificationPress}>
           <Bell size={24} color="#1a1a1a" />
-          <View style={styles.badge} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -93,12 +103,21 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FF6B6B",
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#fff",
+    textAlign: "center",
   },
   searchContainer: {
     flexDirection: "row",
