@@ -1,4 +1,4 @@
-export type AuthStatus = "idle" | "loading" | "authenticated" | "error";
+export type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
 
 export interface AuthUser {
   id: string;

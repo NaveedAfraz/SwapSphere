@@ -11,6 +11,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useDispatch } from "react-redux";
+import { fetchChatByIdThunk } from "@/src/features/inbox/chatThunks";
+import {
+  updateOfferThunk,
+  counterOfferThunk,
+} from "@/src/features/offer/offerThunks";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
 import type { Message } from "../types/chat";
@@ -40,76 +46,42 @@ const transformMessage = (
   senderName: message.sender?.profile?.name,
   senderAvatar: message.sender?.profile?.avatar_key,
 });
-import MessageBubble from "./MessageBubble";
+
 import MessageInput from "./MessageInput";
 import OfferNegotiation from "./OfferNegotiation";
+import MessageBubble from "./MessageBubble";
 
 interface ChatScreenProps {
   conversationId: string;
+  actualChatId?: string;
   userName: string;
   userAvatar: string;
   itemName?: string;
   itemImage?: string;
-  originalPrice?: number;
+  originalPrice?: string;
   currentOffer?: number;
   isOwnOffer?: boolean;
-  offerStatus?: string; // Add offer status prop
+  offerStatus?: string;
+  offerId?: string;
+  messages: Message[];
+  onSendMessage: (message: string) => void;
+  currentUserId?: string;
   isLoading?: boolean;
   error?: string;
-  messages?: Message[];
-  onSendMessage?: (message: string) => void;
-  currentUserId?: string; // Add current user ID for message ownership
 }
-
-const mockUIMessages: UIMessage[] = [
-  {
-    id: "1",
-    text: "Hi! Is this item still available?",
-    timestamp: "2:30 PM",
-    isOwn: false,
-    senderName: "Sarah Johnson",
-    senderAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-  },
-  {
-    id: "2",
-    text: "Yes, it's still available! Are you interested?",
-    timestamp: "2:32 PM",
-    isOwn: true,
-  },
-  {
-    id: "3",
-    text: "Great! Can you tell me more about the condition?",
-    timestamp: "2:33 PM",
-    isOwn: false,
-    senderName: "Sarah Johnson",
-    senderAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-  },
-  {
-    id: "4",
-    text: "It's in excellent condition, barely used. I bought it 6 months ago and it's been in a case the whole time.",
-    timestamp: "2:35 PM",
-    isOwn: true,
-  },
-  {
-    id: "5",
-    text: "Would you accept $150 for it?",
-    timestamp: "2:36 PM",
-    isOwn: false,
-    senderName: "Sarah Johnson",
-    senderAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-  },
-];
 
 export default function ChatScreen({
   conversationId,
+  actualChatId,
   userName,
   userAvatar,
-  itemName = "iPhone 13 Pro",
-  itemImage = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400",
-  originalPrice = 899,
-  currentOffer = 150,
+  itemName,
+  itemImage,
+  originalPrice,
+  currentOffer,
   isOwnOffer = false,
   offerStatus,
+  offerId,
   isLoading = false,
   error,
   messages: propMessages,
@@ -117,10 +89,21 @@ export default function ChatScreen({
   currentUserId,
 }: ChatScreenProps) {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [uiMessages, setUiMessages] = useState<UIMessage[]>(
     propMessages
-      ? propMessages.map((msg) => transformMessage(msg, currentUserId))
-      : mockUIMessages
+      ? (() => {
+          const transformed = propMessages.map((msg) =>
+            transformMessage(msg, currentUserId)
+          );
+          const seen = new Set<string>();
+          return transformed.filter((m) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          });
+        })()
+      : []
   );
   const [offer, setOffer] = useState(currentOffer);
   const flatListRef = useRef<FlatList>(null);
@@ -136,62 +119,57 @@ export default function ChatScreen({
   // Update UI messages when prop messages change
   useEffect(() => {
     if (propMessages) {
-      setUiMessages(
-        propMessages.map((msg) => transformMessage(msg, currentUserId))
+      const transformedMessages = propMessages.map((msg) =>
+        transformMessage(msg, currentUserId)
       );
+      // Dedupe by id to avoid duplicate key errors if messages loaded twice
+      const seen = new Set<string>();
+      const deduped = transformedMessages.filter((m) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+      setUiMessages(deduped);
     }
   }, [propMessages, currentUserId]);
 
   const handleSendMessage = (text: string) => {
     if (onSendMessage) {
       onSendMessage(text);
-      return;
     }
-
-    const newUIMessage: UIMessage = {
-      id: Date.now().toString(),
-      text,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isOwn: true,
-    };
-
-    setUiMessages((prev) => [...prev, newUIMessage]);
-
-    // Simulate a response after 1 second
-    setTimeout(() => {
-      const responseUIMessage: UIMessage = {
-        id: (Date.now() + 1).toString(),
-        text: "Thanks for your message! I'll get back to you soon.",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isOwn: false,
-        senderName: userName,
-        senderAvatar: userAvatar,
-      };
-
-      setUiMessages((prev) => [...prev, responseUIMessage]);
-    }, 1000);
   };
 
   const handleOfferUpdate = (newOffer: number) => {
-    setOffer(newOffer);
-
-    const offerUIMessage: UIMessage = {
-      id: Date.now().toString(),
-      text: `Updated offer to $${newOffer}`,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isOwn: true,
-    };
-
-    setUiMessages((prev) => [...prev, offerUIMessage]);
+    // Dispatch Redux action based on offer status and ownership
+    if (offerId) {
+      if (isOwnOffer) {
+        // User is updating their own offer
+        dispatch(updateOfferThunk({
+            id: offerId,
+            data: { counter_amount: newOffer },
+          }) as any).then((result: any) => {
+          // Refresh chat data to get updated offer information
+          const chatIdToRefresh = actualChatId || conversationId;
+          if (chatIdToRefresh) {
+            dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+          }
+        });
+      } else {
+        // User is making a counter offer to someone else's offer
+        dispatch(
+          counterOfferThunk({
+            offer_id: offerId,
+            counter_amount: newOffer,
+          }) as any
+        ).then((result: any) => {
+          // Refresh chat data to get updated offer information
+          const chatIdToRefresh = actualChatId || conversationId;
+          if (chatIdToRefresh) {
+            dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+          }
+        });
+      }
+    }
   };
 
   // Handle loading state
@@ -213,17 +191,8 @@ export default function ChatScreen({
   }
 
   const handleAcceptOffer = () => {
-    const acceptUIMessage: UIMessage = {
-      id: Date.now().toString(),
-      text: `Great! I accept your offer of $${offer}. Let's proceed with the transaction.`,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isOwn: true,
-    };
-
-    setUiMessages((prev) => [...prev, acceptUIMessage]);
+    // Offer acceptance logic should be handled by parent component
+    // This could trigger an API call to update the offer status
   };
 
   const renderMessage = ({ item }: { item: UIMessage }) => (
@@ -237,11 +206,16 @@ export default function ChatScreen({
   );
 
   // Handle avatar URL - use full URL if available, otherwise fallback
-  const avatarUrl = userAvatar && userAvatar.trim() !== "" && userAvatar.startsWith("http")
-    ? userAvatar
-    : userAvatar && userAvatar.trim() !== ""
-      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName.replace(/\s+/g, '').toLowerCase()}`
-      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName.replace(/\s+/g, '').toLowerCase()}`;
+  const avatarUrl =
+    userAvatar && userAvatar.trim() !== "" && userAvatar.startsWith("http")
+      ? userAvatar
+      : userAvatar && userAvatar.trim() !== ""
+      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName
+          .replace(/\s+/g, "")
+          .toLowerCase()}`
+      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName
+          .replace(/\s+/g, "")
+          .toLowerCase()}`;
 
   return (
     <View
@@ -259,10 +233,7 @@ export default function ChatScreen({
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Image
-          source={{ uri: avatarUrl }}
-          style={styles.avatar}
-        />
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{userName}</Text>
           <Text style={styles.onlineStatus}>Online</Text>
@@ -279,9 +250,13 @@ export default function ChatScreen({
       <OfferNegotiation
         itemName={itemName}
         itemImage={itemImage}
-        originalPrice={originalPrice}
-        currentOffer={offer}
+        originalPrice={originalPrice ? parseFloat(originalPrice) : undefined}
+        currentOffer={currentOffer}
         isOwnOffer={isOwnOffer}
+        offerStatus={offerStatus}
+        offerId={offerId}
+        conversationId={conversationId}
+        actualChatId={actualChatId}
         onOfferUpdate={handleOfferUpdate}
         onAcceptOffer={
           !isOwnOffer && offerStatus !== "accepted"

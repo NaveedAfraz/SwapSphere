@@ -268,3 +268,64 @@ export const toggleSellerModeThunk = createAsyncThunk<
     }
   }
 );
+
+// Hydrate auth state from AsyncStorage and backend
+export const hydrateAuth = createAsyncThunk<
+  AuthResponse,
+  void,
+  { rejectValue: string }
+>(
+  "auth/hydrate",
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log("=== AUTH HYDRATION: STARTING ===");
+      
+      // Check if token exists in AsyncStorage
+      const token = await AsyncStorage.getItem("authToken");
+      
+      if (!token) {
+        console.log("=== AUTH HYDRATION: NO TOKEN FOUND ===");
+        return rejectWithValue("No auth token found");
+      }
+      
+      console.log("=== AUTH HYDRATION: TOKEN FOUND, FETCHING USER DATA ===");
+      
+      // Validate token with backend and get current user data
+      const response = await apiClient.get<AuthResponse>("/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("=== AUTH HYDRATION: USER DATA RECEIVED ===");
+      console.log("Full response data:", response.data);
+      console.log("Response data structure:", JSON.stringify(response.data, null, 2));
+      
+      // Check if response has user property or is direct user data
+      const userData = response.data.user || response.data;
+      console.log("Extracted user data:", userData);
+      console.log("User ID:", userData?.id);
+      console.log("User email:", userData?.email);
+      
+      // Update AsyncStorage with fresh token if needed
+      // if (response.data.token) {
+      //   await AsyncStorage.setItem("authToken", response.data.token);
+      // }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error("=== AUTH HYDRATION: ERROR ===");
+      console.error("Error:", error);
+      
+      // If token is invalid, clear AsyncStorage
+      if (error.response?.status === 401) {
+        console.log("=== AUTH HYDRATION: INVALID TOKEN, CLEARING STORAGE ===");
+        await AsyncStorage.multiRemove(["authToken", "refreshToken"]);
+      }
+      
+      const errorMessage =
+        error.response?.data?.error || error.message || "Auth hydration failed";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);

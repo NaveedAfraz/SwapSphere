@@ -169,9 +169,9 @@ const offerSlice = createSlice({
         state.updateStatus = 'loading';
         state.updateError = null;
       })
-      .addCase('offer/updateOffer/fulfilled', (state: OfferStateType, action: PayloadAction<{ offer: Offer }>) => {
+      .addCase('offer/updateOffer/fulfilled', (state: OfferStateType, action: PayloadAction<Offer>) => {
         state.updateStatus = 'success';
-        const updatedOffer = action.payload.offer;
+        const updatedOffer = action.payload;
         
         // Update in all arrays
         const updateInArray = (array: Offer[]) => {
@@ -244,8 +244,8 @@ const offerSlice = createSlice({
 
     // Handle counter offer thunk
     builder
-      .addCase('offer/counterOffer/fulfilled', (state: OfferStateType, action: PayloadAction<{ offer: Offer }>) => {
-        const updatedOffer = action.payload.offer;
+      .addCase('offer/counterOffer/fulfilled', (state: OfferStateType, action: PayloadAction<Offer>) => {
+        const updatedOffer = action.payload;
         const updateInArray = (array: Offer[]) => {
           const index = array.findIndex(offer => offer.id === updatedOffer.id);
           if (index !== -1) {
@@ -253,10 +253,12 @@ const offerSlice = createSlice({
           }
         };
         
+        // Update the existing offer in all arrays
         updateInArray(state.offers);
         updateInArray(state.sentOffers);
         updateInArray(state.receivedOffers);
         
+        // Update current offer if it matches
         if (state.currentOffer?.id === updatedOffer.id) {
           state.currentOffer = updatedOffer;
         }

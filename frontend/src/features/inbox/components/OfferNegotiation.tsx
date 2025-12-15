@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDispatch } from 'react-redux';
 import { Interactions } from '@/src/constants/theme';
+import { updateOfferThunk, counterOfferThunk } from '@/src/features/offer/offerThunks';
+import { fetchChatByIdThunk } from '@/src/features/inbox/chatThunks';
 
 interface OfferNegotiationProps {
-  itemName: string;
-  itemImage: string;
-  originalPrice: number;
-  currentOffer: number;
-  isOwnOffer: boolean;
-  onOfferUpdate: (newOffer: number) => void;
+  itemName?: string;
+  itemImage?: string;
+  originalPrice?: number;
+  currentOffer?: number;
+  isOwnOffer?: boolean;
+  offerStatus?: string;
+  offerId?: string;
+  conversationId?: string;
+  actualChatId?: string;
+  onOfferUpdate?: (newOffer: number) => void;
   onAcceptOffer?: () => void;
 }
 
@@ -19,28 +26,69 @@ export default function OfferNegotiation({
   originalPrice,
   currentOffer,
   isOwnOffer,
+  offerStatus,
+  offerId,
+  conversationId,
+  actualChatId,
   onOfferUpdate,
   onAcceptOffer,
 }: OfferNegotiationProps) {
+  const dispatch = useDispatch();
+
   const [isEditing, setIsEditing] = useState(false);
-  const [tempOffer, setTempOffer] = useState(currentOffer.toString());
+  const [tempOffer, setTempOffer] = useState((currentOffer || 0).toString());
 
   const handleEditOffer = () => {
     setIsEditing(true);
-    setTempOffer(currentOffer.toString());
+    setTempOffer((currentOffer || 0).toString());
   };
 
   const handleSaveOffer = () => {
     const newOffer = parseFloat(tempOffer);
+    
     if (!isNaN(newOffer) && newOffer > 0) {
-      onOfferUpdate(newOffer);
+      // Dispatch thunk directly if we have the offerId
+      if (offerId) {
+        if (isOwnOffer) {
+          // User is updating their own offer
+          dispatch(updateOfferThunk({
+            id: offerId,
+            data: { counter_amount: newOffer }
+          }) as any).then((result: any) => {
+            // Refresh chat data to get updated offer information
+            const chatIdToRefresh = actualChatId || conversationId;
+            if (chatIdToRefresh) {
+              dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+            }
+          }).catch((error: any) => {
+            console.error("OWN OFFER UPDATE FAILED:", error);
+          });
+        } else {
+          // User is making a counter offer to someone else's offer
+          dispatch(counterOfferThunk({
+            offer_id: offerId,
+            counter_amount: newOffer
+          }) as any).then((result: any) => {
+            // Refresh chat data to get updated offer information
+            const chatIdToRefresh = actualChatId || conversationId;
+            if (chatIdToRefresh) {
+              dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+            }
+          }).catch((error: any) => {
+            console.error("COUNTER OFFER FAILED:", error);
+          });
+        }
+      } else if (onOfferUpdate) {
+        // Fallback to parent component handler
+        onOfferUpdate(newOffer);
+      }
       setIsEditing(false);
     }
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setTempOffer(currentOffer.toString());
+    setTempOffer((currentOffer || 0).toString());
   };
 
   return (
@@ -55,7 +103,7 @@ export default function OfferNegotiation({
           <Text style={styles.offerLabel}>
             {isOwnOffer ? 'Your Offer' : 'Their Offer'}
           </Text>
-          {isOwnOffer && !isEditing && (
+          {!isEditing && offerStatus !== 'accepted' && (
             <TouchableOpacity
               style={styles.editButton}
               onPress={handleEditOffer}
@@ -94,7 +142,9 @@ export default function OfferNegotiation({
           </View>
         ) : (
           <View style={styles.offerDisplay}>
-            <Text style={styles.offerAmount}>${currentOffer}</Text>
+            <Text style={styles.offerAmount}>
+            {currentOffer !== undefined ? `$${currentOffer}` : "No offer yet"}
+          </Text>
             {!isOwnOffer && onAcceptOffer && (
               <TouchableOpacity
                 style={styles.acceptButton}

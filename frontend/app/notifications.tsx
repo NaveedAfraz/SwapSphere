@@ -38,6 +38,7 @@ import { updateNotificationLocal } from "@/src/features/notification/notificatio
 import { acceptOfferThunk } from "@/src/features/offer/offerThunks";
 import { Notification } from "@/src/features/notification/types/notification";
 import { useTheme } from "@/src/contexts/ThemeContext";
+import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -45,7 +46,6 @@ interface NotificationItemProps {
   onMarkAsRead: (notification: Notification) => void;
   onAcceptOffer: (notification: Notification) => void;
 }
-
 
 const NotificationItem: React.FC<NotificationItemProps> = ({
   notification,
@@ -55,6 +55,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 }) => {
   const theme = useTheme();
   const router = useRouter();
+  const currentUser = useSelector(selectAuthUser);
   const [isExpanded, setIsExpanded] = useState(false);
   const animatedHeight = useState(new Animated.Value(0))[0];
   const formatTime = (createdAt: string) => {
@@ -124,7 +125,14 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             ) : (
               <TouchableOpacity
                 style={[styles.actionButton, styles.acceptedButton]}
-                onPress={() => router.push(`/product/${notification.payload?.listing_id || notification.payload?.product_id}`)}
+                onPress={() =>
+                  router.push(
+                    `/product/${
+                      notification.payload?.listing_id ||
+                      notification.payload?.product_id
+                    }`
+                  )
+                }
                 activeOpacity={Interactions.buttonOpacity}
               >
                 <Text style={styles.actionButtonText}>View Details</Text>
@@ -135,10 +143,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
                 if (actorId) {
-                    alert(actorId)
-                  router.push(`/inbox/${actorId}`);
+                  // Pass both user ID and listing ID to conversation screen
+                  const listingId = notification.payload?.listing_id;
+                  if (listingId) {
+                    // Navigate with listingId and both participant IDs - let conversation screen find the chat
+                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                  } else {
+                    router.push(`/inbox/${actorId}`);
+                  }
                 } else {
-                  router.push('/(tabs)/inbox');
+                  router.push("/(tabs)/inbox");
                 }
               }}
               activeOpacity={Interactions.buttonOpacity}
@@ -364,15 +378,15 @@ export default function NotificationsScreen() {
             "Offer accepted successfully:",
             notification.payload.offer_id
           );
-          
+
           // Immediately update the local notification state
           dispatch(
             updateNotificationLocal({
               id: notification.id,
               updates: {
-                status: 'accepted',
-                is_read: true
-              }
+                status: "accepted",
+                is_read: true,
+              },
             } as any)
           );
         }

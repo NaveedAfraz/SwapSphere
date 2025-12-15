@@ -3,11 +3,26 @@ export interface Chat {
   listing_id?: string;
   last_message_id?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   participants?: ChatParticipant[];
-  last_message?: Message;
-  unread_count?: number;
+  last_message?: Message | string; // Can be Message object or string
+  last_message_at?: string; // Added for API compatibility
+  last_message_sender?: string; // Added for API compatibility
+  unread_count?: number; // Calculated from unread messages
   listing?: Listing;
+  other_user_name?: string; // Added for convenience
+  other_user_avatar?: string; // Added for convenience
+  other_user_id?: string; // Added for convenience
+  listing_title?: string; // Added for convenience
+  listing_image?: string; // Added for convenience
+  listing_price?: number; // Added for API compatibility
+  user_offer?: {
+    price: number;
+    status: string;
+    created_at: string;
+  }; // Added for API compatibility
+  lastMessage?: Message; // Alternative field for last message
+  last_read_at?: string; // Added for API compatibility
 }
 
 export interface ChatParticipant {
@@ -51,6 +66,7 @@ export interface Profile {
   user_id: string;
   name?: string;
   avatar_key?: string;
+  profile_picture_url?: string;
   bio?: string;
   seller_mode: boolean;
   rating_avg: number;
@@ -92,7 +108,7 @@ export interface ChatResponse {
 
 export interface ChatsResponse {
   success: boolean;
-  data: Chat[];
+  chats: Chat[];
   pagination: {
     page: number;
     limit: number;
@@ -110,7 +126,7 @@ export interface MessageResponse {
 
 export interface MessagesResponse {
   success: boolean;
-  data: Message[];
+  messages: Message[];
   pagination: {
     page: number;
     limit: number;
@@ -153,7 +169,7 @@ export interface ChatState {
   chats: Chat[];
   currentChat: Chat | null;
   messages: Record<string, Message[]>;
-  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   pagination: {
     page: number;
@@ -169,13 +185,15 @@ export interface ChatState {
 
 export interface ConversationInfo {
   id: string;
-  name: string;
-  avatar: string;
-  itemName: string;
-  itemImage: string;
-  originalPrice: number;
+  name?: string;
+  avatar?: string;
+  itemName?: string;
+  itemImage?: string;
+  originalPrice?: number;
   currentOffer?: number;
   isOwnOffer?: boolean;
+  offerStatus?: string;
+  offerId?: string;
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;

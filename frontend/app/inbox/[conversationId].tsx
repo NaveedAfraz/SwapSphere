@@ -5,8 +5,10 @@ import ChatScreen from "@/src/features/inbox/components/ChatScreen";
 import {
   fetchChatByIdThunk,
   fetchMessagesThunk,
-  subscribeToChatThunk,
-  unsubscribeFromChatThunk,
+  sendMessageThunk,
+  findOrCreateChatByUsersThunk,
+  sendMessageOrCreateChatThunk,
+  createChatThunk,
 } from "@/src/features/inbox/chatThunks";
 import {
   selectCurrentChat,
@@ -14,129 +16,225 @@ import {
   selectConversationInfo,
   selectIsChatLoading,
 } from "@/src/features/inbox/chatSelectors";
+import { getUserByIdThunk } from "@/src/features/user/userThunks";
 import {
-  getUserByIdThunk,
-  getUserProfileThunk,
-} from "@/src/features/user/userThunks";
-import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
-import {
-  selectFetchedUser,
-} from "@/src/features/user/userSelectors";
-import { fetchOfferByIdThunk } from "@/src/features/offer/offerThunks";
-import {
-  selectCurrentOffer,
-  selectOfferStatus,
-} from "@/src/features/offer/offerSelectors";
+  selectUser as selectAuthUser,
+  selectUserId,
+} from "@/src/features/auth/authSelectors";
+import { selectFetchedUser } from "@/src/features/user/userSelectors";
+import type { Message } from "@/src/features/inbox/types/chat";
 
 export default function ConversationScreen() {
-  const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  const { conversationId, listingId, participant1Id, participant2Id } =
+    useLocalSearchParams<{
+      conversationId: string;
+      listingId?: string;
+      participant1Id?: string;
+      participant2Id?: string;
+    }>();
   const dispatch = useDispatch();
+
+  // State to track the actual chat ID (might be different from conversationId)
+  const [actualChatId, setActualChatId] = useState<string | null>(null);
 
   // Redux state
   const currentUser = useSelector(selectAuthUser);
+  const currentUserId = useSelector(selectUserId);
   const currentChat = useSelector(selectCurrentChat);
   const isLoading = useSelector(selectIsChatLoading);
   const fetchedUser = useSelector(selectFetchedUser);
-  const currentOffer = useSelector(selectCurrentOffer);
-  const offerStatus = useSelector(selectOfferStatus);
-  const messages = useSelector((state: any) =>
-    selectChatMessages(state, conversationId as string)
-  );
-  const conversationInfo = useSelector((state: any) =>
-    selectConversationInfo(state, conversationId as string)
-  );
+  const messages = useSelector((state: any) => {
+    // Only fetch messages if we have an actual chat ID
+    if (!actualChatId) return [];
+
+    const msgs = selectChatMessages(state, actualChatId) as Message[];
+    return msgs;
+  });
+  const conversationInfo = useSelector((state: any) => {
+    const info = selectConversationInfo(
+      state,
+      actualChatId || (conversationId as string)
+    );
+    return info;
+  });
 
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch offer data if conversationId might be an offer ID
-  // useEffect(() => {
-  //   if (conversationId && !currentChat && !currentOffer && offerStatus !== 'loading') {
-  //     console.log('=== TRYING TO FETCH OFFER BY ID ===');
-  //     console.log('conversationId:', conversationId);
-  //     console.log('currentChat:', currentChat);
-  //     console.log('currentOffer:', currentOffer);
-  //     console.log('offerStatus:', offerStatus);
+  // Handle sending messages
+  const handleSendMessage = async (message: string) => {
+    const chatIdToSend = actualChatId || conversationId;
+    if (!chatIdToSend) return;
 
-  //     // Try to fetch as offer ID
-  //     dispatch(fetchOfferByIdThunk(conversationId as string) as any)
-  //       .then((res: any) => {
-  //         console.log("Offer fetched successfully", res);
-  //       })
-  //       .catch((error: any) => {
-  //         console.log("Not an offer ID, continuing with user fetch:", error.message);
-  //       });
-  //   }
-  // }, [conversationId, currentChat, currentOffer, offerStatus, dispatch]);
+    try {
+      let result;
+
+      // If we have an actual chat ID, send message to it
+      if (actualChatId) {
+        result = await dispatch(
+          sendMessageThunk({
+            chatId: actualChatId,
+            messageData: { body: message },
+          }) as any
+        ).unwrap();
+      } else {
+        // No chat exists yet, create one with listing info and send message
+        result = await dispatch(
+          sendMessageOrCreateChatThunk({
+            recipientId: conversationId as string,
+            messageData: { body: message },
+            listingId: listingId, // Pass listing ID if available
+          }) as any
+        ).unwrap();
+
+        // Update actual chat ID to newly created chat ID (handle wrapped and unwrapped shapes)
+        if (result) {
+          const chatId =
+            result.chat_id ||
+            result.data?.chat_id ||
+            result.data?.chat?.id ||
+            result.data?.id ||
+            result.id;
+          if (chatId) {
+            setActualChatId(chatId);
+            dispatch(fetchChatByIdThunk(chatId) as any);
+            dispatch(fetchMessagesThunk({ chatId }) as any);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to send message in conversation screen:", error);
+    }
+  };
 
   useEffect(() => {
-    if (conversationId) {
-      // Fetch chat details and messages
-      dispatch(fetchChatByIdThunk(conversationId as string) as any);
-      dispatch(fetchMessagesThunk({ chatId: conversationId as string }) as any);
+    // Only fetch if we don't have actualChatId set yet and we have current user
+    if (!actualChatId && conversationId && currentUser) {
+      // Try to fetch chat details first (might fail if conversationId is user ID)
+      dispatch(fetchChatByIdThunk(conversationId as string) as any)
+        .then((result: any) => {
+          // If fetch succeeded, set actualChatId and load messages
+          if (
+            result &&
+            result.meta &&
+            result.meta.requestStatus === "fulfilled" &&
+            result.payload
+          ) {
+            const chatId = conversationId as string;
+            setActualChatId(chatId);
+            dispatch(fetchMessagesThunk({ chatId }) as any);
+            return;
+          }
 
-      // Subscribe to real-time updates
-      dispatch(subscribeToChatThunk(conversationId as string) as any);
+          // Otherwise, try to find existing chat between current user and the conversationId (other user)
+          if (currentUser?.id) {
+            dispatch(
+              findOrCreateChatByUsersThunk({
+                participant1Id: currentUser.id,
+                participant2Id: conversationId as string,
+                listingId: listingId || undefined,
+              }) as any
+            )
+              .then((result: any) => {
+                if (result && result.payload && result.payload.id) {
+                  const chatId = result.payload.id;
+                  setActualChatId(chatId);
+
+                  // Fetch the full chat details with offer data
+                  dispatch(fetchChatByIdThunk(chatId) as any).then(
+                    (chatResult: any) => {}
+                  );
+
+                  // Fetch messages for the found chat
+                  dispatch(fetchMessagesThunk({ chatId }) as any);
+
+                  dispatch(getUserByIdThunk(participant2Id as string) as any);
+                } else {
+                  // Create a new chat when no existing chat is found
+                  dispatch(
+                    createChatThunk({
+                      listing_id: listingId || undefined,
+                      participant_id: conversationId as string,
+                    }) as any
+                  )
+                    .then((result: any) => {
+                      if (
+                        result &&
+                        result.payload &&
+                        result.payload.data &&
+                        result.payload.data.id
+                      ) {
+                        const newChatId = result.payload.data.id;
+                        setActualChatId(newChatId);
+                        // Fetch the full chat details with offer data
+                        dispatch(fetchChatByIdThunk(newChatId) as any)
+                          .then((chatResult: any) => {})
+                          .catch((error: any) => {});
+                        // Fetch messages for the new chat
+                        dispatch(
+                          fetchMessagesThunk({ chatId: newChatId }) as any
+                        );
+                        // Fetch user profile for header
+                        dispatch(
+                          getUserByIdThunk(conversationId as string) as any
+                        );
+                      }
+                    })
+                    .catch((error: any) => {
+                      // Fallback to fetching user profile for header
+                      dispatch(
+                        getUserByIdThunk(conversationId as string) as any
+                      );
+                    });
+                }
+              })
+              .catch((error: any) => {
+                // No existing chat found, will create on first message
+              });
+          }
+          dispatch(getUserByIdThunk(participant2Id as string) as any);
+        })
+        .catch((error: any) => {
+          // This should not happen since Redux Toolkit doesn't throw errors
+        });
     }
 
     return () => {
       // Cleanup subscription when component unmounts
-      if (conversationId) {
-        dispatch(unsubscribeFromChatThunk(conversationId as string) as any);
+      if (actualChatId || conversationId) {
+        // Note: unsubscribeFromChatThunk was removed from imports, keeping cleanup for future use
       }
     };
-  }, [conversationId, dispatch]);
+  }, [conversationId, dispatch, currentUser, listingId]);
 
-  // Fetch current user profile if not available
-  // useEffect(() => {
-  //   if (!currentUser) {
-  //     dispatch(getUserProfileThunk() as any);
-  //   }
-  // }, [currentUser, dispatch]);
-
-  // Separate effect for fetching user details to avoid repeated subscriptions
-  useEffect(() => {
-    if (conversationId && currentUser && conversationId !== currentUser.id) {
-      dispatch(getUserByIdThunk(conversationId as string) as any);
-    }
-  }, [conversationId, currentUser, dispatch]);
-
-  // Also fetch user details when there's no current chat (new chat scenario)
-  useEffect(() => {
-    if (conversationId && !currentChat && !isLoading) {
-      // Always try to fetch user details even if not authenticated
-      dispatch(getUserByIdThunk(conversationId as string) as any)
-        .then((res: any) => {
-          setError(null);
-        })
-        .catch((error: any) => {
-          setError(error.message);
-        });
-    }
-  }, [conversationId, currentChat, isLoading, dispatch]);
-
-  // Check if user is authenticated
-  if (!currentUser && !fetchedUser) {
-    return (
-      <ChatScreen
-        conversationId={conversationId as string}
-        userName="Please Login"
-        userAvatar=""
-        isLoading={false}
-      />
-    );
-  }
+  // // Check if user is authenticated
+  // if (!currentUser && !fetchedUser) {
+  //   return (
+  //     <ChatScreen
+  //       conversationId={conversationId as string}
+  //       userName="Please Login"
+  //       userAvatar=""
+  //       isLoading={false}
+  //       messages={messages}
+  //       onSendMessage={handleSendMessage}
+  //       currentUserId={currentUserId || undefined}
+  //     />
+  //   );
+  // }
 
   // Handle loading state
-  if (isLoading && !currentChat) {
-    return (
-      <ChatScreen
-        conversationId={conversationId as string}
-        userName="Loading..."
-        userAvatar=""
-        isLoading={true}
-      />
-    );
-  }
+  // if (isLoading && !currentChat) {
+  //   return (
+  //     <ChatScreen
+  //       conversationId={conversationId as string}
+  //       userName="Loading..."
+  //       userAvatar=""
+  //       isLoading={true}
+  //       messages={messages}
+  //       onSendMessage={handleSendMessage}
+  //       currentUserId={currentUserId || undefined}
+  //     />
+  //   );
+  // }
 
   // Handle error state - show chat box instead of error
   if (error || (!currentChat && !isLoading)) {
@@ -144,25 +242,15 @@ export default function ConversationScreen() {
     const userName = fetchedUser?.name || "New Chat";
     const userAvatar = fetchedUser?.avatar || "";
 
-    // Prepare offer data if available
-    const offerProps = currentOffer
-      ? {
-          itemName: currentOffer.listing_title || "",
-          itemImage: currentOffer.listing_image || "",
-          originalPrice: 0, // Offer doesn't contain original price, would need separate fetch
-          currentOffer: currentOffer.amount || 0,
-          isOwnOffer: currentOffer.buyer_id === currentUser?.id,
-          offerStatus: currentOffer.status || "pending",
-        }
-      : {};
-
     return (
       <ChatScreen
         conversationId={conversationId as string}
         userName={userName}
         userAvatar={userAvatar}
         isLoading={false}
-        {...offerProps}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        currentUserId={currentUserId || undefined}
       />
     );
   }
@@ -172,17 +260,19 @@ export default function ConversationScreen() {
     return (
       <ChatScreen
         conversationId={conversationId as string}
-        userName={conversationInfo.name}
-        userAvatar={conversationInfo.avatar}
+        actualChatId={actualChatId || undefined}
+        userName={conversationInfo.name || "Unknown User"}
+        userAvatar={conversationInfo.avatar || ""}
         itemName={conversationInfo.itemName}
         itemImage={conversationInfo.itemImage}
-        originalPrice={conversationInfo.originalPrice}
+        originalPrice={conversationInfo.originalPrice?.toString()}
         currentOffer={conversationInfo.currentOffer}
         isOwnOffer={conversationInfo.isOwnOffer}
+        offerStatus={conversationInfo.offerStatus}
+        offerId={conversationInfo.offerId}
         messages={messages}
-        onSendMessage={(message: string) => {
-          // Handle sending message
-        }}
+        onSendMessage={handleSendMessage}
+        currentUserId={currentUserId || undefined}
       />
     );
   }
@@ -191,9 +281,12 @@ export default function ConversationScreen() {
   return (
     <ChatScreen
       conversationId={conversationId as string}
-      userName="Unknown User"
-      userAvatar=""
+      userName={fetchedUser?.name || "Unknown User"}
+      userAvatar={fetchedUser?.avatar || ""}
       isLoading={false}
+      messages={messages}
+      onSendMessage={handleSendMessage}
+      currentUserId={currentUserId || undefined}
     />
   );
 }

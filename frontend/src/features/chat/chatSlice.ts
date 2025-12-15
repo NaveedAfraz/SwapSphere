@@ -1,24 +1,32 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { ChatState, Chat, Message } from './types/chat';
+import type { ChatState, Chat, Message } from '../inbox/types/chat';
+import {
+  fetchChatsThunk,
+  fetchChatByIdThunk,
+  createChatThunk,
+  fetchMessagesThunk,
+  sendMessageThunk,
+  markMessagesAsReadThunk,
+  deleteMessageThunk,
+  findOrCreateChatByUsersThunk,
+} from '../inbox/chatThunks';
 
 const initialState: ChatState = {
   chats: [],
   currentChat: null,
-  messages: [],
+  messages: {},
   status: 'idle',
   error: null,
-  sendMessageStatus: 'idle',
-  sendMessageError: null,
-  markAsReadStatus: 'idle',
-  markAsReadError: null,
   pagination: {
     page: 1,
     limit: 20,
     total: 0,
-    hasMore: false,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false,
   },
-  typingUsers: [],
-  onlineUsers: [],
+  subscriptions: {},
+  typing: {},
 };
 
 const chatSlice = createSlice({
@@ -29,296 +37,169 @@ const chatSlice = createSlice({
     clearError: (state: ChatState) => {
       state.error = null;
     },
-    clearSendMessageError: (state: ChatState) => {
-      state.sendMessageError = null;
-    },
-    clearMarkAsReadError: (state: ChatState) => {
-      state.markAsReadError = null;
-    },
-    resetSendMessageStatus: (state: ChatState) => {
-      state.sendMessageStatus = 'idle';
-      state.sendMessageError = null;
-    },
-    resetMarkAsReadStatus: (state: ChatState) => {
-      state.markAsReadStatus = 'idle';
-      state.markAsReadError = null;
-    },
     setCurrentChat: (state: ChatState, action: PayloadAction<Chat | null>) => {
       state.currentChat = action.payload;
-      if (action.payload) {
-        state.messages = [];
+    },
+    setChats: (state: ChatState, action: PayloadAction<Chat[]>) => {
+      state.chats = action.payload;
+    },
+    addMessage: (state: ChatState, action: PayloadAction<{ chatId: string; message: Message }>) => {
+      const { chatId, message } = action.payload;
+      if (!state.messages[chatId]) {
+        state.messages[chatId] = [];
       }
+      state.messages[chatId].push(message);
     },
-    addMessage: (state: ChatState, action: PayloadAction<Message>) => {
-      state.messages.push(action.payload);
-      
-      // Update last message in chat
-      if (state.currentChat && action.payload.chat_id === state.currentChat.id) {
-        state.currentChat.last_message = action.payload.content;
-        state.currentChat.last_message_time = action.payload.created_at;
-      }
-      
-      // Update chat in list
-      const chatIndex = state.chats.findIndex(chat => chat.id === action.payload.chat_id);
-      if (chatIndex !== -1) {
-        state.chats[chatIndex].last_message = action.payload.content;
-        state.chats[chatIndex].last_message_time = action.payload.created_at;
-        state.chats[chatIndex].updated_at = action.payload.created_at;
-      }
+    setMessages: (state: ChatState, action: PayloadAction<{ chatId: string; messages: Message[] }>) => {
+      const { chatId, messages } = action.payload;
+      state.messages[chatId] = messages;
     },
-    updateMessage: (state: ChatState, action: PayloadAction<{ messageId: string; updates: Partial<Message> }>) => {
-      const { messageId, updates } = action.payload;
-      const messageIndex = state.messages.findIndex(msg => msg.id === messageId);
-      if (messageIndex !== -1) {
-        state.messages[messageIndex] = { ...state.messages[messageIndex], ...updates };
-      }
+    updateSubscription: (state: ChatState, action: PayloadAction<{ chatId: string; subscribed: boolean }>) => {
+      const { chatId, subscribed } = action.payload;
+      state.subscriptions[chatId] = subscribed;
     },
-    removeMessage: (state: ChatState, action: PayloadAction<string>) => {
-      const messageId = action.payload;
-      state.messages = state.messages.filter(msg => msg.id !== messageId);
-    },
-    setTypingUsers: (state: ChatState, action: PayloadAction<string[]>) => {
-      state.typingUsers = action.payload;
-    },
-    addTypingUser: (state: ChatState, action: PayloadAction<string>) => {
-      if (!state.typingUsers.includes(action.payload)) {
-        state.typingUsers.push(action.payload);
-      }
-    },
-    removeTypingUser: (state: ChatState, action: PayloadAction<string>) => {
-      state.typingUsers = state.typingUsers.filter(userId => userId !== action.payload);
-    },
-    setOnlineUsers: (state: ChatState, action: PayloadAction<string[]>) => {
-      state.onlineUsers = action.payload;
-    },
-    addOnlineUser: (state: ChatState, action: PayloadAction<string>) => {
-      if (!state.onlineUsers.includes(action.payload)) {
-        state.onlineUsers.push(action.payload);
-      }
-    },
-    removeOnlineUser: (state: ChatState, action: PayloadAction<string>) => {
-      state.onlineUsers = state.onlineUsers.filter(userId => userId !== action.payload);
-    },
-    clearMessages: (state: ChatState) => {
-      state.messages = [];
-    },
-    clearChats: (state: ChatState) => {
-      state.chats = [];
-      state.currentChat = null;
-      state.messages = [];
-      state.pagination = {
-        page: 1,
-        limit: 20,
-        total: 0,
-        hasMore: false,
-      };
-    },
-    updateChatUnreadCount: (state: ChatState, action: PayloadAction<{ chatId: string; unreadCount: number }>) => {
-      const { chatId, unreadCount } = action.payload;
-      const chatIndex = state.chats.findIndex(chat => chat.id === chatId);
-      if (chatIndex !== -1) {
-        state.chats[chatIndex].unread_count = unreadCount;
-      }
-      if (state.currentChat?.id === chatId) {
-        state.currentChat.unread_count = unreadCount;
-      }
+    setTyping: (state: ChatState, action: PayloadAction<{ chatId: string; typing: boolean }>) => {
+      const { chatId, typing } = action.payload;
+      state.typing[chatId] = typing;
     },
   },
-  extraReducers: (builder: any) => {
-    // Handle fetch chats thunk
+  extraReducers: (builder) => {
+    // Fetch chats
     builder
-      .addCase('chat/fetchChats/pending', (state: ChatState) => {
+      .addCase(fetchChatsThunk.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('chat/fetchChats/fulfilled', (state: ChatState, action: PayloadAction<{ chats: Chat[]; pagination: any }>) => {
-        state.status = 'success';
+      .addCase(fetchChatsThunk.fulfilled, (state, action) => {
+        state.status = 'succeeded';
         state.chats = action.payload.chats;
         state.pagination = action.payload.pagination;
-        state.error = null;
       })
-      .addCase('chat/fetchChats/rejected', (state: ChatState, action: any) => {
-        state.status = 'error';
-        state.error = action.payload as string || 'Failed to fetch chats';
+      .addCase(fetchChatsThunk.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
       });
 
-    // Handle fetch chat by ID thunk
+    // Fetch chat by ID
     builder
-      .addCase('chat/fetchChatById/pending', (state: ChatState) => {
+      .addCase(fetchChatByIdThunk.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('chat/fetchChatById/fulfilled', (state: ChatState, action: PayloadAction<{ chat: Chat; messages?: Message[] }>) => {
-        state.status = 'success';
-        state.currentChat = action.payload.chat;
-        if (action.payload.messages) {
-          state.messages = action.payload.messages;
-        }
-        state.error = null;
+      .addCase(fetchChatByIdThunk.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.currentChat = action.payload.data;
       })
-      .addCase('chat/fetchChatById/rejected', (state: ChatState, action: any) => {
-        state.status = 'error';
-        state.error = action.payload as string || 'Failed to fetch chat';
+      .addCase(fetchChatByIdThunk.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
       });
 
-    // Handle create chat thunk
+    // Create chat
     builder
-      .addCase('chat/createChat/pending', (state: ChatState) => {
+      .addCase(createChatThunk.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('chat/createChat/fulfilled', (state: ChatState, action: PayloadAction<{ chat: Chat; messages?: Message[] }>) => {
-        state.status = 'success';
-        state.currentChat = action.payload.chat;
-        state.chats.unshift(action.payload.chat);
-        if (action.payload.messages) {
-          state.messages = action.payload.messages;
+      .addCase(createChatThunk.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        const newChat = action.payload.data || action.payload;
+        state.currentChat = newChat;
+        // Add to chats list if not already there
+        if (!state.chats.find(chat => chat.id === newChat.id)) {
+          state.chats.unshift(newChat);
         }
-        state.error = null;
       })
-      .addCase('chat/createChat/rejected', (state: ChatState, action: any) => {
-        state.status = 'error';
-        state.error = action.payload as string || 'Failed to create chat';
+      .addCase(createChatThunk.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
       });
 
-    // Handle fetch messages thunk
+    // Find or create chat by users
     builder
-      .addCase('chat/fetchMessages/pending', (state: ChatState) => {
+      .addCase(findOrCreateChatByUsersThunk.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('chat/fetchMessages/fulfilled', (state: ChatState, action: PayloadAction<{ messages: Message[]; pagination: any }>) => {
-        state.status = 'success';
-        state.messages = action.payload.messages;
-        state.error = null;
-      })
-      .addCase('chat/fetchMessages/rejected', (state: ChatState, action: any) => {
-        state.status = 'error';
-        state.error = action.payload as string || 'Failed to fetch messages';
-      });
-
-    // Handle send message thunk
-    builder
-      .addCase('chat/sendMessage/pending', (state: ChatState) => {
-        state.sendMessageStatus = 'loading';
-        state.sendMessageError = null;
-      })
-      .addCase('chat/sendMessage/fulfilled', (state: ChatState, action: PayloadAction<Message>) => {
-        state.sendMessageStatus = 'success';
-        state.messages.push(action.payload);
-        
-        // Update chat's last message
-        if (state.currentChat && action.payload.chat_id === state.currentChat.id) {
-          state.currentChat.last_message = action.payload.content;
-          state.currentChat.last_message_time = action.payload.created_at;
+      .addCase(findOrCreateChatByUsersThunk.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        const chat = action.payload.data || action.payload;
+        state.currentChat = chat;
+        // Add to chats list if not already there
+        if (!state.chats.find(c => c.id === chat.id)) {
+          state.chats.unshift(chat);
         }
-        
-        // Update chat in list
-        const chatIndex = state.chats.findIndex(chat => chat.id === action.payload.chat_id);
-        if (chatIndex !== -1) {
-          state.chats[chatIndex].last_message = action.payload.content;
-          state.chats[chatIndex].last_message_time = action.payload.created_at;
-          state.chats[chatIndex].updated_at = action.payload.created_at;
-        }
-        
-        state.sendMessageError = null;
       })
-      .addCase('chat/sendMessage/rejected', (state: ChatState, action: any) => {
-        state.sendMessageStatus = 'error';
-        state.sendMessageError = action.payload as string || 'Failed to send message';
+      .addCase(findOrCreateChatByUsersThunk.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
       });
 
-    // Handle mark as read thunk
+    // Fetch messages
     builder
-      .addCase('chat/markAsRead/pending', (state: ChatState) => {
-        state.markAsReadStatus = 'loading';
-        state.markAsReadError = null;
-      })
-      .addCase('chat/markAsRead/fulfilled', (state: ChatState, action: PayloadAction<string>) => {
-        state.markAsReadStatus = 'success';
-        
-        // Mark all messages as read
-        state.messages.forEach(msg => {
-          msg.is_read = true;
-        });
-        
-        // Update unread count in current chat
-        if (state.currentChat && action.payload === state.currentChat.id) {
-          state.currentChat.unread_count = 0;
-        }
-        
-        // Update unread count in chat list
-        const chatIndex = state.chats.findIndex(chat => chat.id === action.payload);
-        if (chatIndex !== -1) {
-          state.chats[chatIndex].unread_count = 0;
-        }
-        
-        state.markAsReadError = null;
-      })
-      .addCase('chat/markAsRead/rejected', (state: ChatState, action: any) => {
-        state.markAsReadStatus = 'error';
-        state.markAsReadError = action.payload as string || 'Failed to mark as read';
-      });
-
-    // Handle delete message thunk
-    builder
-      .addCase('chat/deleteMessage/fulfilled', (state: ChatState, action: PayloadAction<string>) => {
-        state.messages = state.messages.filter(msg => msg.id !== action.payload);
-      });
-
-    // Handle upload chat image thunk
-    builder
-      .addCase('chat/uploadImage/pending', (state: ChatState) => {
-        state.sendMessageStatus = 'loading';
-        state.sendMessageError = null;
-      })
-      .addCase('chat/uploadImage/fulfilled', (state: ChatState, action: PayloadAction<{ image_url: string }>) => {
-        state.sendMessageStatus = 'success';
-        state.sendMessageError = null;
-      })
-      .addCase('chat/uploadImage/rejected', (state: ChatState, action: any) => {
-        state.sendMessageStatus = 'error';
-        state.sendMessageError = action.payload as string || 'Failed to upload image';
-      });
-
-    // Handle search chats thunk
-    builder
-      .addCase('chat/searchChats/pending', (state: ChatState) => {
+      .addCase(fetchMessagesThunk.pending, (state) => {
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('chat/searchChats/fulfilled', (state: ChatState, action: PayloadAction<{ chats: Chat[]; pagination: any }>) => {
-        state.status = 'success';
-        state.chats = action.payload.chats;
-        state.pagination = action.payload.pagination;
+      .addCase(fetchMessagesThunk.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        const { chatId } = action.meta.arg;
+        state.messages[chatId] = action.payload.messages;
+      })
+      .addCase(fetchMessagesThunk.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
+      });
+
+    // Send message
+    builder
+      .addCase(sendMessageThunk.pending, (state) => {
         state.error = null;
       })
-      .addCase('chat/searchChats/rejected', (state: ChatState, action: any) => {
-        state.status = 'error';
-        state.error = action.payload as string || 'Failed to search chats';
+      .addCase(sendMessageThunk.fulfilled, (state, action) => {
+        const message = action.payload.data || action.payload;
+        const { chatId } = action.meta.arg;
+        if (!state.messages[chatId]) {
+          state.messages[chatId] = [];
+        }
+        state.messages[chatId].push(message);
+      })
+      .addCase(sendMessageThunk.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
+
+    // Mark messages as read
+    builder
+      .addCase(markMessagesAsReadThunk.fulfilled, (state, action) => {
+        const { chatId } = action.meta.arg;
+        // Update messages as read
+        if (state.messages[chatId]) {
+          state.messages[chatId] = state.messages[chatId].map(msg => ({
+            ...msg,
+            is_read: true
+          }));
+        }
+      });
+
+    // Delete message
+    builder
+      .addCase(deleteMessageThunk.fulfilled, (state, action) => {
+        const { chatId, messageId } = action.meta.arg;
+        if (state.messages[chatId]) {
+          state.messages[chatId] = state.messages[chatId].filter(msg => msg.id !== messageId);
+        }
       });
   },
 });
 
 export const {
   clearError,
-  clearSendMessageError,
-  clearMarkAsReadError,
-  resetSendMessageStatus,
-  resetMarkAsReadStatus,
   setCurrentChat,
+  setChats,
   addMessage,
-  updateMessage,
-  removeMessage,
-  setTypingUsers,
-  addTypingUser,
-  removeTypingUser,
-  setOnlineUsers,
-  addOnlineUser,
-  removeOnlineUser,
-  clearMessages,
-  clearChats,
-  updateChatUnreadCount,
+  setMessages,
+  updateSubscription,
+  setTyping,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;
