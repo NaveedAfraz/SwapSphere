@@ -237,6 +237,8 @@ CREATE TABLE IF NOT EXISTS chat_participants (
   last_read_at TIMESTAMPTZ,
   muted BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT now(),
+  participant1_id UUID,
+  participant2_id UUID,
   UNIQUE (chat_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_chat_participants_chat ON chat_participants (chat_id);

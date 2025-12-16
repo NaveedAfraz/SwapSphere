@@ -8,7 +8,6 @@ import {
   Alert,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
   Animated,
   LayoutAnimation,
   Platform,
@@ -39,6 +38,7 @@ import { acceptOfferThunk } from "@/src/features/offer/offerThunks";
 import { Notification } from "@/src/features/notification/types/notification";
 import { useTheme } from "@/src/contexts/ThemeContext";
 import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
+import { PullToRefresh } from "@/src/components/PullToRefresh";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -138,6 +138,49 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 <Text style={styles.actionButtonText}>View Details</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.chatButton]}
+              onPress={() => {
+                const actorId = notification.actor_id || notification.actor?.id;
+                if (actorId) {
+                  // Pass both user ID and listing ID to conversation screen
+                  const listingId = notification.payload?.listing_id;
+                  if (listingId) {
+                    // Navigate with listingId and both participant IDs - let conversation screen find the chat
+                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                  } else {
+                    router.push(`/inbox/${actorId}`);
+                  }
+                } else {
+                  router.push("/(tabs)/inbox");
+                }
+              }}
+              activeOpacity={Interactions.buttonOpacity}
+            >
+              <Text style={styles.actionButtonText}>Chat</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case "offer_accepted":
+      case "offer_declined":
+      case "offer_countered":
+        return (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.acceptedButton]}
+              onPress={() =>
+                router.push(
+                  `/product/${
+                    notification.payload?.listing_id ||
+                    notification.payload?.product_id
+                  }`
+                )
+              }
+              activeOpacity={Interactions.buttonOpacity}
+            >
+              <Text style={styles.actionButtonText}>View Details</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.chatButton]}
               onPress={() => {
@@ -264,7 +307,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     dispatch(fetchNotificationsThunk({}) as any);
-  }, [dispatch]);
+  }, []); // Empty dependency array to only fetch once on mount
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -309,7 +352,12 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = async (notification: Notification) => {
-    // Navigate based on notification type and payload
+    // First mark as read if needed
+    if (!notification.is_read) {
+      await dispatch(markAsReadThunk(notification.id) as any);
+    }
+    
+    // Then navigate based on notification type and payload
     const { type, payload } = notification;
 
     switch (type) {
@@ -511,24 +559,18 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={notifications}
-        renderItem={renderNotification}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={
-          notifications.length === 0 ? styles.emptyContent : styles.listContent
-        }
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={["#3B82F6"]}
-            tintColor="#3B82F6"
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <FlatList
+          data={notifications}
+          renderItem={renderNotification}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={
+            notifications.length === 0 ? styles.emptyContent : styles.listContent
+          }
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+        />
+      </PullToRefresh>
     </View>
   );
 }

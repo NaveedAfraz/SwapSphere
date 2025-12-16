@@ -9,6 +9,7 @@ import {
   findOrCreateChatByUsersThunk,
   sendMessageOrCreateChatThunk,
   createChatThunk,
+  markMessagesAsReadThunk,
 } from "@/src/features/inbox/chatThunks";
 import {
   selectCurrentChat,
@@ -206,20 +207,22 @@ export default function ConversationScreen() {
     };
   }, [conversationId, dispatch, currentUser, listingId]);
 
-  // // Check if user is authenticated
-  // if (!currentUser && !fetchedUser) {
-  //   return (
-  //     <ChatScreen
-  //       conversationId={conversationId as string}
-  //       userName="Please Login"
-  //       userAvatar=""
-  //       isLoading={false}
-  //       messages={messages}
-  //       onSendMessage={handleSendMessage}
-  //       currentUserId={currentUserId || undefined}
-  //     />
-  //   );
-  // }
+  // Mark messages as read when conversation is opened
+  useEffect(() => {
+    if (actualChatId && messages && messages.length > 0) {
+      // Find unread messages (messages not sent by current user)
+      const unreadMessageIds = messages
+        .filter(msg => !msg.is_read && msg.sender_id !== currentUserId)
+        .map(msg => msg.id);
+      
+      if (unreadMessageIds.length > 0) {
+        dispatch(markMessagesAsReadThunk({ 
+          chatId: actualChatId, 
+          messageIds: unreadMessageIds 
+        }) as any);
+      }
+    }
+  }, [actualChatId, messages, currentUserId, dispatch]);
 
   // Handle loading state
   // if (isLoading && !currentChat) {

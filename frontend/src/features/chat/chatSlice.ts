@@ -62,6 +62,38 @@ const chatSlice = createSlice({
       const { chatId, typing } = action.payload;
       state.typing[chatId] = typing;
     },
+    // Handle incoming messages (from other users)
+    addIncomingMessage: (state: ChatState, action: PayloadAction<{ chatId: string; message: Message; currentUserId: string }>) => {
+      const { chatId, message, currentUserId } = action.payload;
+      
+      // Add message to the chat
+      if (!state.messages[chatId]) {
+        state.messages[chatId] = [];
+      }
+      state.messages[chatId].push(message);
+      
+      // Update chat in chats list with unread count increment
+      const chatIndex = state.chats.findIndex(chat => chat.id === chatId);
+      if (chatIndex !== -1) {
+        state.chats[chatIndex] = {
+          ...state.chats[chatIndex],
+          last_message: message,
+          last_message_at: message.created_at,
+          unread_count: (state.chats[chatIndex].unread_count || 0) + 1
+        };
+      }
+      
+      // Update current chat if it's not the active chat
+      if (state.currentChat && state.currentChat.id === chatId) {
+        state.currentChat = {
+          ...state.currentChat,
+          last_message: message,
+          last_message_at: message.created_at,
+          // Only increment unread count if this is not the active conversation
+          unread_count: state.currentChat.id === chatId ? 0 : (state.currentChat.unread_count || 0) + 1
+        };
+      }
+    },
   },
   extraReducers: (builder) => {
     // Fetch chats
@@ -163,6 +195,26 @@ const chatSlice = createSlice({
           state.messages[chatId] = [];
         }
         state.messages[chatId].push(message);
+        
+        // Update last message for the chat in chats list
+        const chatIndex = state.chats.findIndex(chat => chat.id === chatId);
+        if (chatIndex !== -1) {
+          state.chats[chatIndex] = {
+            ...state.chats[chatIndex],
+            last_message: message,
+            last_message_at: message.created_at,
+            // Don't increment unread count for current user's own messages
+          };
+        }
+        
+        // Update current chat
+        if (state.currentChat && state.currentChat.id === chatId) {
+          state.currentChat = {
+            ...state.currentChat,
+            last_message: message,
+            last_message_at: message.created_at,
+          };
+        }
       })
       .addCase(sendMessageThunk.rejected, (state, action) => {
         state.error = action.payload as string;
@@ -178,6 +230,21 @@ const chatSlice = createSlice({
             ...msg,
             is_read: true
           }));
+        }
+        // Update unread count for the chat in the chats list
+        const chatIndex = state.chats.findIndex(chat => chat.id === chatId);
+        if (chatIndex !== -1) {
+          state.chats[chatIndex] = {
+            ...state.chats[chatIndex],
+            unread_count: 0
+          };
+        }
+        // Update current chat unread count if it's the active chat
+        if (state.currentChat && state.currentChat.id === chatId) {
+          state.currentChat = {
+            ...state.currentChat,
+            unread_count: 0
+          };
         }
       });
 
@@ -200,6 +267,7 @@ export const {
   setMessages,
   updateSubscription,
   setTyping,
+  addIncomingMessage,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -18,6 +18,7 @@ import {
   selectListingStatus,
 } from "../../listing/listingSelectors";
 import type { Listing } from "../../listing/types/listing";
+import { PullToRefresh } from "../../../components/PullToRefresh";
 
 const getStatusColor = (isPublished: boolean) => {
   return isPublished ? "#10B981" : "#F59E0B";
@@ -28,7 +29,33 @@ const getStatusText = (isPublished: boolean) => {
 };
 
 export default function MyListings() {
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  
+  const [selectedFilter, setSelectedFilter] = useState<
+    "all" | "active" | "sold" | "pending"
+  >("all");
+
+  // Redux integration using listing thunks/selectors
+  const dispatch = useDispatch();
+  const myListings = useSelector(selectMyListings);
+  const listingsStatus = useSelector(selectListingStatus);
+  
+  // Fetch listings on component mount
+  useEffect(() => {
+    dispatch(fetchMyListingsThunk({ page: 1, limit: 20 }) as any);
+  }, [dispatch]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(fetchMyListingsThunk({ page: 1, limit: 20 }) as any);
+    } catch (error) {
+      console.error('Error refreshing listings:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   
   const handleListingPress = (listing: Listing) => {
     router.push(`/product/${listing.id}`);
@@ -100,20 +127,6 @@ export default function MyListings() {
     return `${Math.floor(diffDays / 365)} years ago`;
   };
 
-  const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "active" | "sold" | "pending"
-  >("all");
-
-  // Redux integration using listing thunks/selectors
-  const dispatch = useDispatch();
-  const myListings = useSelector(selectMyListings);
-  const listingsStatus = useSelector(selectListingStatus);
-
-  // Fetch listings on component mount
-  useEffect(() => {
-    dispatch(fetchMyListingsThunk({ page: 1, limit: 20 }) as any);
-  }, [dispatch]);
-
   const filteredListings = (myListings || [])
     .filter(
       (listing: any) =>
@@ -150,22 +163,24 @@ export default function MyListings() {
         ))}
       </View>
 
-      <FlatList
-        data={filteredListings}
-        renderItem={renderListing}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="grid-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No listings found</Text>
-            <Text style={styles.emptySubtext}>
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <FlatList
+          data={filteredListings}
+          renderItem={renderListing}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="grid-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>No listings found</Text>
+              <Text style={styles.emptySubtext}>
               Start by creating your first listing
             </Text>
           </View>
         }
-      />
+        />
+      </PullToRefresh>
     </View>
   );
 }

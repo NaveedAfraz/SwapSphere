@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   FlatList,
-  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,6 +17,7 @@ import ReviewsCarousel from "@/src/features/listing/components/ReviewsCarousel";
 import SellerBadge from "@/src/features/listing/components/SellerBadge";
 import SidebarDrawer from "@/src/features/listing/components/SidebarDrawer";
 import { fetchListingsThunk } from "@/src/features/listing/listingThunks";
+import { PullToRefresh } from "@/src/components/PullToRefresh";
 import { fetchUnreadCountThunk } from "@/src/features/notification/notificationThunks";
 import {
   selectListings,
@@ -237,17 +237,7 @@ export default function HomePage() {
         onNotificationPress={handleNotificationPress}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing && isLoading}
-            onRefresh={handleRefresh}
-            colors={["#3B82F6"]}
-            tintColor="#3B82F6"
-          />
-        }
-      >
+      <PullToRefresh refreshing={refreshing && isLoading} onRefresh={handleRefresh}>
         <Categories categories={categories} />
 
         {/* Featured Items Section */}
@@ -300,7 +290,7 @@ export default function HomePage() {
             <Text style={styles.errorText}>Error: {listingError}</Text>
           </View>
         )}
-      </ScrollView>
+      </PullToRefresh>
 
       <SidebarDrawer
         isVisible={isDrawerVisible}

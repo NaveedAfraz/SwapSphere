@@ -309,7 +309,7 @@ export const markMessagesAsReadThunk = createAsyncThunk<
   "chat/markMessagesAsRead",
   async ({ chatId, messageIds }: { chatId: string; messageIds?: string[] }, { rejectWithValue }) => {
     try {
-      await apiClient.post(`/${chatId}/read`, { message_ids: messageIds });
+      await apiClient.post(`/${chatId}/messages/read`, { message_ids: messageIds });
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to mark messages as read";

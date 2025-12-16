@@ -17,6 +17,7 @@ import ProfileStats from "@/src/features/profile/components/ProfileStats";
 import { useUserMode } from "@/src/contexts/UserModeContext";
 import { fetchMyProfileThunk } from "@/src/features/profile/profileThunks";
 import { logoutThunk } from "@/src/features/auth/authThunks";
+import { PullToRefresh } from "@/src/components/PullToRefresh";
 import {
   selectCurrentProfile,
   selectProfileDisplayName,
@@ -61,6 +62,7 @@ import {
 
 export default function ProfileScreen() {
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { isSellerMode, setIsSellerMode } = useUserMode();
   const router = useRouter();
   const dispatch = useDispatch();
@@ -81,6 +83,17 @@ export default function ProfileScreen() {
   useEffect(() => {
     dispatch(fetchMyProfileThunk() as any);
   }, [dispatch]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(fetchMyProfileThunk() as any);
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Dynamic menu items with counts from Redux state
   const getSellerMenuItems = () => [
@@ -184,7 +197,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <TouchableOpacity
@@ -307,7 +320,7 @@ export default function ProfileScreen() {
             Made with ❤️ for peer-to-peer trading
           </Text>
         </View>
-      </ScrollView>
+      </PullToRefresh>
     </View>
   );
 }

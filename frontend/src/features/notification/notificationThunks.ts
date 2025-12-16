@@ -14,6 +14,7 @@ import type {
   PushNotificationPayload,
   EmailNotificationPayload
 } from "./types/notification";
+import { markAsReadLocal } from "./notificationSlice";
 
 const API_BASE = "http://192.168.0.104:5000/api/notification";
 
@@ -125,14 +126,19 @@ export const deleteNotificationThunk = createAsyncThunk<
 );
 
 export const markAsReadThunk = createAsyncThunk<
-  void,
+  { notification_id: string },
   string, // Single notification ID
   { rejectValue: string }
 >(
   "notification/markAsRead",
-  async (notificationId: string, { rejectWithValue }) => {
+  async (notificationId: string, { rejectWithValue, dispatch }) => {
     try {
-      await apiClient.post(`/mark-read/${notificationId}`);
+      // Optimistic update - mark as read locally immediately
+      dispatch(markAsReadLocal(notificationId));
+      
+      // Then make the API call
+      await apiClient.post(`/${notificationId}/read`);
+      return { notification_id: notificationId };
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to mark notification as read";

@@ -256,7 +256,7 @@ const markAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { messageIds } = req.body;
+    const { message_ids } = req.body;
     
     // Verify user is participant in chat
     const chat = await getChatById(userId, id);
@@ -265,7 +265,7 @@ const markAsRead = async (req, res) => {
       return res.status(404).json({ error: 'Chat not found' });
     }
     
-    await markMessagesAsRead(userId, messageIds);
+    await markMessagesAsRead(userId, message_ids);
     
     res.json({ message: 'Messages marked as read' });
   } catch (error) {

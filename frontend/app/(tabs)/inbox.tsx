@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +17,7 @@ import {
   selectIsChatLoading,
 } from "@/src/features/inbox/chatSelectors";
 import { fetchChatsThunk } from "@/src/features/inbox/chatThunks";
+import { PullToRefresh } from "@/src/components/PullToRefresh";
 import { getUserByIdThunk } from "@/src/features/user/userThunks";
 import { fetchListingByIdThunk } from "@/src/features/listing/listingThunks";
 import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
@@ -124,25 +124,14 @@ export default function InboxScreen() {
         unreadCount={unreadCount}
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#3B82F6"
-            colors={["#3B82F6"]}
-          />
-        }
-      >
+      <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} style={styles.scrollView}>
         <ConversationList
           conversations={conversations}
           onPressConversation={(id: string) =>
             router.push(`/inbox/${id}` as any)
           }
         />
-      </ScrollView>
+      </PullToRefresh>
     </View>
   );
 }

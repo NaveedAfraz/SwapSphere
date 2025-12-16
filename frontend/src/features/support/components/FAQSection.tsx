@@ -36,44 +36,51 @@ const faqData: FAQItem[] = [
   },
   {
     id: "3",
+    question: "What happens after my offer is accepted?",
+    answer:
+      'After offer acceptance in our peer-to-peer marketplace: 1) **Chat Communication** - Use the chat to discuss payment and shipping details with the other party, 2) **Exchange Contact Info** - Share phone numbers for easier coordination, 3) **Arrange Meeting/Shipping** - Decide whether to meet in person or ship the item, 4) **Handle Payment** - Arrange payment directly between parties (cash, digital transfer, etc.), 5) **Complete Transaction** - Meet or ship the item as agreed, 6) **Leave Review** - Rate each other after the transaction is complete. Remember to meet in safe public places and trust your instincts!',
+    category: "Buying",
+  },
+  {
+    id: "4",
     question: "Is my payment information secure?",
     answer:
       "Yes, we use industry-standard encryption and secure payment processing. Your payment details are never shared with sellers. We use escrow services to protect both buyers and sellers during transactions.",
     category: "Payments",
   },
   {
-    id: "4",
+    id: "5",
     question: "How do I report a suspicious user?",
     answer:
       'To report a user: 1) Go to their profile, 2) Tap the menu button (three dots), 3) Select "Report User", 4) Choose the reason for reporting, 5) Provide details about the issue. We review all reports within 24 hours.',
     category: "Safety",
   },
   {
-    id: "5",
+    id: "6",
     question: "What if an item doesn't match its description?",
     answer:
       "If an item doesn't match its description: 1) Contact the seller through our chat system first, 2) If unresolved, open a dispute within 48 hours of delivery, 3) Provide photos showing the discrepancy, 4) Our support team will mediate the situation.",
     category: "Disputes",
   },
   {
-    id: "6",
+    id: "7",
     question: "How do ratings work?",
     answer:
       "After completing a transaction, both buyer and seller can rate each other and leave a review. Ratings are based on communication, item accuracy, and overall experience. Your overall rating affects your visibility and trust score on the platform.",
     category: "Reviews",
   },
   {
-    id: "7",
+    id: "8",
     question: "Can I delete my account?",
     answer:
       "Yes, you can delete your account from Settings > Account > Delete Account. Please note: 1) All your listings will be removed, 2) Active transactions will be canceled, 3) Your data will be permanently deleted after 30 days.",
     category: "Account",
   },
   {
-    id: "8",
+    id: "9",
     question: "What are the fees for selling?",
     answer:
-      "SwapSphere charges: 1) No listing fees, 2) 3% commission on successful sales under $500, 3) 2% commission on sales over $500, 4) Payment processing fees may apply. No fees for buyers.",
+      "SwapSphere charges: 1) No listing fees, 2) **NO COMMISSION until April 2026** (Launch Promotion!), 3) After April 2026: 3% commission on sales under $500, 4) After April 2026: 2% commission on sales over $500, 5) Payment processing fees may apply. No fees for buyers.",
     category: "Payments",
   },
 ];

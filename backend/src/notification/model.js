@@ -3,6 +3,23 @@ const { pool } = require("../database/db");
 const createNotification = async (userId, notificationData) => {
   const { type, payload, actor_id } = notificationData;
   
+  // Check for duplicate notification within last 5 minutes
+  const duplicateCheckQuery = `
+    SELECT id FROM notifications 
+    WHERE user_id = $1 
+      AND actor_id = $2 
+      AND type = $3 
+      AND payload::jsonb = $4::jsonb
+      AND created_at > NOW() - INTERVAL '5 minutes'
+  `;
+  
+  const duplicateResult = await pool.query(duplicateCheckQuery, [userId, actor_id, type, JSON.stringify(payload)]);
+  
+  if (duplicateResult.rows.length > 0) {
+    console.log('Duplicate notification detected, skipping creation');
+    return duplicateResult.rows[0]; // Return existing notification
+  }
+  
   const query = `
     INSERT INTO notifications (user_id, actor_id, type, payload)
     VALUES ($1, $2, $3, $4)
@@ -73,7 +90,7 @@ const getNotificationsByUser = async (userId, filters = {}, options = {}) => {
   `;
   
   const dataQuery = `
-    SELECT n.*, 
+    SELECT DISTINCT n.*, 
            p.name as actor_name, p.avatar_key as actor_avatar
     FROM notifications n
     LEFT JOIN users ua ON n.actor_id = ua.id

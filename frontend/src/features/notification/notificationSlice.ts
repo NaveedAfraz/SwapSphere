@@ -106,22 +106,20 @@ const notificationSlice = createSlice({
 
     // Handle mark as read thunk
     builder
-      .addCase('notification/markAsRead/fulfilled', (state: NotificationStateType, action: PayloadAction<{ notification_ids: string[] }>) => {
-        const { notification_ids } = action.payload;
+      .addCase('notification/markAsRead/fulfilled', (state: NotificationStateType, action: PayloadAction<{ notification_id: string }>) => {
+        const { notification_id } = action.payload;
         
-        // Update notifications
-        notification_ids.forEach(id => {
-          const index = state.notifications.findIndex(notification => notification.id === id);
-          if (index !== -1) {
-            state.notifications[index].is_read = true;
-          }
-        });
+        // Update notification in main notifications
+        const index = state.notifications.findIndex(notification => notification.id === notification_id);
+        if (index !== -1) {
+          state.notifications[index].is_read = true;
+        }
         
-        // Remove from unread
-        state.unreadNotifications = state.unreadNotifications.filter(notification => !notification_ids.includes(notification.id));
+        // Remove from unread notifications
+        state.unreadNotifications = state.unreadNotifications.filter(notification => notification.id !== notification_id);
         
         // Update current notification
-        if (state.currentNotification && notification_ids.includes(state.currentNotification.id)) {
+        if (state.currentNotification?.id === notification_id) {
           state.currentNotification.is_read = true;
         }
       });

@@ -319,7 +319,7 @@ const getProfileStats = async (userId) => {
 
     // Get reviews stats
     const reviewsResult = await pool.query(
-      "SELECT COUNT(*) as count, COALESCE(AVG(rating), 0) as avg_rating FROM reviews WHERE seller_id = (SELECT id FROM sellers WHERE user_id = $1)",
+      "SELECT COUNT(*) as count, COALESCE(AVG(rating), 0) as avg_rating FROM reviews WHERE reviewee_id = $1",
       [userId]
     );
 

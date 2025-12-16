@@ -16,6 +16,7 @@ import { fetchChatByIdThunk } from "@/src/features/inbox/chatThunks";
 import {
   updateOfferThunk,
   counterOfferThunk,
+  acceptOfferThunk,
 } from "@/src/features/offer/offerThunks";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
@@ -191,8 +192,23 @@ export default function ChatScreen({
   }
 
   const handleAcceptOffer = () => {
-    // Offer acceptance logic should be handled by parent component
-    // This could trigger an API call to update the offer status
+    if (!offerId) {
+      console.error('No offer ID available for acceptance');
+      return;
+    }
+
+    // Dispatch accept offer thunk
+    dispatch(acceptOfferThunk(offerId) as any).then((result: any) => {
+      console.log('Offer accepted successfully:', result);
+      
+      // Refresh chat data to get updated offer information
+      const chatIdToRefresh = actualChatId || conversationId;
+      if (chatIdToRefresh) {
+        dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+      }
+    }).catch((error: any) => {
+      console.error('OFFER ACCEPT FAILED:', error);
+    });
   };
 
   const renderMessage = ({ item }: { item: UIMessage }) => (
