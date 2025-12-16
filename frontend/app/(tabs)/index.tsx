@@ -27,6 +27,8 @@ import {
   selectPagination,
 } from "@/src/features/listing/listingSelectors";
 import { selectUnreadCount } from "@/src/features/notification/notificationSelectors";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { GlobalThemeWrapper, ThemedText } from "@/src/components/GlobalThemeComponents";
 import type { Listing } from "@/src/features/listing/types/listing";
 
 // Categories data
@@ -137,6 +139,7 @@ export default function HomePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const dispatch = useDispatch();
+  const { theme } = useTheme();
 
   // Redux state
   const listings = useSelector(selectListings);
@@ -228,7 +231,7 @@ export default function HomePage() {
   const latestListings = transformListings(listings.slice(6, 12));
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <GlobalThemeWrapper useFullPage={true} style={{ paddingBottom: insets.bottom }}>
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -264,7 +267,7 @@ export default function HomePage() {
 
         {/* Top Sellers Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top Sellers</Text>
+          <ThemedText type="heading" style={styles.sectionTitle}>Top Sellers</ThemedText>
           {sellers.map((seller) => (
             <SellerBadge
               key={seller.id}
@@ -280,14 +283,14 @@ export default function HomePage() {
 
         {/* Loading and Error States */}
         {isLoading && listings.length === 0 && (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading listings...</Text>
+          <View style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]}>
+            <ThemedText type="body" style={styles.loadingText}>Loading listings...</ThemedText>
           </View>
         )}
 
         {listingError && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Error: {listingError}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: theme.colors.error + '20' }]}>
+            <ThemedText type="body" style={[styles.errorText, { color: theme.colors.error }]}>Error: {listingError}</ThemedText>
           </View>
         )}
       </PullToRefresh>
@@ -296,14 +299,13 @@ export default function HomePage() {
         isVisible={isDrawerVisible}
         onClose={() => setIsDrawerVisible(false)}
       />
-    </View>
+    </GlobalThemeWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   section: {
     marginTop: 30,
@@ -312,26 +314,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 20,
     letterSpacing: -0.5,
   },
   loadingContainer: {
-    padding: 20,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   loadingText: {
     fontSize: 16,
-    color: "#6B7280",
   },
   errorContainer: {
     padding: 20,
-    backgroundColor: "#FEE2E2",
     margin: 20,
     borderRadius: 8,
   },
   errorText: {
     fontSize: 16,
-    color: "#DC2626",
   },
 });

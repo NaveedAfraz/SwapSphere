@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Interactions } from '@/src/constants/theme';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemedText } from '@/src/components/GlobalThemeComponents';
 
 interface ProfileHeaderProps {
   name: string;
@@ -12,23 +14,25 @@ interface ProfileHeaderProps {
 }
 
 export default function ProfileHeader({ name, avatar, memberSince, verified, onEdit }: ProfileHeaderProps) {
+  const { theme } = useTheme();
+  
   return (
     <View style={styles.container}>
       <View style={styles.profileHeader}>
         <Image source={{ uri: avatar }} style={styles.avatar} />
         <View style={styles.profileInfo}>
-          <Text style={styles.name}>{name}</Text>
-          <Text style={styles.memberSince}>Member since {memberSince}</Text>
+          <ThemedText type="heading" style={styles.name}>{name}</ThemedText>
+          <ThemedText type="caption" style={styles.memberSince}>Member since {memberSince}</ThemedText>
           {verified && (
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-              <Text style={styles.verifiedText}>Verified Seller</Text>
+            <View style={[styles.verifiedBadge, { backgroundColor: theme.colors.success + '20' }]}>
+              <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+              <Text style={[styles.verifiedText, { color: theme.colors.success }]}>Verified Seller</Text>
             </View>
           )}
         </View>
       </View>
       <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={Interactions.buttonOpacity}>
-        <Ionicons name="create-outline" size={20} color="#3B82F6" />
+        <Ionicons name="create-outline" size={20} color={theme.colors.accent} />
       </TouchableOpacity>
     </View>
   );
@@ -57,18 +61,15 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1a1a1a',
     marginBottom: 4,
   },
   memberSince: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 8,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D1FAE5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -76,7 +77,6 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     fontSize: 12,
-    color: '#10B981',
     fontWeight: '600',
     marginLeft: 4,
   },

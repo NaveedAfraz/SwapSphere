@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { Heart, Star, MapPin } from "lucide-react-native";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface FeaturedItem {
   id: string | number;
@@ -41,13 +43,15 @@ export default function FeaturedItems({
   showSeeAll = true,
   useScrollView = true,
 }: FeaturedItemsProps) {
+  const { theme } = useTheme();
+  
   const content = (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{sectionTitle}</Text>
+        <ThemedText type="subheading" style={styles.sectionTitle}>{sectionTitle}</ThemedText>
         {showSeeAll && (
           <TouchableOpacity>
-            <Text style={styles.seeAll}>View All</Text>
+            <ThemedText type="caption" style={styles.seeAll}>View All</ThemedText>
           </TouchableOpacity>
         )}
       </View>
@@ -55,7 +59,7 @@ export default function FeaturedItems({
       {items.map((item) => (
         <TouchableOpacity
           key={item.id}
-          style={styles.featuredCard}
+          style={[styles.featuredCard, { backgroundColor: theme.colors.surface }]}
           onPress={() => onProductPress?.(item)}
           activeOpacity={Interactions.activeOpacity}
         >
@@ -70,33 +74,33 @@ export default function FeaturedItems({
           >
             <Heart
               size={20}
-              color={liked[item.id] ? "#3B82F6" : "#fff"}
-              fill={liked[item.id] ? "#3B82F6" : "transparent"}
+              color={liked[item.id] ? theme.colors.accent : "#fff"}
+              fill={liked[item.id] ? theme.colors.accent : "transparent"}
             />
           </TouchableOpacity>
           <View style={styles.featuredContent}>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{item.category}</Text>
+            <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
+              <ThemedText type="caption" style={styles.categoryBadgeText}>{item.category}</ThemedText>
             </View>
-            <Text style={styles.featuredTitle}>{item.title}</Text>
+            <ThemedText type="body" style={styles.featuredTitle}>{item.title}</ThemedText>
             <View style={styles.featuredMeta}>
               <View style={styles.ratingContainer}>
-                <Star size={14} color="#FFD700" fill="#FFD700" />
-                <Text style={styles.rating}>{item.rating}</Text>
+                <Star size={14} color={theme.colors.accent} fill={theme.colors.accent} />
+                <ThemedText type="caption" style={styles.rating}>{item.rating}</ThemedText>
               </View>
               <View style={styles.locationContainer}>
-                <MapPin size={14} color="#999" />
-                <Text style={styles.location}>{item.location}</Text>
+                <MapPin size={14} color={theme.colors.secondary} />
+                <ThemedText type="caption" style={styles.location}>{item.location}</ThemedText>
               </View>
             </View>
             <View style={styles.featuredFooter}>
-              <Text style={styles.price}>{item.price}</Text>
+              <ThemedText type="body" style={styles.price}>{item.price}</ThemedText>
               <TouchableOpacity
-                style={styles.bookBtn}
+                style={[styles.bookBtn, { backgroundColor: theme.colors.primary }]}
                 onPress={() => onMakeOffer?.(item)}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={styles.bookBtnText}>Make Offer</Text>
+                <Text style={[styles.bookBtnText, { color: '#FFFFFF' }]}>Make Offer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -128,16 +132,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#111827",
     letterSpacing: -0.5,
   },
   seeAll: {
     fontSize: 14,
-    color: "#3B82F6",
     fontWeight: "600",
   },
   featuredCard: {
-    backgroundColor: "#fff",
     borderRadius: 20,
     marginBottom: 20,
     shadowColor: "#000",
@@ -168,7 +169,6 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#D1D5DB",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -177,28 +177,23 @@ const styles = StyleSheet.create({
   categoryBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6B7280",
   },
   featuredTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 10,
   },
   featuredMeta: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 15,
   },
   rating: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
     marginLeft: 4,
   },
   locationContainer: {
@@ -207,7 +202,6 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 14,
-    color: "#6B7280",
     marginLeft: 4,
   },
   featuredFooter: {
@@ -218,17 +212,15 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#3B82F6",
   },
   bookBtn: {
-    backgroundColor: "#111827",
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 12,
   },
   bookBtnText: {
-    color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+    color: '#FFFFFF',
   },
 });

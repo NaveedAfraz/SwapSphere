@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch } from 'react-redux';
 import { Interactions } from '@/src/constants/theme';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemedText } from '@/src/components/GlobalThemeComponents';
 import { updateOfferThunk, counterOfferThunk } from '@/src/features/offer/offerThunks';
 import { fetchChatByIdThunk } from '@/src/features/inbox/chatThunks';
 
@@ -34,6 +36,7 @@ export default function OfferNegotiation({
   onAcceptOffer,
 }: OfferNegotiationProps) {
   const dispatch = useDispatch();
+  const { theme } = useTheme();
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempOffer, setTempOffer] = useState((currentOffer || 0).toString());
@@ -92,24 +95,24 @@ export default function OfferNegotiation({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{itemName}</Text>
-        <Text style={styles.originalPrice}>Original: ${originalPrice}</Text>
+        <ThemedText type="body" style={styles.itemName}>{itemName}</ThemedText>
+        <ThemedText type="caption" style={styles.originalPrice}>Original: ${originalPrice}</ThemedText>
       </View>
 
       <View style={styles.offerSection}>
         <View style={styles.offerHeader}>
-          <Text style={styles.offerLabel}>
+          <ThemedText type="body" style={styles.offerLabel}>
             {isOwnOffer ? 'Your Offer' : 'Their Offer'}
-          </Text>
+          </ThemedText>
           {!isEditing && offerStatus !== 'accepted' && (
             <TouchableOpacity
               style={styles.editButton}
               onPress={handleEditOffer}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Ionicons name="create-outline" size={16} color="#3B82F6" />
+              <Ionicons name="create-outline" size={16} color={theme.colors.accent} />
             </TouchableOpacity>
           )}
         </View>
@@ -117,7 +120,11 @@ export default function OfferNegotiation({
         {isEditing ? (
           <View style={styles.editContainer}>
             <TextInput
-              style={styles.offerInput}
+              style={[styles.offerInput, { 
+                backgroundColor: theme.colors.background,
+                color: theme.colors.primary,
+                borderColor: theme.colors.border
+              }]}
               value={`$${tempOffer}`}
               onChangeText={(text) => setTempOffer(text.replace('$', ''))}
               keyboardType="numeric"
@@ -125,34 +132,34 @@ export default function OfferNegotiation({
             />
             <View style={styles.editActions}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.cancelButton]}
+                style={[styles.actionButton, styles.cancelButton, { backgroundColor: theme.colors.background }]}
                 onPress={handleCancelEdit}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <ThemedText type="caption" style={styles.cancelText}>Cancel</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionButton, styles.saveButton]}
+                style={[styles.actionButton, styles.saveButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handleSaveOffer}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={styles.saveText}>Update</Text>
+                <ThemedText type="caption" style={[styles.saveText, { color: '#FFFFFF' }]}>Update</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View style={styles.offerDisplay}>
-            <Text style={styles.offerAmount}>
+            <ThemedText type="body" style={styles.offerAmount}>
             {currentOffer !== undefined ? `$${currentOffer}` : "No offer yet"}
-          </Text>
+          </ThemedText>
             {!isOwnOffer && onAcceptOffer && (
               <TouchableOpacity
-                style={styles.acceptButton}
+                style={[styles.acceptButton, { backgroundColor: theme.colors.accent }]}
                 onPress={onAcceptOffer}
                 activeOpacity={Interactions.buttonOpacity}
               >
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                <Text style={styles.acceptText}>Accept</Text>
+                <ThemedText type="caption" style={[styles.acceptText, { color: '#FFFFFF' }]}>Accept</ThemedText>
               </TouchableOpacity>
             )}
           </View>
@@ -164,13 +171,12 @@ export default function OfferNegotiation({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginVertical: 12,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'transparent',
   },
   itemInfo: {
     marginBottom: 12,
@@ -178,16 +184,14 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
     marginBottom: 4,
   },
   originalPrice: {
     fontSize: 14,
-    color: '#6B7280',
   },
   offerSection: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: 'transparent',
     paddingTop: 12,
   },
   offerHeader: {
@@ -199,23 +203,19 @@ const styles = StyleSheet.create({
   offerLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
   },
   editButton: {
-    padding: 4,
   },
   editContainer: {
-    alignItems: 'flex-start',
+    marginTop: 8,
   },
   offerInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
     minWidth: 100,
     marginBottom: 12,
   },
@@ -226,23 +226,18 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: '#F3F4F6',
-  },
-  saveButton: {
-    backgroundColor: '#3B82F6',
-  },
+  cancelButton: {},
+  saveButton: {},
   cancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
   },
   saveText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   offerDisplay: {
     flexDirection: 'row',
@@ -252,20 +247,16 @@ const styles = StyleSheet.create({
   offerAmount: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#3B82F6',
   },
   acceptButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10B981',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
-    gap: 4,
+    borderRadius: 8,
   },
   acceptText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
 });

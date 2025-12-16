@@ -18,22 +18,20 @@ import {
 } from "@/src/features/inbox/chatSelectors";
 import { fetchChatsThunk } from "@/src/features/inbox/chatThunks";
 import { PullToRefresh } from "@/src/components/PullToRefresh";
+import { ThemedView } from "@/src/components/ThemedView";
+import {
+  GlobalThemeWrapper,
+  ThemedText,
+} from "@/src/components/GlobalThemeComponents";
+import { useTheme } from "@/src/contexts/ThemeContext";
 import { getUserByIdThunk } from "@/src/features/user/userThunks";
 import { fetchListingByIdThunk } from "@/src/features/listing/listingThunks";
 import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-};
-
 export default function InboxScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { theme } = useTheme();
   const [selectedTab, setSelectedTab] = useState<"all" | "unread">("all");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -107,24 +105,22 @@ export default function InboxScreen() {
   console.log("Selected tab:", selectedTab);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.replace("/(tabs)")}
-          style={styles.backButton}
-          activeOpacity={Interactions.buttonOpacity}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Inbox</Text>
-      </View>
-      <InboxTabs
-        selectedTab={selectedTab}
-        onSelectTab={setSelectedTab}
-        unreadCount={unreadCount}
-      />
+    <GlobalThemeWrapper useFullPage={true}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.headerTop}>
+          <ThemedText type="heading" style={styles.title}>
+            Inbox
+          </ThemedText>
+        </View>
 
-      <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} style={styles.scrollView}>
+        <InboxTabs
+          selectedTab={selectedTab}
+          onSelectTab={setSelectedTab}
+          unreadCount={unreadCount}
+        />
+      </View>
+
+      <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
         <ConversationList
           conversations={conversations}
           onPressConversation={(id: string) =>
@@ -132,33 +128,33 @@ export default function InboxScreen() {
           }
         />
       </PullToRefresh>
-    </View>
+    </GlobalThemeWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-
+  container: { flex: 1 },
   header: {
-    backgroundColor: COLORS.white,
+    backgroundColor: "#fff",
+    paddingTop: 50,
+    marginBottom: 20,
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    // borderBottomWidth: 1,
-    // borderBottomColor: "#F3F4F6",
-    flexDirection: "row",
-    alignItems: "center",
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-
-  backButton: {
-    marginRight: 16,
+  headerTop: {
+    alignItems: "flex-start",
+    marginBottom: 16,
   },
 
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.5,
   },
 
   scrollView: { flex: 1 },

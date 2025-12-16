@@ -6,18 +6,24 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from "expo-file-system/legacy";
 import ImageGallery from "@/src/features/create/components/ImageGallery";
 import {
   FormField,
   CategorySelector,
   ConditionSelector,
 } from "@/src/features/create/components/FormFields";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
+import { ThemedView } from "@/src/components/ThemedView";
+import { GlobalThemeWrapper } from "@/src/components/GlobalThemeComponents";
 import { createListingThunk } from "@/src/features/listing/listingThunks";
 import {
   selectCreateStatus,
@@ -32,29 +38,16 @@ import type {
   ListingImage,
 } from "@/src/features/listing/types/listing";
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  success: "#22C55E",
-  error: "#DC2626",
-  gold: "#FACC15",
-  chipBg: "#F3F4F6",
-};
-
 const categories = [
-  { id: 1, name: "Electronics", icon: "phone-portrait", color: "#95E1D3" },
-  { id: 2, name: "Fashion", icon: "shirt", color: "#FFE66D" },
-  { id: 3, name: "Home", icon: "home", color: "#F6C1C1" },
-  { id: 4, name: "Sports", icon: "basketball", color: "#F38181" },
-  { id: 5, name: "Books", icon: "book", color: "#A8E6CF" },
-  { id: 6, name: "Toys", icon: "game-controller", color: "#FFD3B6" },
-  { id: 7, name: "Automotive", icon: "car", color: "#FFAAA5" },
-  { id: 8, name: "Health", icon: "medical", color: "#C7CEEA" },
-  { id: 9, name: "Other", icon: "grid", color: "#B2E1D4" },
+  { id: 1, name: "Electronics", icon: "phone-portrait", color: "primary" },
+  { id: 2, name: "Fashion", icon: "shirt", color: "accent" },
+  { id: 3, name: "Home", icon: "home", color: "secondary" },
+  { id: 4, name: "Sports", icon: "basketball", color: "accent" },
+  { id: 5, name: "Books", icon: "book", color: "secondary" },
+  { id: 6, name: "Toys", icon: "game-controller", color: "accent" },
+  { id: 7, name: "Automotive", icon: "car", color: "secondary" },
+  { id: 8, name: "Health", icon: "medical", color: "accent" },
+  { id: 9, name: "Other", icon: "grid", color: "secondary" },
 ];
 
 const conditions = ["new", "like_new", "good", "fair", "poor"];
@@ -63,6 +56,7 @@ export default function CreateScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   // Redux state
   const isCreating = useSelector(selectIsCreating);
@@ -71,14 +65,20 @@ export default function CreateScreen() {
 
   // Form state
   const [title, setTitle] = useState("iPhone 13 Pro - Excellent Condition");
-  const [description, setDescription] = useState("Perfect condition iPhone 13 Pro, barely used. Includes original box, charger, and headphones. No scratches or dents, battery health at 95%. Selling because I upgraded to the latest model.");
+  const [description, setDescription] = useState(
+    "Perfect condition iPhone 13 Pro, barely used. Includes original box, charger, and headphones. No scratches or dents, battery health at 95%. Selling because I upgraded to the latest model."
+  );
   const [price, setPrice] = useState("899");
   const [quantity, setQuantity] = useState("1");
   const [currency, setCurrency] = useState("USD");
   const [category, setCategory] = useState<number>(1); // Electronics
   const [condition, setCondition] = useState<string>("new");
   const [location, setLocation] = useState("New York, NY");
-  const [tags, setTags] = useState<string[]>(["electronics", "smartphone", "apple"]);
+  const [tags, setTags] = useState<string[]>([
+    "electronics",
+    "smartphone",
+    "apple",
+  ]);
   const [visibility, setVisibility] = useState("public");
   const [images, setImages] = useState<string[]>([]);
 
@@ -172,26 +172,33 @@ export default function CreateScreen() {
     const listingImages: ListingImage[] = await Promise.all(
       images.map(async (url, index) => {
         let imageToUse = url;
-        
+
         // Convert local file URLs to base64 using expo-file-system
-        if (url.startsWith('file://')) {
+        if (url.startsWith("file://")) {
           try {
             console.log(`Converting image ${index + 1} to base64...`);
             const base64 = await FileSystem.readAsStringAsync(url, {
-              encoding: 'base64',
+              encoding: "base64",
             });
-            
+
             // Create proper data URL format
-            const mimeType = url.endsWith('.jpg') || url.endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+            const mimeType =
+              url.endsWith(".jpg") || url.endsWith(".jpeg")
+                ? "image/jpeg"
+                : "image/png";
             imageToUse = `data:${mimeType};base64,${base64}`;
-            
-            console.log(`Image ${index + 1} converted to base64, length: ${imageToUse.length}`);
+
+            console.log(
+              `Image ${index + 1} converted to base64, length: ${
+                imageToUse.length
+              }`
+            );
           } catch (error) {
-            console.error('Error converting image to base64:', error);
+            console.error("Error converting image to base64:", error);
             // For now, we'll keep the original URL and handle it on the backend
           }
         }
-        
+
         return {
           id: `temp_${index}`,
           url: imageToUse,
@@ -228,129 +235,161 @@ export default function CreateScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom }}
+    <GlobalThemeWrapper
+      useFullPage={true}
+      style={{ paddingBottom: insets.bottom }}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.replace("/(tabs)")}
-            style={styles.backButton}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom }}
+        >
+          <View
+            style={[
+              styles.header,
+              {
+                backgroundColor: theme.colors.surface,
+                paddingTop: 12 + insets.top,
+              },
+            ]}
           >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Create Listing</Text>
-          <TouchableOpacity
-            style={[styles.postButton, isCreating && styles.postButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={isCreating}
-            activeOpacity={0.9}
-          >
-            {isCreating ? (
-              <Ionicons
-                name="hourglass-outline"
-                size={18}
-                color={COLORS.white}
-              />
-            ) : (
-              <Ionicons name="checkmark" size={18} color={COLORS.white} />
-            )}
-            <Text style={styles.postButtonText}>
-              {isCreating ? "Posting..." : "Post"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.headerTop}>
+              <ThemedText type="heading" style={styles.title}>
+                Create Listing
+              </ThemedText>
+              <TouchableOpacity
+                style={[
+                  styles.postButton,
+                  { backgroundColor: theme.colors.primary },
+                  isCreating && styles.postButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={isCreating}
+                activeOpacity={0.9}
+              >
+                {isCreating ? (
+                  <Ionicons name="hourglass-outline" size={18} />
+                ) : (
+                  <Ionicons name="checkmark" size={18} />
+                )}
+                <Text style={[styles.postButtonText]}>
+                  {isCreating ? "Posting..." : "Post"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        <View style={styles.formContainer}>
-          <ImageGallery
-            images={images}
-            onAddImages={addImages}
-            onRemoveImage={removeImage}
-          />
+          <View style={styles.formContainer}>
+            <ImageGallery
+              images={images}
+              onAddImages={addImages}
+              onRemoveImage={removeImage}
+            />
 
-          <FormField
-            label="Title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="What are you selling?"
-            maxLength={80}
-          />
+            <FormField
+              label="Title"
+              value={title}
+              onChangeText={setTitle}
+              placeholder="What are you selling?"
+              maxLength={80}
+            />
 
-          <FormField
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe your item..."
-            multiline
-            numberOfLines={4}
-            maxLength={500}
-          />
+            <FormField
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe your item..."
+              multiline
+              numberOfLines={4}
+              maxLength={500}
+            />
 
-          <FormField
-            label="Price"
-            value={price}
-            onChangeText={setPrice}
-            placeholder="$0.00"
-            keyboardType="numeric"
-          />
+            <FormField
+              label="Price"
+              value={price}
+              onChangeText={setPrice}
+              placeholder="$0.00"
+              keyboardType="numeric"
+            />
 
-          <FormField
-            label="Quantity"
-            value={quantity}
-            onChangeText={setQuantity}
-            placeholder="1"
-            keyboardType="numeric"
-          />
+            <FormField
+              label="Quantity"
+              value={quantity}
+              onChangeText={setQuantity}
+              placeholder="1"
+              keyboardType="numeric"
+            />
 
-          <FormField
-            label="Currency"
-            value={currency}
-            onChangeText={setCurrency}
-            placeholder="USD"
-          />
+            <FormField
+              label="Currency"
+              value={currency}
+              onChangeText={setCurrency}
+              placeholder="USD"
+            />
 
-          <FormField
-            label="Tags (comma separated)"
-            value={tags.join(", ")}
-            onChangeText={(text) => setTags(text.split(",").map(tag => tag.trim()).filter(Boolean))}
-            placeholder="electronics, smartphone, apple"
-          />
+            <FormField
+              label="Tags (comma separated)"
+              value={tags.join(", ")}
+              onChangeText={(text) =>
+                setTags(
+                  text
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter(Boolean)
+                )
+              }
+              placeholder="electronics, smartphone, apple"
+            />
 
-          <CategorySelector
-            categories={categories}
-            selectedCategory={category}
-            onSelectCategory={setCategory}
-          />
+            <CategorySelector
+              categories={categories}
+              selectedCategory={category}
+              onSelectCategory={setCategory}
+            />
 
-          <ConditionSelector
-            conditions={conditions}
-            selectedCondition={condition}
-            onSelectCondition={setCondition}
-          />
+            <ConditionSelector
+              conditions={conditions}
+              selectedCondition={condition}
+              onSelectCondition={setCondition}
+            />
 
-          <FormField
-            label="Location"
-            value={location}
-            onChangeText={setLocation}
-            placeholder="City, State"
-          />
-        </View>
-      </ScrollView>
-    </View>
+            <FormField
+              label="Location"
+              value={location}
+              onChangeText={setLocation}
+              placeholder="City, State"
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </GlobalThemeWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
 
   header: {
-    paddingTop: 60,
-    paddingBottom: 20,
-    marginBottom: 5,
+    paddingBottom: 10,
     paddingHorizontal: 20,
+    marginBottom: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  headerTop: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 16,
   },
 
   backButton: {
@@ -360,7 +399,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     letterSpacing: -0.5,
     flex: 1,
   },
@@ -369,25 +407,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: COLORS.dark,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
-    shadowColor: COLORS.dark,
+    shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 3,
   },
 
   postButtonText: {
-    color: COLORS.white,
     fontWeight: "600",
     fontSize: 15,
   },
 
   postButtonDisabled: {
     opacity: 0.6,
-    backgroundColor: COLORS.muted,
   },
 
   formContainer: {

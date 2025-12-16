@@ -5,19 +5,22 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import Categories from "@/src/features/listing/components/Categories";
-import SearchBar from "@/src/features/search/components/SearchBar";
 import FeaturedItems from "@/src/features/FeaturedItems";
+import { GlobalThemeWrapper } from "@/src/components/GlobalThemeComponents";
 
 const categories = [
-  { id: 1, name: "Fashion", icon: "", color: "#6B7280" },
-  { id: 2, name: "Tech", icon: "", color: "#6B7280" },
-  { id: 3, name: "Home", icon: "", color: "#6B7280" },
-  { id: 4, name: "Fitness", icon: "", color: "#6B7280" },
+  { id: 1, name: "Fashion", icon: "", color: "#F3F4F6" },
+  { id: 2, name: "Tech", icon: "", color: "#F3F4F6" },
+  { id: 3, name: "Home", icon: "", color: "#F3F4F6" },
+  { id: 4, name: "Fitness", icon: "", color: "#F3F4F6" },
 ];
 
 const searchResults = [
@@ -45,10 +48,11 @@ export default function SearchScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [liked, setLiked] = useState<Record<number, boolean>>({});
+  const [liked, setLiked] = useState<Record<string | number, boolean>>({});
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
-  const toggleLike = (id: number) => {
+  const toggleLike = (id: string | number) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -62,26 +66,59 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <GlobalThemeWrapper
+      useFullPage={true}
+      style={{ paddingBottom: insets.bottom }}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[{ paddingBottom: insets.bottom }]}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.replace("/(tabs)")}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Search</Text>
-        </View>
+        <View
+          style={[styles.header, { backgroundColor: theme.colors.surface }]}
+        >
+          <View style={styles.headerTop}>
+            <Text style={[styles.title, { color: theme.colors.primary }]}>
+              Search
+            </Text>
+          </View>
 
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onClear={() => setSearchQuery("")}
-        />
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <Ionicons
+              name="search"
+              size={20}
+              color={theme.colors.secondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[
+                styles.searchInput,
+                {
+                  backgroundColor: theme.colors.background,
+                  color: theme.colors.primary,
+                },
+              ]}
+              placeholder="Search items..."
+              placeholderTextColor={theme.colors.secondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
         <Categories categories={categories} />
 
@@ -91,40 +128,62 @@ export default function SearchScreen() {
           toggleLike={toggleLike}
           onMakeOffer={handleMakeOffer}
           onProductPress={handleProductPress}
-          sectionTitle="Search Results"
-          showSeeAll={false}
           useScrollView={false}
         />
       </ScrollView>
-    </View>
+    </GlobalThemeWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   scrollContent: {
     paddingBottom: 100,
   },
   header: {
-    paddingTop: 60,
+    backgroundColor: "#fff",
+    paddingTop: 50,
     paddingBottom: 20,
-    // marginVertical: 20,
     paddingHorizontal: 20,
-    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTop: {
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
 
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  backButton: {
-    marginRight: 16,
-  },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.5,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D1D5DB",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   },
 });

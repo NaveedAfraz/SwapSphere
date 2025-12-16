@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemedText } from '@/src/components/GlobalThemeComponents';
 
 interface FormFieldProps {
   label: string;
@@ -22,21 +24,28 @@ export function FormField({
   numberOfLines = 1,
   maxLength 
 }: FormFieldProps) {
+  const { theme } = useTheme();
+  
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{label}</Text>
+      <ThemedText type="body" style={styles.sectionTitle}>{label}</ThemedText>
       <TextInput
         style={[
           styles.input,
-          multiline && styles.textArea
+          multiline && styles.textArea,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.primary }
         ]}
         placeholder={placeholder}
+        placeholderTextColor={theme.colors.secondary}
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
         multiline={multiline}
         numberOfLines={numberOfLines}
         maxLength={maxLength}
+        autoFocus={false}
+        selectTextOnFocus={true}
+        clearButtonMode="while-editing"
       />
     </View>
   );
@@ -56,22 +65,26 @@ interface CategorySelectorProps {
 }
 
 export function CategorySelector({ categories, selectedCategory, onSelectCategory }: CategorySelectorProps) {
+  const { theme } = useTheme();
+  
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Category</Text>
+      <ThemedText type="body" style={styles.sectionTitle}>Category</ThemedText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {categories.map(cat => (
           <TouchableOpacity
             key={cat.id}
             style={[
               styles.categoryButton,
-              selectedCategory === cat.id && styles.categoryButtonSelected
+              selectedCategory === cat.id && [styles.categoryButtonSelected, { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }],
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
             ]}
             onPress={() => onSelectCategory(cat.id)}
           >
             <Text style={[
               styles.categoryButtonText,
-              selectedCategory === cat.id && styles.categoryButtonTextSelected
+              selectedCategory === cat.id && styles.categoryButtonTextSelected,
+              { color: selectedCategory === cat.id ? '#FFFFFF' : theme.colors.secondary }
             ]}>
               {cat.name}
             </Text>
@@ -89,22 +102,26 @@ interface ConditionSelectorProps {
 }
 
 export function ConditionSelector({ conditions, selectedCondition, onSelectCondition }: ConditionSelectorProps) {
+  const { theme } = useTheme();
+  
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Condition</Text>
+      <ThemedText type="body" style={styles.sectionTitle}>Condition</ThemedText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {conditions.map(cond => (
           <TouchableOpacity
             key={cond}
             style={[
               styles.conditionButton,
-              selectedCondition === cond && styles.conditionButtonSelected
+              selectedCondition === cond && [styles.conditionButtonSelected, { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }],
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
             ]}
             onPress={() => onSelectCondition(cond)}
           >
             <Text style={[
               styles.conditionButtonText,
-              selectedCondition === cond && styles.conditionButtonTextSelected
+              selectedCondition === cond && styles.conditionButtonTextSelected,
+              { color: selectedCondition === cond ? '#FFFFFF' : theme.colors.secondary }
             ]}>
               {cond}
             </Text>
@@ -122,60 +139,45 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1a1a1a',
     marginBottom: 12,
   },
   input: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
   categoryButton: {
-    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   categoryButtonSelected: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
   },
   categoryButtonText: {
-    color: '#6b7280',
     fontWeight: '500',
   },
   categoryButtonTextSelected: {
-    color: '#ffffff',
   },
   conditionButton: {
-    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   conditionButtonSelected: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
   },
   conditionButtonText: {
-    color: '#6b7280',
     fontWeight: '500',
   },
   conditionButtonTextSelected: {
-    color: '#ffffff',
   },
 });

@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { Menu, Bell, Camera, Search } from "lucide-react-native";
+import { Menu, Bell, Camera, Search, X } from "lucide-react-native";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface HeaderProps {
   searchQuery: string;
@@ -23,37 +25,77 @@ export default function Header({
   unreadCount = 0,
   onNotificationPress,
 }: HeaderProps) {
+  const { theme } = useTheme();
+
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
       <View style={styles.headerTop}>
-        <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress}>
-          <Menu size={24} color="#1a1a1a" />
+        <TouchableOpacity
+          style={[styles.menuBtn, { backgroundColor: theme.colors.background }]}
+          onPress={onMenuPress}
+        >
+          <Menu size={24} color={theme.colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.logo}>Discover</Text>
-        <TouchableOpacity style={styles.notificationBtn} onPress={onNotificationPress}>
-          <Bell size={24} color="#1a1a1a" />
+        <Text style={[styles.logo, { color: theme.colors.primary }]}>
+          SwapSphere
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.notificationBtn,
+            { backgroundColor: theme.colors.background },
+          ]}
+          onPress={onNotificationPress}
+        >
+          <Bell size={24} color={theme.colors.primary} />
           {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
+            <View
+              style={[styles.badge, { backgroundColor: theme.colors.accent }]}
+            >
+              <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Search size={20} color="#999" style={styles.searchIcon} />
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <Search
+          size={20}
+          color={theme.colors.secondary}
+          style={styles.searchIcon}
+        />
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search for anything..."
-          placeholderTextColor="#999"
+          style={[
+            styles.searchInput,
+            {
+              backgroundColor: theme.colors.background,
+              color: theme.colors.primary,
+              borderColor: theme.colors.border,
+            },
+          ]}
+          placeholder="Search items..."
+          placeholderTextColor={theme.colors.secondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <TouchableOpacity style={styles.cameraBtn}>
-          <Camera size={20} color="#fff" />
-        </TouchableOpacity>
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery("")}>
+            <X size={20} color={theme.colors.secondary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.cameraBtn,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <Camera size={20} color={theme.colors.secondary} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -63,7 +105,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#fff",
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
@@ -90,7 +132,6 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#1a1a1a",
   },
   notificationBtn: {
     width: 40,

@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  TextInput,
+  Animated,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface FAQItem {
   id: string;
@@ -11,180 +22,392 @@ interface FAQItem {
 
 const faqData: FAQItem[] = [
   {
-    id: '1',
-    question: 'How do I create a listing?',
-    answer: 'To create a listing, tap the "+" button on the home screen, select "Create Listing", upload photos, add details about your item, set a price, and publish.',
-    category: 'Selling'
+    id: "1",
+    question: "How do I create a listing?",
+    answer:
+      'To create a listing, tap the "+" button on the home screen, select "Create Listing", upload photos, add details about your item, set a price, and publish.',
+    category: "Selling",
   },
   {
-    id: '2',
-    question: 'How does the payment system work?',
-    answer: 'We use Stripe for secure payments. When you buy an item, the payment is held in escrow until you confirm receipt of the item.',
-    category: 'Payments'
+    id: "2",
+    question: "How does the payment system work?",
+    answer:
+      "We use Stripe for secure payments. When you buy an item, the payment is held in escrow until you confirm receipt of the item.",
+    category: "Payments",
   },
   {
-    id: '3',
-    question: 'What if my item doesn\'t match the description?',
-    answer: 'If your item doesn\'t match the description, you can open a dispute within 48 hours of delivery. Our team will review and help resolve the issue.',
-    category: 'Disputes'
+    id: "3",
+    question: "What if my item doesn't match the description?",
+    answer:
+      "If your item doesn't match the description, you can open a dispute within 48 hours of delivery. Our team will review and help resolve the issue.",
+    category: "Disputes",
   },
   {
-    id: '4',
-    question: 'How do I become a verified seller?',
-    answer: 'To become verified, complete your profile, add a profile photo, verify your email and phone number, and successfully complete 5 transactions.',
-    category: 'Account'
+    id: "4",
+    question: "How do I become a verified seller?",
+    answer:
+      "To become verified, complete your profile, add a profile photo, verify your email and phone number, and successfully complete 5 transactions.",
+    category: "Account",
   },
   {
-    id: '5',
-    question: 'What are the seller fees?',
-    answer: 'We charge a 5% fee on completed sales. This fee covers payment processing, platform maintenance, and customer support.',
-    category: 'Fees'
-  }
+    id: "5",
+    question: "What are the seller fees?",
+    answer:
+      "We charge a 5% fee on completed sales. This fee covers payment processing, platform maintenance, and customer support.",
+    category: "Fees",
+  },
 ];
 
 export default function HelpSupportScreen() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
-  const [supportMessage, setSupportMessage] = useState('');
+  const [supportMessage, setSupportMessage] = useState("");
+  const { theme } = useTheme();
 
-  const categories = ['all', 'Selling', 'Payments', 'Disputes', 'Account', 'Fees'];
+  // Animated values for FAQ items
+  const animatedValues = React.useRef<{ [key: string]: Animated.Value }>({});
 
-  const filteredFAQs = selectedCategory === 'all' 
-    ? faqData 
-    : faqData.filter(item => item.category === selectedCategory);
+  const initializeAnimatedValue = (id: string) => {
+    if (!animatedValues.current[id]) {
+      animatedValues.current[id] = new Animated.Value(0);
+    }
+    return animatedValues.current[id];
+  };
+
+  const toggleFAQItem = (id: string) => {
+    const animatedValue = initializeAnimatedValue(id);
+
+    if (expandedItem === id) {
+      // Collapse
+      Animated.timing(animatedValue, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }).start(() => {
+        setExpandedItem(null);
+      });
+    } else {
+      // Expand
+      setExpandedItem(id);
+      animatedValue.setValue(0);
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  };
+
+  const categories = [
+    "all",
+    "Selling",
+    "Payments",
+    "Disputes",
+    "Account",
+    "Fees",
+  ];
+
+  const filteredFAQs =
+    selectedCategory === "all"
+      ? faqData
+      : faqData.filter((item) => item.category === selectedCategory);
 
   const handleContactSupport = () => {
     if (!supportMessage.trim()) {
-      Alert.alert('Error', 'Please enter your message');
+      Alert.alert("Error", "Please enter your message");
       return;
     }
-    Alert.alert('Support Request Sent', 'We\'ll get back to you within 24 hours.');
-    setSupportMessage('');
+    Alert.alert(
+      "Support Request Sent",
+      "We'll get back to you within 24 hours."
+    );
+    setSupportMessage("");
   };
 
-  const renderFAQItem = (item: FAQItem) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[
-        styles.faqItem,
-        expandedItem === item.id && styles.faqItemExpanded
-      ]}
-      onPress={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.faqHeader}>
-        <View style={styles.questionContainer}>
-          <View style={styles.questionIcon}>
-            <Ionicons 
-              name="help-circle-outline" 
-              size={20} 
-              color="#3B82F6" 
+  const renderFAQItem = (item: FAQItem) => {
+    const animatedValue = initializeAnimatedValue(item.id);
+    const heightAnim = animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 150], // Approximate height of expanded content
+    });
+    const opacityAnim = animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[
+          styles.faqItem,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+          expandedItem === item.id && { borderColor: theme.colors.primary },
+        ]}
+        onPress={() => toggleFAQItem(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.faqHeader}>
+          <View style={styles.questionContainer}>
+            <View
+              style={[
+                styles.questionIcon,
+                { backgroundColor: theme.colors.background },
+              ]}
+            >
+              <Ionicons
+                name="help-circle-outline"
+                size={20}
+                color={theme.colors.primary}
+              />
+            </View>
+            <ThemedText type="body" style={styles.faqQuestion}>
+              {item.question}
+            </ThemedText>
+          </View>
+          <View
+            style={[
+              styles.chevronContainer,
+              { backgroundColor: theme.colors.background },
+              expandedItem === item.id && {
+                backgroundColor: theme.colors.primary,
+              },
+            ]}
+          >
+            <Ionicons
+              name={expandedItem === item.id ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={
+                expandedItem === item.id ? "#FFFFFF" : theme.colors.secondary
+              }
             />
           </View>
-          <Text style={styles.faqQuestion}>{item.question}</Text>
         </View>
-        <View style={[
-          styles.chevronContainer,
-          expandedItem === item.id && styles.chevronContainerRotated
-        ]}>
-          <Ionicons 
-            name={expandedItem === item.id ? 'chevron-up' : 'chevron-down'} 
-            size={20} 
-            color="#6B7280" 
-          />
-        </View>
-      </View>
-      
-      {expandedItem === item.id && (
-        <View style={styles.faqAnswer}>
+
+        <Animated.View
+          style={[
+            styles.faqAnswer,
+            {
+              backgroundColor: theme.colors.background,
+              borderTopColor: theme.colors.border,
+              height: heightAnim,
+              opacity: opacityAnim,
+            },
+          ]}
+        >
           <View style={styles.answerContent}>
-            <Text style={styles.answerText}>{item.answer}</Text>
-            <View style={styles.categoryBadge}>
-              <Ionicons name="pricetag-outline" size={12} color="#6366F1" style={styles.categoryIcon} />
-              <Text style={styles.categoryText}>{item.category}</Text>
+            <ThemedText type="body" style={styles.answerText}>
+              {item.answer}
+            </ThemedText>
+            <View
+              style={[
+                styles.categoryBadge,
+                {
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="pricetag-outline"
+                size={12}
+                color={theme.colors.primary}
+                style={styles.categoryIcon}
+              />
+              <ThemedText type="caption" style={styles.categoryText}>
+                {item.category}
+              </ThemedText>
             </View>
           </View>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-   
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Help & Support</Text>
-          <Text style={styles.subtitle}>We're here to help you succeed</Text>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.colors.surface,
+              borderBottomColor: theme.colors.border,
+            },
+          ]}
+        >
+          <ThemedText type="heading" style={styles.title}>
+            Help & Support
+          </ThemedText>
+          <ThemedText type="body" style={styles.subtitle}>
+            We're here to help you succeed
+          </ThemedText>
         </View>
 
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickAction}>
-            <Ionicons name="book-outline" size={24} color="#3B82F6" />
-            <Text style={styles.quickActionText}>User Guide</Text>
+        <View
+          style={[
+            styles.quickActions,
+            {
+              backgroundColor: theme.colors.surface,
+              borderBottomColor: theme.colors.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.quickAction,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <Ionicons
+              name="book-outline"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <ThemedText type="caption" style={styles.quickActionText}>
+              User Guide
+            </ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction}>
-            <Ionicons name="chatbubble-outline" size={24} color="#3B82F6" />
-            <Text style={styles.quickActionText}>Live Chat</Text>
+          <TouchableOpacity
+            style={[
+              styles.quickAction,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <Ionicons
+              name="chatbubble-outline"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <ThemedText type="caption" style={styles.quickActionText}>
+              Live Chat
+            </ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction}>
-            <Ionicons name="call-outline" size={24} color="#3B82F6" />
-            <Text style={styles.quickActionText}>Call Us</Text>
+          <TouchableOpacity
+            style={[
+              styles.quickAction,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <Ionicons
+              name="call-outline"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <ThemedText type="caption" style={styles.quickActionText}>
+              Call Us
+            </ThemedText>
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-          
+          <ThemedText type="subheading" style={styles.sectionTitle}>
+            Frequently Asked Questions
+          </ThemedText>
+
           <View style={styles.categoryFilter}>
-            {categories.map(category => (
+            {categories.map((category) => (
               <TouchableOpacity
                 key={category}
                 style={[
                   styles.categoryChip,
-                  selectedCategory === category && styles.categoryChipActive
+                  {
+                    backgroundColor:
+                      selectedCategory === category
+                        ? theme.colors.primary
+                        : theme.colors.background,
+                  },
                 ]}
                 onPress={() => setSelectedCategory(category)}
               >
-                <Text style={[
-                  styles.categoryChipText,
-                  selectedCategory === category && styles.categoryChipTextActive
-                ]}>
+                <ThemedText
+                  type="caption"
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === category && { color: "#FFFFFF" },
+                  ]}
+                >
                   {category.charAt(0).toUpperCase() + category.slice(1)}
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
             ))}
           </View>
 
-          <View style={styles.faqList}>
-            {filteredFAQs.map(renderFAQItem)}
-          </View>
+          <View style={styles.faqList}>{filteredFAQs.map(renderFAQItem)}</View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Support</Text>
-          
-          <View style={styles.contactOptions}>
-            <TouchableOpacity style={styles.contactOption}>
-              <Ionicons name="mail-outline" size={20} color="#6B7280" />
+          <ThemedText type="subheading" style={styles.sectionTitle}>
+            Contact Support
+          </ThemedText>
+
+          <View
+            style={[
+              styles.contactOptions,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.contactOption,
+                { borderBottomColor: theme.colors.border },
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={theme.colors.secondary}
+              />
               <View style={styles.contactInfo}>
-                <Text style={styles.contactLabel}>Email</Text>
-                <Text style={styles.contactValue}>support@swapsphere.com</Text>
+                <ThemedText type="body" style={styles.contactLabel}>
+                  Email
+                </ThemedText>
+                <ThemedText type="caption" style={styles.contactValue}>
+                  support@swapsphere.com
+                </ThemedText>
               </View>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.contactOption}>
-              <Ionicons name="time-outline" size={20} color="#6B7280" />
+
+            <TouchableOpacity
+              style={[
+                styles.contactOption,
+                { borderBottomColor: theme.colors.border },
+              ]}
+            >
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={theme.colors.secondary}
+              />
               <View style={styles.contactInfo}>
-                <Text style={styles.contactLabel}>Response Time</Text>
-                <Text style={styles.contactValue}>Within 24 hours</Text>
+                <ThemedText type="body" style={styles.contactLabel}>
+                  Response Time
+                </ThemedText>
+                <ThemedText type="caption" style={styles.contactValue}>
+                  Within 24 hours
+                </ThemedText>
               </View>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.messageContainer}>
-            <Text style={styles.messageLabel}>Send us a message</Text>
+          <View
+            style={[
+              styles.messageContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <ThemedText type="body" style={styles.messageLabel}>
+              Send us a message
+            </ThemedText>
             <TextInput
-              style={styles.messageInput}
+              style={[
+                styles.messageInput,
+                { borderColor: theme.colors.border, color: "#111827" },
+              ]}
               placeholder="Describe your issue or question..."
               multiline
               numberOfLines={4}
@@ -192,8 +415,11 @@ export default function HelpSupportScreen() {
               onChangeText={setSupportMessage}
               textAlignVertical="top"
             />
-            <TouchableOpacity 
-              style={styles.sendButton}
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
               onPress={handleContactSupport}
             >
               <Ionicons name="send-outline" size={16} color="#FFFFFF" />
@@ -202,52 +428,43 @@ export default function HelpSupportScreen() {
           </View>
         </View>
       </ScrollView>
-   
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 24,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
     marginTop: 4,
   },
   quickActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 20,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   quickAction: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 12,
     marginHorizontal: 4,
-    backgroundColor: '#F3F4F6',
     borderRadius: 12,
   },
   quickActionText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#3B82F6',
+    fontWeight: "600",
     marginTop: 8,
   },
   section: {
@@ -256,13 +473,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
     marginBottom: 16,
   },
   categoryFilter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 16,
   },
   categoryChip: {
@@ -271,58 +487,42 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 8,
     marginBottom: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  categoryChipActive: {
-    backgroundColor: '#3B82F6',
   },
   categoryChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  categoryChipTextActive: {
-    color: '#FFFFFF',
+    fontWeight: "600",
   },
   faqList: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    shadowColor: '#000',
+
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   faqItem: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-  },
-  faqItemExpanded: {
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-    borderColor: '#BFDBFE',
+    overflow: "hidden",
   },
   faqHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    paddingBottom: 0,
   },
   questionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     marginRight: 16,
   },
@@ -330,99 +530,83 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   faqQuestion: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
     lineHeight: 22,
   },
   chevronContainer: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chevronContainerRotated: {
-    backgroundColor: '#EFF6FF',
+    justifyContent: "center",
+    alignItems: "center",
   },
   faqAnswer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#FAFBFF',
+    paddingTop: 20,
+
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
   },
   answerContent: {
-    position: 'relative',
+    position: "relative",
   },
   answerText: {
     fontSize: 15,
-    color: '#4B5563',
     lineHeight: 22,
     marginBottom: 16,
   },
   categoryBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#EDE9FE',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
   },
   categoryIcon: {
     marginRight: 6,
   },
   categoryText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#6366F1',
+    fontWeight: "600",
   },
   contactOptions: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   contactOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   contactInfo: {
     marginLeft: 12,
   },
   contactLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
   },
   contactValue: {
     fontSize: 14,
-    color: '#6B7280',
     marginTop: 2,
   },
   messageContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -430,32 +614,28 @@ const styles = StyleSheet.create({
   },
   messageLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
     marginBottom: 12,
   },
   messageInput: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
-    color: '#111827',
     minHeight: 100,
     marginBottom: 12,
   },
   sendButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     borderRadius: 8,
   },
   sendButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginLeft: 8,
   },
 });

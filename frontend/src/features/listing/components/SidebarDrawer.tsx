@@ -24,21 +24,10 @@ import {
   Shield,
   ChevronRight,
 } from "lucide-react-native";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 const { width } = Dimensions.get("window");
-
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  success: "#10B981",
-  error: "#DC2626",
-  warning: "#F59E0B",
-  chipBg: "#F3F4F6",
-};
 
 interface SidebarDrawerProps {
   isVisible: boolean;
@@ -64,6 +53,7 @@ export default function SidebarDrawer({
   onClose,
 }: SidebarDrawerProps) {
   const router = useRouter();
+  const { theme } = useTheme();
   const translateX = React.useRef(new Animated.Value(-width)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -118,7 +108,7 @@ export default function SidebarDrawer({
           icon: MessageSquare,
           onPress: () => handleNavigation("/(tabs)/inbox"),
           badge: "3",
-          badgeColor: COLORS.accent,
+          badgeColor: theme.colors.primary,
         },
         {
           id: "add-listing",
@@ -155,7 +145,7 @@ export default function SidebarDrawer({
           icon: Bell,
           onPress: () => handleNavigation("/profile/notifications"),
           badge: "5",
-          badgeColor: COLORS.warning,
+          badgeColor: theme.colors.warning,
         },
       ],
     },
@@ -232,34 +222,35 @@ export default function SidebarDrawer({
         style={[
           styles.drawer,
           {
+            backgroundColor: theme.colors.surface,
             transform: [{ translateX }],
           },
         ]}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
           <View style={styles.headerTop}>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={22} color={COLORS.muted} />
+            <TouchableOpacity style={[styles.closeBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} onPress={onClose}>
+              <X size={22} color={theme.colors.secondary} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.userCard}>
+          <View style={[styles.userCard, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
+              <View style={[styles.avatar, { backgroundColor: theme.colors.primary }]}>
                 <Text style={styles.avatarText}>JD</Text>
               </View>
-              <View style={styles.statusIndicator} />
+              <View style={[styles.statusIndicator, { backgroundColor: theme.colors.success, borderColor: theme.colors.surface }]} />
             </View>
             <View style={styles.userDetails}>
-              <Text style={styles.userName}>John Doe</Text>
-              <Text style={styles.userEmail}>john.doe@example.com</Text>
+              <ThemedText type="body" style={styles.userName}>John Doe</ThemedText>
+              <ThemedText type="caption" style={styles.userEmail}>john.doe@example.com</ThemedText>
             </View>
             <TouchableOpacity
-              style={styles.profileArrow}
+              style={[styles.profileArrow, { backgroundColor: theme.colors.border }]}
               onPress={() => handleNavigation("/(tabs)/profile")}
             >
-              <ChevronRight size={20} color={COLORS.muted} />
+              <ChevronRight size={20} color={theme.colors.secondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -273,9 +264,9 @@ export default function SidebarDrawer({
           {menuSections.map((section, sectionIndex) => (
             <View key={sectionIndex} style={styles.menuSection}>
               {section.title && (
-                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <ThemedText type="caption" style={styles.sectionTitle}>{section.title}</ThemedText>
               )}
-              <View style={styles.sectionItems}>
+              <View style={[styles.sectionItems, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 {section.items.map((item, itemIndex) => (
                   <TouchableOpacity
                     key={item.id}
@@ -283,19 +274,20 @@ export default function SidebarDrawer({
                       styles.menuItem,
                       itemIndex === section.items.length - 1 &&
                         styles.menuItemLast,
+                      { borderBottomColor: theme.colors.border }
                     ]}
                     onPress={item.onPress}
                     activeOpacity={0.6}
                   >
                     <View style={styles.menuItemContent}>
-                      <View style={styles.iconContainer}>
+                      <View style={[styles.iconContainer, { backgroundColor: theme.colors.background }]}>
                         <item.icon
                           size={22}
-                          color={COLORS.dark}
+                          color={theme.colors.primary}
                           strokeWidth={2}
                         />
                       </View>
-                      <Text style={styles.menuText}>{item.title}</Text>
+                      <ThemedText type="body" style={styles.menuText}>{item.title}</ThemedText>
                     </View>
                     <View style={styles.menuRight}>
                       {item.badge && (
@@ -303,7 +295,7 @@ export default function SidebarDrawer({
                           style={[
                             styles.badge,
                             {
-                              backgroundColor: item.badgeColor || COLORS.accent,
+                              backgroundColor: item.badgeColor || theme.colors.primary,
                             },
                           ]}
                         >
@@ -312,7 +304,7 @@ export default function SidebarDrawer({
                       )}
                       <ChevronRight
                         size={18}
-                        color={COLORS.surface}
+                        color={theme.colors.border}
                         strokeWidth={2}
                       />
                     </View>
@@ -325,32 +317,32 @@ export default function SidebarDrawer({
           {/* Sign Out Button */}
           <View style={styles.signOutSection}>
             <TouchableOpacity
-              style={styles.signOutButton}
+              style={[styles.signOutButton, { backgroundColor: theme.colors.border, borderColor: theme.colors.border }]}
               onPress={handleSignOut}
               activeOpacity={0.7}
             >
               <View style={styles.signOutContent}>
-                <LogOut size={20} color={COLORS.error} strokeWidth={2} />
-                <Text style={styles.signOutText}>Sign Out</Text>
+                <LogOut size={20} color={theme.colors.error} strokeWidth={2} />
+                <ThemedText type="body" style={styles.signOutText}>Sign Out</ThemedText>
               </View>
             </TouchableOpacity>
           </View>
         </ScrollView>
 
         {/* Footer */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { borderTopColor: theme.colors.border, backgroundColor: theme.colors.background }]}>
           <View style={styles.footerContent}>
             <View style={styles.footerBrand}>
-              <View style={styles.brandIcon}>
-                <Package size={16} color={COLORS.accent} strokeWidth={2.5} />
+              <View style={[styles.brandIcon, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <Package size={16} color={theme.colors.primary} strokeWidth={2.5} />
               </View>
-              <Text style={styles.brandName}>SwapSphere</Text>
+              <ThemedText type="body" style={styles.brandName}>SwapSphere</ThemedText>
             </View>
-            <Text style={styles.footerVersion}>v1.0.0</Text>
+            <ThemedText type="caption" style={[styles.footerVersion, { backgroundColor: theme.colors.surface }]}>v1.0.0</ThemedText>
           </View>
-          <Text style={styles.footerTagline}>
+          <ThemedText type="caption" style={styles.footerTagline}>
             Premium peer-to-peer marketplace
-          </Text>
+          </ThemedText>
         </View>
       </Animated.View>
     </>
@@ -374,21 +366,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: width * 0.85,
     maxWidth: 360,
-    backgroundColor: COLORS.white,
     zIndex: 100000,
-    shadowColor: COLORS.dark,
+    shadowColor: "#000",
     shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 12,
   },
   header: {
-    backgroundColor: COLORS.bg,
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.chipBg,
   },
   headerTop: {
     flexDirection: "row",
@@ -399,20 +387,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.chipBg,
   },
   userCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.white,
     padding: 16,
     borderRadius: 16,
     gap: 12,
-    shadowColor: COLORS.dark,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -425,14 +409,13 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: COLORS.accent,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
     fontSize: 20,
     fontWeight: "700",
-    color: COLORS.white,
+    color: "#FFFFFF",
     letterSpacing: -0.5,
   },
   statusIndicator: {
@@ -442,9 +425,6 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: COLORS.success,
-    borderWidth: 2,
-    borderColor: COLORS.white,
   },
   userDetails: {
     flex: 1,
@@ -453,19 +433,16 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 17,
     fontWeight: "700",
-    color: COLORS.dark,
     letterSpacing: -0.3,
   },
   userEmail: {
     fontSize: 13,
-    color: COLORS.muted,
     fontWeight: "500",
   },
   profileArrow: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.chipBg,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -483,18 +460,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: COLORS.muted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 8,
     marginLeft: 4,
   },
   sectionItems: {
-    backgroundColor: COLORS.white,
     borderRadius: 14,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.chipBg,
   },
   menuItem: {
     flexDirection: "row",
@@ -502,11 +475,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.chipBg,
   },
   menuItemLast: {
-    borderBottomWidth: 0,
   },
   menuItemContent: {
     flexDirection: "row",
@@ -518,14 +488,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.bg,
     justifyContent: "center",
     alignItems: "center",
   },
   menuText: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.dark,
     letterSpacing: -0.2,
   },
   menuRight: {
@@ -545,7 +513,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: COLORS.white,
+    color: "#FFFFFF",
     letterSpacing: -0.1,
   },
   signOutSection: {
@@ -553,12 +521,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   signOutButton: {
-    backgroundColor: COLORS.chipBg,
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   signOutContent: {
     flexDirection: "row",
@@ -569,15 +534,11 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.error,
     letterSpacing: -0.2,
   },
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.chipBg,
-    backgroundColor: COLORS.bg,
     gap: 8,
   },
   footerContent: {
@@ -594,30 +555,23 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.chipBg,
   },
   brandName: {
     fontSize: 15,
     fontWeight: "700",
-    color: COLORS.dark,
     letterSpacing: -0.3,
   },
   footerVersion: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.muted,
-    backgroundColor: COLORS.white,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   footerTagline: {
     fontSize: 12,
-    color: COLORS.muted,
     fontWeight: "500",
     letterSpacing: 0.1,
   },

@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import { Interactions } from "@/src/constants/theme";
 import {
   selectNotifications,
@@ -36,7 +38,7 @@ import {
 import { updateNotificationLocal } from "@/src/features/notification/notificationSlice";
 import { acceptOfferThunk } from "@/src/features/offer/offerThunks";
 import { Notification } from "@/src/features/notification/types/notification";
-import { useTheme } from "@/src/contexts/ThemeContext";
+ 
 import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
 import { PullToRefresh } from "@/src/components/PullToRefresh";
 
@@ -99,11 +101,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return (
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.chatButton]}
+              style={[styles.actionButton, styles.chatButton, { backgroundColor: theme.theme.colors.primary }]}
               onPress={() => onExpand(notification)}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={styles.actionButtonText}>Chat Now</Text>
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat Now</Text>
             </TouchableOpacity>
           </View>
         );
@@ -116,15 +118,15 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           <View style={styles.actionButtons}>
             {!isOfferAccepted ? (
               <TouchableOpacity
-                style={[styles.actionButton, styles.acceptButton]}
+                style={[styles.actionButton, styles.acceptButton, { backgroundColor: theme.theme.colors.accent }]}
                 onPress={() => onAcceptOffer(notification)}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={styles.actionButtonText}>Accept Offer</Text>
+                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Accept Offer</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.actionButton, styles.acceptedButton]}
+                style={[styles.actionButton, styles.acceptedButton, { backgroundColor: theme.theme.colors.secondary }]}
                 onPress={() =>
                   router.push(
                     `/product/${
@@ -135,11 +137,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 }
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={styles.actionButtonText}>View Details</Text>
+                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.actionButton, styles.chatButton]}
+              style={[styles.actionButton, styles.chatButton, { backgroundColor: theme.theme.colors.primary }]}
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
                 if (actorId) {
@@ -157,18 +159,18 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={styles.actionButtonText}>Chat</Text>
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
             </TouchableOpacity>
           </View>
         );
 
-      case "offer_accepted":
+      // case "offer_accepted":
       case "offer_declined":
       case "offer_countered":
         return (
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.acceptedButton]}
+              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
               onPress={() =>
                 router.push(
                   `/product/${
@@ -179,10 +181,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               }
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={styles.actionButtonText}>View Details</Text>
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, styles.chatButton]}
+              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
                 if (actorId) {
@@ -200,7 +202,48 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={styles.actionButtonText}>Chat</Text>
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case "offer_accepted":
+        return (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.acceptedButton, { backgroundColor: theme.theme.colors.secondary }]}
+              onPress={() =>
+                router.push(
+                  `/product/${
+                    notification.payload?.listing_id ||
+                    notification.payload?.product_id
+                  }`
+                )
+              }
+              activeOpacity={Interactions.buttonOpacity}
+            >
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
+              onPress={() => {
+                const actorId = notification.actor_id || notification.actor?.id;
+                if (actorId) {
+                  // Pass both user ID and listing ID to conversation screen
+                  const listingId = notification.payload?.listing_id;
+                  if (listingId) {
+                    // Navigate with listingId and both participant IDs - let conversation screen find the chat
+                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                  } else {
+                    router.push(`/inbox/${actorId}`);
+                  }
+                } else {
+                  router.push("/(tabs)/inbox");
+                }
+              }}
+              activeOpacity={Interactions.buttonOpacity}
+            >
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
             </TouchableOpacity>
           </View>
         );
@@ -511,11 +554,12 @@ export default function NotificationsScreen() {
             color={theme.theme.colors.primary}
           />
         </TouchableOpacity>
-        <Text
-          style={[styles.headerTitle, { color: theme.theme.colors.primary }]}
+        <ThemedText
+          type="heading"
+          style={styles.headerTitle}
         >
           Notifications
-        </Text>
+        </ThemedText>
         <View style={styles.headerRight}>
           {notifications.length > 0 && (
             <TouchableOpacity
@@ -536,14 +580,12 @@ export default function NotificationsScreen() {
               style={styles.markAllButton}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text
-                style={[
-                  styles.markAllButtonText,
-                  { color: theme.theme.colors.accent },
-                ]}
+              <ThemedText
+                type="caption"
+                style={styles.markAllButtonText}
               >
                 Mark All Read
-              </Text>
+              </ThemedText>
             </TouchableOpacity>
           )}
           {unreadCount > 0 && (
@@ -553,7 +595,7 @@ export default function NotificationsScreen() {
                 { backgroundColor: theme.theme.colors.error },
               ]}
             >
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              <Text style={[styles.unreadBadgeText, { color: '#FFFFFF' }]}>{unreadCount}</Text>
             </View>
           )}
         </View>
@@ -578,17 +620,15 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 16,
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
-    color: "#6B7280",
   },
   header: {
     flexDirection: "row",
@@ -596,50 +636,42 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#111827",
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
   clearButton: {
-    marginRight: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    padding: 8,
   },
   markAllButton: {
-    marginRight: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    padding: 8,
   },
   markAllButtonText: {
     fontSize: 12,
-    color: "#3B82F6",
     fontWeight: "500",
   },
   unreadBadge: {
-    backgroundColor: "#DC2626",
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
     minWidth: 24,
+    height: 24,
+    justifyContent: "center",
     alignItems: "center",
   },
   unreadBadgeText: {
-    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
   },
   actionButtons: {
     flexDirection: "row",
-    marginTop: 8,
     gap: 8,
   },
   actionButton: {
@@ -650,21 +682,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chatButton: {
-    backgroundColor: "#3B82F6",
   },
   acceptButton: {
-    backgroundColor: "#10B981",
   },
   acceptedButton: {
-    backgroundColor: "#6B7280",
   },
   declineButton: {
-    backgroundColor: "#EF4444",
   },
   actionButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFFFFF",
   },
   listContent: {
     paddingVertical: 8,
@@ -676,7 +703,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     padding: 16,
-    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
     marginVertical: 4,
     borderRadius: 12,
@@ -687,9 +713,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unreadItem: {
-    backgroundColor: "#EFF6FF",
     borderWidth: 1,
-    borderColor: "#3B82F6",
   },
   iconContainer: {
     width: 48,
@@ -711,34 +735,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
     flex: 1,
     marginRight: 8,
   },
   unreadTitle: {
-    color: "#1E40AF",
   },
   time: {
     fontSize: 12,
-    color: "#6B7280",
   },
   body: {
     fontSize: 14,
-    color: "#6B7280",
     marginBottom: 4,
   },
   unreadBody: {
-    color: "#374151",
   },
   actorName: {
     fontSize: 12,
-    color: "#9CA3AF",
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#3B82F6",
     marginTop: 8,
   },
   emptyContainer: {
@@ -750,12 +767,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#111827",
     marginTop: 16,
   },
   emptyBody: {
     fontSize: 16,
-    color: "#6B7280",
     textAlign: "center",
     marginTop: 8,
     lineHeight: 24,

@@ -11,38 +11,27 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Interactions } from "@/src/constants/theme";
-import { 
-  fetchMyReviewsThunk, 
-  fetchReceivedReviewsThunk 
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
+import {
+  fetchMyReviewsThunk,
+  fetchReceivedReviewsThunk,
 } from "../../review/reviewThunks";
-import { 
-  selectMyReviews, 
-  selectReceivedReviews, 
-  selectReviewStatus 
+import {
+  selectMyReviews,
+  selectReceivedReviews,
+  selectReviewStatus,
 } from "../../review/reviewSelectors";
 import type { Review } from "../../review/types/review";
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  success: "#22C55E",
-  error: "#DC2626",
-  gold: "#FACC15",
-  chipBg: "#F3F4F6",
-};
-
-const renderStars = (rating: number, size = 16) => (
+const renderStars = (rating: number, size = 16, theme: any) => (
   <View style={styles.starContainer}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Ionicons
         key={star}
         name={star <= rating ? "star" : "star-outline"}
         size={size}
-        color={star <= rating ? COLORS.gold : COLORS.surface}
+        color={star <= rating ? theme.colors.warning : theme.colors.border}
       />
     ))}
   </View>
@@ -104,6 +93,7 @@ export default function MyReviews({
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "5" | "4" | "3" | "2" | "1"
   >("all");
+  const { theme } = useTheme();
 
   // Redux integration
   const dispatch = useDispatch();
@@ -127,104 +117,202 @@ export default function MyReviews({
   });
 
   const renderReview = ({ item }: { item: Review }) => (
-    <View style={styles.reviewCard}>
+    <View
+      style={[
+        styles.reviewCard,
+        {
+          backgroundColor: theme.colors.surface,
+          shadowColor: theme.colors.primary,
+        },
+      ]}
+    >
       <View style={styles.reviewHeader}>
         <Image
-          source={{ uri: item.reviewer_avatar || 'https://via.placeholder.com/40' }}
+          source={{
+            uri: item.reviewer_avatar || "https://via.placeholder.com/40",
+          }}
           style={styles.reviewerAvatar}
         />
         <View style={styles.reviewerInfo}>
-          <Text style={styles.reviewerName}>{item.reviewer_name || 'Anonymous'}</Text>
-          {renderStars(5, 14)} {/* Reviewer rating not available in Review type */}
+          <ThemedText type="body" style={styles.reviewerName}>
+            {item.reviewer_name || "Anonymous"}
+          </ThemedText>
+          {renderStars(5, 14, theme)}{" "}
+          {/* Reviewer rating not available in Review type */}
         </View>
-        <Text style={styles.reviewDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+        <ThemedText type="caption" style={styles.reviewDate}>
+          {new Date(item.created_at).toLocaleDateString()}
+        </ThemedText>
       </View>
 
-      <Text style={styles.reviewedItem}>{item.listing_title || 'Unknown Item'}</Text>
+      <ThemedText type="caption" style={styles.reviewedItem}>
+        {item.listing_title || "Unknown Item"}
+      </ThemedText>
 
       <View style={styles.ratingContainer}>
-        {renderStars(item.rating)}
-        <Text style={styles.ratingText}>{item.rating}.0</Text>
+        {renderStars(item.rating, 16, theme)}
+        <ThemedText type="body" style={styles.ratingText}>
+          {item.rating}.0
+        </ThemedText>
       </View>
 
-      <Text style={styles.reviewComment}>{item.comment}</Text>
+      <ThemedText type="body" style={styles.reviewComment}>
+        {item.comment}
+      </ThemedText>
 
       {item.response && (
-        <View style={styles.responseContainer}>
-          <Text style={styles.responseLabel}>Your Response</Text>
-          <Text style={styles.responseText}>{item.response.comment}</Text>
+        <View
+          style={[
+            styles.responseContainer,
+            {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <ThemedText type="caption" style={styles.responseLabel}>
+            Your Response
+          </ThemedText>
+          <ThemedText type="body" style={styles.responseText}>
+            {item.response.comment}
+          </ThemedText>
         </View>
       )}
 
       {isSellerMode && !item.response && (
-        <TouchableOpacity style={styles.respondButton} activeOpacity={Interactions.buttonOpacity}>
-          <Text style={styles.respondButtonText}>Respond</Text>
+        <TouchableOpacity
+          style={[
+            styles.respondButton,
+            { backgroundColor: theme.colors.primary },
+          ]}
+          activeOpacity={Interactions.buttonOpacity}
+        >
+          <ThemedText type="body" style={styles.respondButtonText}>
+            Respond
+          </ThemedText>
         </TouchableOpacity>
       )}
     </View>
   );
 
   // Calculate stats from real data
-  const averageRating = reviews.length > 0 
-    ? (reviews.reduce((sum: number, r: Review) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : '0.0';
-  
-  const positivePercentage = reviews.length > 0
-    ? Math.round((reviews.filter((r: Review) => r.rating >= 4).length / reviews.length) * 100)
-    : 0;
+  const averageRating =
+    reviews.length > 0
+      ? (
+          reviews.reduce((sum: number, r: Review) => sum + r.rating, 0) /
+          reviews.length
+        ).toFixed(1)
+      : "0.0";
+
+  const positivePercentage =
+    reviews.length > 0
+      ? Math.round(
+          (reviews.filter((r: Review) => r.rating >= 4).length /
+            reviews.length) *
+            100
+        )
+      : 0;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.statsContainer}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <View
+        style={[
+          styles.statsContainer,
+          {
+            backgroundColor: theme.colors.surface,
+            borderBottomColor: theme.colors.border,
+          },
+        ]}
+      >
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{averageRating}</Text>
-          <Text style={styles.statLabel}>Average Rating</Text>
+          <ThemedText type="heading" style={styles.statValue}>
+            {averageRating}
+          </ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>
+            Average Rating
+          </ThemedText>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{reviews.length}</Text>
-          <Text style={styles.statLabel}>Total Reviews</Text>
+          <ThemedText type="heading" style={styles.statValue}>
+            {reviews.length}
+          </ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>
+            Total Reviews
+          </ThemedText>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{positivePercentage}%</Text>
-          <Text style={styles.statLabel}>Positive</Text>
+          <ThemedText type="heading" style={styles.statValue}>
+            {positivePercentage}%
+          </ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>
+            Positive
+          </ThemedText>
         </View>
       </View>
 
-      <View style={styles.filterContainer}>
+      <View
+        style={[
+          styles.filterContainer,
+          {
+            backgroundColor: theme.colors.surface,
+            borderBottomColor: theme.colors.border,
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+          },
+        ]}
+      >
         {(["all", "5", "4", "3", "2", "1"] as const).map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[
               styles.filterChip,
-              selectedFilter === filter && styles.filterChipActive,
+              selectedFilter === filter && [
+                styles.filterChipActive,
+                { backgroundColor: theme.colors.primary },
+              ],
+              { backgroundColor: theme.colors.border },
             ]}
             onPress={() => setSelectedFilter(filter)}
             activeOpacity={Interactions.buttonOpacity}
           >
             {filter === "all" ? (
-              <Text
+              <ThemedText
+                type="caption"
                 style={[
                   styles.filterChipText,
-                  selectedFilter === filter && styles.filterChipTextActive,
+                  selectedFilter === filter && [
+                    styles.filterChipTextActive,
+                    { color: theme.colors.surface },
+                  ],
                 ]}
               >
                 All
-              </Text>
+              </ThemedText>
             ) : (
               <View style={styles.starFilter}>
                 <Ionicons
                   name="star"
                   size={12}
-                  color={selectedFilter === filter ? COLORS.white : COLORS.gold}
+                  color={
+                    selectedFilter === filter
+                      ? theme.colors.surface
+                      : theme.colors.warning
+                  }
                 />
-                <Text
+                <ThemedText
+                  type="caption"
                   style={[
                     styles.filterChipText,
-                    selectedFilter === filter && styles.filterChipTextActive,
+                    selectedFilter === filter && [
+                      styles.filterChipTextActive,
+                      { color: theme.colors.surface },
+                    ],
                   ]}
                 >
                   {filter}
-                </Text>
+                </ThemedText>
               </View>
             )}
           </TouchableOpacity>
@@ -239,16 +327,21 @@ export default function MyReviews({
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="star-outline" size={48} color={COLORS.muted} />
-            <Text style={styles.emptyText}>
-              {isSellerMode ? 'No reviews received yet' : 'No reviews given yet'}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {isSellerMode 
-                ? 'Start making great sales to earn reviews from buyers'
-                : 'Start making purchases and leave reviews for sellers'
-              }
-            </Text>
+            <Ionicons
+              name="star-outline"
+              size={48}
+              color={theme.colors.secondary}
+            />
+            <ThemedText type="body" style={styles.emptyText}>
+              {isSellerMode
+                ? "No reviews received yet"
+                : "No reviews given yet"}
+            </ThemedText>
+            <ThemedText type="caption" style={styles.emptySubtext}>
+              {isSellerMode
+                ? "Start making great sales to earn reviews from buyers"
+                : "Start making purchases and leave reviews for sellers"}
+            </ThemedText>
           </View>
         }
       />
@@ -257,29 +350,25 @@ export default function MyReviews({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
 
   statsContainer: {
     flexDirection: "row",
-    backgroundColor: COLORS.white,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.surface,
   },
 
   statItem: { flex: 1, alignItems: "center" },
 
-  statValue: { fontSize: 24, fontWeight: "700", color: COLORS.dark },
+  statValue: { fontSize: 24, fontWeight: "700" },
 
-  statLabel: { fontSize: 12, color: COLORS.muted, marginTop: 4 },
+  statLabel: { fontSize: 12, marginTop: 4 },
 
   filterContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.surface,
   },
 
   filterChip: {
@@ -287,30 +376,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: COLORS.chipBg,
   },
 
-  filterChipActive: { backgroundColor: COLORS.dark },
+  filterChipActive: {},
 
   filterChipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.muted,
     marginLeft: 4,
   },
 
-  filterChipTextActive: { color: COLORS.white },
+  filterChipTextActive: {},
 
   starFilter: { flexDirection: "row", alignItems: "center" },
 
   listContainer: { padding: 20 },
 
   reviewCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 16,
     marginBottom: 16,
     padding: 16,
-    shadowColor: COLORS.dark,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
@@ -326,13 +411,12 @@ const styles = StyleSheet.create({
 
   reviewerInfo: { flex: 1 },
 
-  reviewerName: { fontSize: 16, fontWeight: "600", color: COLORS.dark },
+  reviewerName: { fontSize: 16, fontWeight: "600" },
 
-  reviewDate: { fontSize: 12, color: COLORS.muted },
+  reviewDate: { fontSize: 12 },
 
   reviewedItem: {
     fontSize: 14,
-    color: COLORS.muted,
     marginBottom: 8,
     fontStyle: "italic",
   },
@@ -348,44 +432,38 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.dark,
     marginLeft: 8,
   },
 
   reviewComment: {
     fontSize: 14,
-    color: COLORS.muted,
     lineHeight: 20,
     marginBottom: 12,
   },
 
   responseContainer: {
-    backgroundColor: COLORS.bg,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: COLORS.surface,
   },
 
   responseLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.muted,
     marginBottom: 4,
   },
 
-  responseText: { fontSize: 14, color: COLORS.muted, lineHeight: 18 },
+  responseText: { fontSize: 14, lineHeight: 18 },
 
   respondButton: {
     alignSelf: "flex-start",
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 24,
-    backgroundColor: COLORS.accent,
     marginTop: 8,
   },
 
-  respondButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.white },
+  respondButtonText: { fontSize: 14, fontWeight: "600" },
 
   // Empty state styles
   emptyState: {
@@ -398,14 +476,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.muted,
     marginTop: 16,
     textAlign: "center",
   },
 
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.muted,
     marginTop: 4,
     textAlign: "center",
     lineHeight: 20,

@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useUserMode } from "@/src/contexts/UserModeContext";
+import { useTheme } from "@/src/contexts/ThemeContext";
 
 type BottomTabBarProps = {
   state: any;
@@ -34,6 +35,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isSellerMode } = useUserMode();
+  const { theme, isDark } = useTheme();
 
   // compute bottom offset similar to your TabLayout bottom logic
   const bottomInset = Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 4);
@@ -66,6 +68,10 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
     // Center elevated home button
     if (tab.isCenter) {
+      const gradientColors = isDark 
+        ? ['#FFFFFF', '#F3F4F6', '#FFFFFF'] as const
+        : ['#111827', '#374151', '#111827'] as const;
+      
       return (
         <TouchableOpacity
           key={tab.id}
@@ -74,7 +80,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={["#1a1a1a", "#374151", "#1a1a1a"]}
+            colors={gradientColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.centerButton, isActive && styles.centerButtonActive]}
@@ -83,7 +89,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           </LinearGradient>
 
           {/* Glow effect for active state */}
-          {isActive && <View style={styles.glowEffect} />}
+          {isActive && <View style={[styles.glowEffect, { backgroundColor: isDark ? '#FFFFFF4D' : '#1118274D' }]} />}
         </TouchableOpacity>
       );
     }
@@ -101,12 +107,12 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         <View
           style={[
             styles.tabIconContainer,
-            isActive && styles.tabIconContainerActive,
+            isActive && [styles.tabIconContainerActive, { backgroundColor: theme.colors.surface }],
           ]}
         >
           <Icon
             size={24}
-            color={isActive ? "#1a1a1a" : "#999"}
+            color={isActive ? theme.colors.primary : theme.colors.secondary}
             strokeWidth={isActive ? 2.5 : 2}
           />
         </View>
@@ -115,12 +121,14 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Tab Bar Container */}
       <View style={[styles.tabBarWrapper, { paddingBottom: bottomInset }]}>
         {/* Shadow layer for center button */}
-        <View style={styles.centerButtonShadow} />
-        <View style={styles.tabBar}>{tabs.map(renderTab)}</View>
+        <View style={[styles.centerButtonShadow, { backgroundColor: isDark ? '#00000040' : '#F9FAFB40' }]} />
+        <View style={[styles.tabBar, { backgroundColor: theme.colors.surface }]}>
+          {tabs.map(renderTab)}
+        </View>
       </View>
     </View>
   );

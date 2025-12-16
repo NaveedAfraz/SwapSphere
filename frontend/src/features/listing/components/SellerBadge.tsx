@@ -8,6 +8,8 @@ import {
   Award,
 } from "lucide-react-native";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface SellerBadgeProps {
   id: number;
@@ -36,9 +38,11 @@ export default function SellerBadge({
   responseRate,
   onPress,
 }: SellerBadgeProps) {
+  const { theme } = useTheme();
+  
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.surface }]}
       onPress={onPress}
       activeOpacity={Interactions.activeOpacity}
     >
@@ -47,12 +51,12 @@ export default function SellerBadge({
           <Image source={{ uri: avatar }} style={styles.avatar} />
           <View style={styles.badgeContainer}>
             {verified && (
-              <View style={[styles.badge, styles.verified]}>
+              <View style={[styles.badge, { backgroundColor: theme.colors.accent }]}>
                 <Shield size={12} color="#fff" />
               </View>
             )}
             {topSeller && (
-              <View style={[styles.badge, styles.topSeller]}>
+              <View style={[styles.badge, { backgroundColor: theme.colors.primary }]}>
                 <Award size={12} color="#fff" />
               </View>
             )}
@@ -61,57 +65,56 @@ export default function SellerBadge({
 
         <View style={styles.infoContainer}>
           <View style={styles.nameContainer}>
-            <Text style={styles.name}>{name}</Text>
+            <ThemedText type="body" style={styles.name}>{name}</ThemedText>
             {verified && (
               <View style={styles.verifiedText}>
-                <CheckCircle size={14} color="#22C55E" />
-                <Text style={styles.verifiedLabel}>Verified</Text>
+                <CheckCircle size={14} color={theme.colors.accent} />
+                <ThemedText type="caption" style={[styles.verifiedLabel, { color: theme.colors.accent }]}>Verified</ThemedText>
               </View>
             )}
           </View>
 
           <View style={styles.ratingContainer}>
-            <Star size={14} color="#FFD700" fill="#FFD700" />
-            <Text style={styles.rating}>{rating}</Text>
-            <Text style={styles.reviews}>({totalReviews} reviews)</Text>
+            <Star size={14} color={theme.colors.accent} fill={theme.colors.accent} />
+            <ThemedText type="caption" style={styles.rating}>{rating}</ThemedText>
+            <ThemedText type="caption" style={styles.reviews}>({totalReviews} reviews)</ThemedText>
           </View>
 
-          <Text style={styles.memberSince}>Member since {memberSince}</Text>
+          <ThemedText type="caption" style={styles.memberSince}>Member since {memberSince}</ThemedText>
         </View>
       </View>
 
-      <View style={styles.statsContainer}>
+      <View style={[styles.statsContainer, { backgroundColor: theme.colors.background }]}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{totalListings}</Text>
-          <Text style={styles.statLabel}>Listings</Text>
+          <ThemedText type="body" style={styles.statValue}>{totalListings}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Listings</ThemedText>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{responseRate}</Text>
-          <Text style={styles.statLabel}>Response</Text>
+          <ThemedText type="body" style={styles.statValue}>{rating}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Rating</ThemedText>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>24h</Text>
-          <Text style={styles.statLabel}>Avg. Reply</Text>
+          <ThemedText type="body" style={styles.statValue}>{responseRate}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Response</ThemedText>
         </View>
       </View>
 
-      {/* <TouchableOpacity style={styles.contactBtn} activeOpacity={Interactions.buttonOpacity}>
+      <TouchableOpacity style={[styles.contactBtn, { backgroundColor: theme.colors.primary }]}>
         <MessageCircle size={16} color="#fff" />
-        <Text style={styles.contactBtnText}>Contact Seller</Text>
-      </TouchableOpacity> */}
+        <Text style={[styles.contactBtnText, { color: '#fff' }]}>Contact</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 20,
@@ -149,12 +152,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  verified: {
-    backgroundColor: "#22C55E",
-  },
-  topSeller: {
-    backgroundColor: "#FACC15",
-  },
   infoContainer: {
     flex: 1,
   },
@@ -166,7 +163,6 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
     marginRight: 8,
   },
   verifiedText: {
@@ -175,7 +171,6 @@ const styles = StyleSheet.create({
   },
   verifiedLabel: {
     fontSize: 12,
-    color: "#22C55E",
     marginLeft: 2,
     fontWeight: "600",
   },
@@ -187,24 +182,20 @@ const styles = StyleSheet.create({
   rating: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
     marginLeft: 4,
   },
   reviews: {
     fontSize: 14,
-    color: "#6B7280",
     marginLeft: 4,
   },
   memberSince: {
     fontSize: 12,
-    color: "#6B7280",
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
     marginBottom: 16,
     paddingVertical: 12,
-    backgroundColor: "#D1D5DB",
     borderRadius: 12,
   },
   statItem: {
@@ -213,29 +204,25 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
-    color: "#6B7280",
   },
   divider: {
     width: 1,
-    backgroundColor: "#F3F4F6",
   },
   contactBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#111827",
     paddingVertical: 12,
     borderRadius: 10,
   },
   contactBtnText: {
-    color: "#fff",
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 8,
+    color: '#fff',
   },
 });

@@ -2,16 +2,27 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import MyReviews from "@/src/features/profile/components/MyReviews";
 import { useUserMode } from "@/src/contexts/UserModeContext";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 export default function MyReviewsScreen() {
   const { isSellerMode } = useUserMode();
+  const { theme } = useTheme();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Reviews as {isSellerMode ? 'Seller' : 'Buyer'}
-        </Text>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+        <ThemedText
+          type="subheading"
+          style={[
+            styles.sectionTitle,
+            { borderBottomColor: theme.colors.border },
+          ]}
+        >
+          Reviews as {isSellerMode ? "Seller" : "Buyer"}
+        </ThemedText>
         <MyReviews isSellerMode={isSellerMode} />
       </View>
     </View>
@@ -21,24 +32,20 @@ export default function MyReviewsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   section: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
   },
 });

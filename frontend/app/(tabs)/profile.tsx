@@ -11,6 +11,11 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import {
+  GlobalThemeWrapper,
+  ThemedText,
+} from "@/src/components/GlobalThemeComponents";
 import SellerBadge from "@/src/features/listing/components/SellerBadge";
 import ProfileHeader from "@/src/features/profile/components/ProfileHeader";
 import ProfileStats from "@/src/features/profile/components/ProfileStats";
@@ -18,6 +23,7 @@ import { useUserMode } from "@/src/contexts/UserModeContext";
 import { fetchMyProfileThunk } from "@/src/features/profile/profileThunks";
 import { logoutThunk } from "@/src/features/auth/authThunks";
 import { PullToRefresh } from "@/src/components/PullToRefresh";
+import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
 import {
   selectCurrentProfile,
   selectProfileDisplayName,
@@ -61,11 +67,12 @@ import {
 // ];
 
 export default function ProfileScreen() {
-  const [selectedItem, setSelectedItem] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const { isSellerMode, setIsSellerMode } = useUserMode();
   const router = useRouter();
   const dispatch = useDispatch();
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const { theme } = useTheme();
+  const { isSellerMode, setIsSellerMode } = useUserMode();
 
   // Redux state selectors
   const currentProfile = useSelector(selectCurrentProfile);
@@ -89,7 +96,7 @@ export default function ProfileScreen() {
     try {
       await dispatch(fetchMyProfileThunk() as any);
     } catch (error) {
-      console.error('Error refreshing profile:', error);
+      console.error("Error refreshing profile:", error);
     } finally {
       setRefreshing(false);
     }
@@ -196,63 +203,108 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <GlobalThemeWrapper useFullPage={true}>
       <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={handleEditProfile}
-            activeOpacity={Interactions.buttonOpacity}
-          >
-            <Ionicons name="create-outline" size={20} color="#3B82F6" />
-          </TouchableOpacity>
-        </View>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.colors.surface,
+              borderBottomColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View style={styles.headerTop}>
+            <ThemedText type="heading" style={styles.title}>
+              Profile
+            </ThemedText>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEditProfile}
+              activeOpacity={Interactions.buttonOpacity}
+            >
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={theme.colors.accent}
+              />
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.modeToggleContainer}>
-          <Text style={styles.modeToggleLabel}>Mode:</Text>
-          <View style={styles.modeToggleGroup}>
-            <TouchableOpacity
+          <View
+            style={[
+              styles.modeToggleContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <ThemedText type="body" style={styles.sectionTitle}>
+              Mode:
+            </ThemedText>
+            <View
               style={[
-                styles.modeToggle,
-                isSellerMode ? styles.modeToggleActive : null,
+                styles.modeToggleGroup,
+                { backgroundColor: theme.colors.border },
               ]}
-              onPress={() => setIsSellerMode(!isSellerMode)}
-              activeOpacity={Interactions.buttonOpacity}
             >
-              <Ionicons
-                name="storefront-outline"
-                size={18}
-                color={isSellerMode ? "#FFFFFF" : "#6B7280"}
-              />
-              <Text
-                style={[styles.modeText, isSellerMode && styles.modeTextActive]}
-              >
-                Seller
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.modeToggle,
-                !isSellerMode ? styles.modeToggleActive : null,
-              ]}
-              onPress={() => setIsSellerMode(!isSellerMode)}
-              activeOpacity={Interactions.buttonOpacity}
-            >
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={!isSellerMode ? "#FFFFFF" : "#6B7280"}
-              />
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.modeText,
-                  !isSellerMode && styles.modeTextActive,
+                  styles.modeToggle,
+                  isSellerMode && [
+                    styles.modeToggleActive,
+                    { backgroundColor: theme.colors.primary },
+                  ],
                 ]}
+                onPress={() => setIsSellerMode(!isSellerMode)}
+                activeOpacity={Interactions.buttonOpacity}
               >
-                Customer
-              </Text>
-            </TouchableOpacity>
+                <Ionicons
+                  name="storefront-outline"
+                  size={18}
+                  color={isSellerMode ? "#FFFFFF" : theme.colors.primary}
+                />
+                <ThemedText
+                  type="caption"
+                  style={[
+                    styles.modeText,
+                    isSellerMode && [
+                      styles.modeTextActive,
+                      { color: "#FFFFFF" },
+                    ],
+                  ]}
+                >
+                  Seller
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modeToggle,
+                  !isSellerMode && [
+                    styles.modeToggleActive,
+                    { backgroundColor: theme.colors.primary },
+                  ],
+                ]}
+                onPress={() => setIsSellerMode(!isSellerMode)}
+                activeOpacity={Interactions.buttonOpacity}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={18}
+                  color={!isSellerMode ? "#FFFFFF" : theme.colors.primary}
+                />
+                <ThemedText
+                  type="caption"
+                  style={[
+                    styles.modeText,
+                    !isSellerMode && [
+                      styles.modeTextActive,
+                      { color: "#FFFFFF" },
+                    ],
+                  ]}
+                >
+                  Customer
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -273,15 +325,27 @@ export default function ProfileScreen() {
           rating={averageRating}
         />
 
-        <View style={styles.menuSection}>
+        <View
+          style={[
+            styles.menuSection,
+            { backgroundColor: theme.colors.surface },
+          ]}
+        >
           {(isSellerMode ? getSellerMenuItems() : getCustomerMenuItems()).map(
             (item) => (
               <TouchableOpacity
                 key={item.id}
                 style={[
                   styles.menuItem,
-                  selectedItem === item.id && styles.menuItemSelected,
-                  item.isDestructive && styles.menuItemDestructive,
+                  selectedItem === item.id && [
+                    styles.menuItemSelected,
+                    { backgroundColor: theme.colors.primary + "20" },
+                  ],
+                  item.isDestructive && [
+                    styles.menuItemDestructive,
+                    { borderBottomColor: theme.colors.error + "20" },
+                  ],
+                  { borderBottomColor: theme.colors.border },
                 ]}
                 onPress={() => handleMenuItemPress(item)}
                 activeOpacity={Interactions.activeOpacity}
@@ -290,24 +354,43 @@ export default function ProfileScreen() {
                   <Ionicons
                     name={item.icon as any}
                     size={24}
-                    color={item.isDestructive ? "#DC2626" : "#6B7280"}
+                    color={
+                      item.isDestructive
+                        ? theme.colors.error
+                        : theme.colors.secondary
+                    }
                   />
-                  <Text
+                  <ThemedText
+                    type="body"
                     style={[
                       styles.menuItemText,
-                      item.isDestructive && styles.menuItemTextDestructive,
+                      item.isDestructive && [
+                        styles.menuItemTextDestructive,
+                        { color: theme.colors.error },
+                      ],
                     ]}
                   >
                     {item.title}
-                  </Text>
+                  </ThemedText>
                 </View>
                 <View style={styles.menuItemRight}>
                   {item.count !== null && (
-                    <View style={styles.countBadge}>
-                      <Text style={styles.countText}>{item.count}</Text>
+                    <View
+                      style={[
+                        styles.countBadge,
+                        { backgroundColor: theme.colors.border },
+                      ]}
+                    >
+                      <ThemedText type="caption" style={styles.countText}>
+                        {item.count}
+                      </ThemedText>
                     </View>
                   )}
-                  <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={theme.colors.border}
+                  />
                 </View>
               </TouchableOpacity>
             )
@@ -315,36 +398,45 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>SwapSphere v1.0.0</Text>
-          <Text style={styles.footerText}>
+          <ThemedText type="caption" style={styles.footerText}>
+            SwapSphere v1.0.0
+          </ThemedText>
+          <ThemedText type="caption" style={styles.footerText}>
             Made with ❤️ for peer-to-peer trading
-          </Text>
+          </ThemedText>
         </View>
       </PullToRefresh>
-    </View>
+    </GlobalThemeWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   header: {
-    paddingTop: 60,
+    display: "flex",
+    paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: "#FFFFFF",
+    marginBottom: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     letterSpacing: -0.5,
   },
   editButton: {
@@ -354,21 +446,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    marginBottom: 20,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    flex: 1,
   },
-  modeToggleLabel: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
   },
   modeToggleGroup: {
     flexDirection: "row",
-    backgroundColor: "#D1D5DB",
     borderRadius: 12,
     padding: 2,
   },
@@ -376,28 +463,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
+    minWidth: 80,
+    justifyContent: "center",
   },
-  modeToggleActive: {
-    backgroundColor: "#111827",
-  },
+  modeToggleActive: {},
   modeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6B7280",
     marginLeft: 4,
   },
-  modeTextActive: {
-    color: "#FFFFFF",
-  },
+  modeTextActive: {},
   menuSection: {
     marginTop: 20,
-
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     borderRadius: 20,
-    marginHorizontal: 0,
+    marginHorizontal: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -410,14 +492,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
   },
-  menuItemSelected: {
-    backgroundColor: "#EFF6FF",
-  },
-  menuItemDestructive: {
-    borderBottomColor: "#FEE2E2",
-  },
+  menuItemSelected: {},
+  menuItemDestructive: {},
   menuItemLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -425,18 +502,14 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: "#111827",
     marginLeft: 12,
   },
-  menuItemTextDestructive: {
-    color: "#EF4444",
-  },
+  menuItemTextDestructive: {},
   menuItemRight: {
     flexDirection: "row",
     alignItems: "center",
   },
   countBadge: {
-    backgroundColor: "#D1D5DB",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -445,7 +518,6 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6B7280",
   },
   footer: {
     alignItems: "center",
@@ -454,7 +526,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: "#6B7280",
     marginBottom: 4,
   },
 });

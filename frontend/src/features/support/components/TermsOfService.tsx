@@ -7,31 +7,34 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Interactions } from '@/src/constants/theme';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemedView } from '@/src/components/ThemedView';
 
 export default function TermsOfService() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <Text style={styles.title}>Terms of Service</Text>
-          <Text style={styles.lastUpdated}>Last updated: December 2025</Text>
+          <Text style={[styles.title, { color: theme.colors.primary }]}>Terms of Service</Text>
+          <Text style={[styles.lastUpdated, { color: theme.colors.secondary }]}>Last updated: December 2025</Text>
           
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>1. Acceptance of Terms</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               By using SwapSphere, you agree to these Terms of Service and our Privacy Policy. 
               If you do not agree to these terms, please do not use our service.
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>2. Account Responsibilities</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>2. Account Responsibilities</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               You are responsible for:
             </Text>
-            <Text style={styles.sectionText}>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               • Providing accurate and complete information{'\n'}
               • Maintaining the security of your account{'\n'}
               • All activities that occur under your account{'\n'}
@@ -39,12 +42,12 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>3. Prohibited Activities</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>3. Prohibited Activities</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               You may not use SwapSphere to:
             </Text>
-            <Text style={styles.sectionText}>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               • Sell illegal or prohibited items{'\n'}
               • Post false, misleading, or fraudulent listings{'\n'}
               • Harass, abuse, or harm other users{'\n'}
@@ -53,8 +56,8 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>4. Listing Guidelines</Text>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>4. Listing Guidelines</Text>
             <Text style={styles.sectionText}>
               All listings must:
             </Text>
@@ -117,9 +120,9 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>9. Intellectual Property</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>9. Intellectual Property</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               • You retain ownership of content you post{'\n'}
               • You grant us license to use content for service operation{'\n'}
               • Do not post content you don't have rights to{'\n'}
@@ -127,12 +130,12 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>10. Account Termination</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>10. Account Termination</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               We may suspend or terminate accounts for:
             </Text>
-            <Text style={styles.sectionText}>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               • Violation of these terms{'\n'}
               • Fraudulent or harmful activities{'\n'}
               • Inactive accounts (after 12 months){'\n'}
@@ -140,12 +143,12 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>11. Limitation of Liability</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>11. Limitation of Liability</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               SwapSphere is provided "as is" and we are not liable for:
             </Text>
-            <Text style={styles.sectionText}>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               • User-to-user transactions and disputes{'\n'}
               • Item quality or accuracy of descriptions{'\n'}
               • Losses from fraudulent activities{'\n'}
@@ -153,19 +156,19 @@ export default function TermsOfService() {
             </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>12. Contact Information</Text>
-            <Text style={styles.sectionText}>
+          <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>12. Contact Information</Text>
+            <Text style={[styles.sectionText, { color: theme.colors.secondary }]}>
               For questions about these Terms of Service:
             </Text>
-            <Text style={styles.contactText}>
+            <Text style={[styles.contactText, { color: theme.colors.secondary }]}>
               Email: legal@swapsphere.com{'\n'}
               Address: 123 Marketplace Street, San Francisco, CA 94102
             </Text>
           </View>
         </View>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
 

@@ -2,56 +2,46 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  FlatList,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  FlatList,
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import { useDispatch, useSelector } from "react-redux";
-import { Interactions } from '@/src/constants/theme';
 import { fetchTransactionsThunk } from '../../payment/paymentThunks';
 import { selectTransactions, selectPaymentStatus } from '../../payment/paymentSelectors';
 import type { Transaction } from '../../payment/types/payment';
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  success: "#22C55E",
-  warning: "#FACC15",
-  error: "#DC2626",
-  gold: "#FACC15",
-  chipBg: "#F3F4F6",
-};
-
 const getStatusColor = (status: Transaction["status"]) =>
   status === "succeeded"
-    ? COLORS.success
+    ? "#10B981"  // Green for success
     : status === "pending" || status === "processing"
-    ? COLORS.warning
+    ? "#F59E0B"  // Amber for warning
     : status === "failed" || status === "cancelled" || status === "refunded"
-    ? COLORS.error
-    : COLORS.muted;
+    ? "#DC2626"  // Red for error
+    : "#6B7280"; // Gray for muted
 
 const getPaymentStatusColor = (status: Transaction["status"]) =>
   status === "succeeded"
-    ? COLORS.success
+    ? "#10B981"  // Green for success
     : status === "pending" || status === "processing"
-    ? COLORS.warning
-    : COLORS.error;
+    ? "#F59E0B"  // Amber for warning
+    : "#DC2626";  // Red for error
 
-const renderStars = (rating: number, size = 14) => (
+const renderStars = (rating: number, size = 14, theme: any) => (
   <View style={styles.starContainer}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Ionicons
         key={star}
         name={star <= rating ? "star" : "star-outline"}
         size={size}
-        color={star <= rating ? COLORS.gold : COLORS.surface}
+        color={star <= rating ? "#F59E0B" : theme.colors.border}
       />
     ))}
   </View>
@@ -62,6 +52,7 @@ export default function Sales() {
     "all" | "succeeded" | "pending" | "processing" | "failed" | "cancelled" | "refunded"
   >("all");
   const [showDetails, setShowDetails] = useState<string | null>(null);
+  const { theme } = useTheme();
 
   // Redux integration
   const dispatch = useDispatch();
@@ -94,10 +85,10 @@ export default function Sales() {
           style={styles.itemImage} 
         />
         <View style={styles.itemInfo}>
-          <Text style={styles.itemTitle} numberOfLines={2}>
+          <ThemedText type="body" style={styles.itemTitle}>
             {item.metadata?.listing_title || item.description || 'Transaction'}
-          </Text>
-          <Text style={styles.itemPrice}>${item.amount}</Text>
+          </ThemedText>
+          <ThemedText type="body" style={styles.itemPrice}>${item.amount}</ThemedText>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -127,27 +118,27 @@ export default function Sales() {
           style={styles.buyerAvatar} 
         />
         <View style={styles.buyerDetails}>
-          <Text style={styles.buyerName}>
+          <ThemedText type="body" style={styles.buyerName}>
             {item.metadata?.buyer_name || 'Buyer'}
-          </Text>
-          {renderStars(Number(item.metadata?.buyer_rating || 0))}
+          </ThemedText>
+          {renderStars(Number(item.metadata?.buyer_rating || 0), 14, theme)}
         </View>
-        <Text style={styles.saleDate}>
+        <ThemedText type="caption" style={styles.saleDate}>
           {new Date(item.created_at).toLocaleDateString()}
-        </Text>
+        </ThemedText>
       </View>
 
       {showDetails === item.id && (
         <View style={styles.expandedDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Transaction ID</Text>
-            <Text style={styles.detailValue}>{item.id}</Text>
+            <ThemedText type="caption" style={styles.detailLabel}>Transaction ID</ThemedText>
+            <ThemedText type="caption" style={styles.detailValue}>{item.id}</ThemedText>
           </View>
 
           {item.payment_intent_id && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Payment Intent</Text>
-              <Text style={styles.detailValue}>{item.payment_intent_id}</Text>
+              <ThemedText type="caption" style={styles.detailLabel}>Payment Intent</ThemedText>
+              <ThemedText type="caption" style={styles.detailValue}>{item.payment_intent_id}</ThemedText>
             </View>
           )}
 
@@ -158,17 +149,17 @@ export default function Sales() {
                   <Ionicons
                     name="cube-outline"
                     size={16}
-                    color={COLORS.accent}
+                    color={theme.colors.accent}
                   />
-                  <Text style={styles.actionText}>Track</Text>
+                  <ThemedText type="caption" style={styles.actionText}>Track</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} activeOpacity={Interactions.buttonOpacity}>
                   <Ionicons
                     name="chatbubble-outline"
                     size={16}
-                    color={COLORS.accent}
+                    color={theme.colors.accent}
                   />
-                  <Text style={styles.actionText}>Message</Text>
+                  <ThemedText type="caption" style={styles.actionText}>Message</ThemedText>
                 </TouchableOpacity>
               </>
             )}
@@ -177,9 +168,9 @@ export default function Sales() {
                 <Ionicons
                   name="repeat-outline"
                   size={16}
-                  color={COLORS.accent}
+                  color={theme.colors.accent}
                 />
-                <Text style={styles.actionText}>Sell Again</Text>
+                <ThemedText type="caption" style={styles.actionText}>Sell Again</ThemedText>
               </TouchableOpacity>
             )}
             {(item.status === "failed" || item.status === "cancelled") && (
@@ -190,11 +181,11 @@ export default function Sales() {
                 <Ionicons
                   name="alert-circle-outline"
                   size={16}
-                  color={COLORS.white}
+                  color="#FFFFFF"
                 />
-                <Text style={[styles.actionText, { color: COLORS.white }]}>
+                <ThemedText type="caption" style={[styles.actionText, { color: "#FFFFFF" }]}>
                   Resolve
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
             )}
           </View>
@@ -208,23 +199,23 @@ export default function Sales() {
   const averageRating = 0; // This would come from review data in a real implementation
 
   return (
-    <View style={styles.container}>
-      <View style={styles.statsContainer}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.statsContainer, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>${totalRevenue.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Revenue</Text>
+          <ThemedText type="heading" style={styles.statValue}>${totalRevenue.toFixed(0)}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Revenue</ThemedText>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{salesTransactions.length}</Text>
-          <Text style={styles.statLabel}>Sales</Text>
+          <ThemedText type="heading" style={styles.statValue}>{salesTransactions.length}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Sales</ThemedText>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{averageRating}</Text>
-          <Text style={styles.statLabel}>Rating</Text>
+          <ThemedText type="heading" style={styles.statValue}>{averageRating}</ThemedText>
+          <ThemedText type="caption" style={styles.statLabel}>Rating</ThemedText>
         </View>
       </View>
 
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: theme.colors.surface }]}>
         {(["all", "succeeded", "pending", "processing", "failed", "cancelled", "refunded"] as const).map((f) => (
           <TouchableOpacity
             key={f}
@@ -235,14 +226,15 @@ export default function Sales() {
             onPress={() => setSelectedFilter(f)}
             activeOpacity={Interactions.buttonOpacity}
           >
-            <Text
+            <ThemedText
+              type="caption"
               style={[
                 styles.filterText,
                 selectedFilter === f && styles.filterTextActive,
               ]}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
+            </ThemedText>
           </TouchableOpacity>
         ))}
       </View>
@@ -255,9 +247,9 @@ export default function Sales() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="cash-outline" size={48} color={COLORS.muted} />
-            <Text style={styles.emptyText}>No sales found</Text>
-            <Text style={styles.emptySubtext}>Start making sales to see them here</Text>
+            <Ionicons name="cash-outline" size={48} color={theme.colors.secondary} />
+            <ThemedText type="body" style={styles.emptyText}>No sales found</ThemedText>
+            <ThemedText type="caption" style={styles.emptySubtext}>Start making sales to see them here</ThemedText>
           </View>
         }
       />
@@ -266,50 +258,47 @@ export default function Sales() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
 
   statsContainer: {
     flexDirection: "row",
-    backgroundColor: COLORS.white,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.surface,
+    borderBottomColor: "#D1D5DB",
   },
 
   stat: { flex: 1, alignItems: "center" },
 
-  statValue: { fontSize: 22, fontWeight: "700", color: COLORS.dark },
+  statValue: { fontSize: 22, fontWeight: "700", marginBottom: 4 },
 
-  statLabel: { fontSize: 12, color: COLORS.muted, marginTop: 4 },
+  statLabel: { fontSize: 12, marginTop: 4 },
 
   filterContainer: {
     flexDirection: "row",
     padding: 20,
-    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.surface,
+    borderBottomColor: "transparent",
   },
 
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: COLORS.chipBg,
   },
 
-  filterActive: { backgroundColor: COLORS.dark },
+  filterActive: {},
 
-  filterText: { fontSize: 12, fontWeight: "600", color: COLORS.muted },
+  filterText: { fontSize: 12, fontWeight: "600" },
 
-  filterTextActive: { color: COLORS.white },
+  filterTextActive: {},
 
   saleCard: {
-    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: COLORS.dark,
+    marginHorizontal: 20,
+    shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
@@ -321,12 +310,11 @@ const styles = StyleSheet.create({
 
   itemInfo: { flex: 1 },
 
-  itemTitle: { fontSize: 16, fontWeight: "600", color: COLORS.dark },
+  itemTitle: { fontSize: 16, fontWeight: "600" },
 
   itemPrice: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.accent,
     marginTop: 4,
   },
 
@@ -334,23 +322,23 @@ const styles = StyleSheet.create({
 
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
 
-  badgeText: { fontSize: 10, fontWeight: "700", color: COLORS.white },
+  badgeText: { fontSize: 10, fontWeight: "700", color: "#FFFFFF" },
 
   buyerInfo: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.surface,
+    borderTopColor: "transparent",
   },
 
   buyerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
 
   buyerDetails: { flex: 1 },
 
-  buyerName: { fontSize: 14, fontWeight: "600", color: COLORS.dark },
+  buyerName: { fontSize: 14, fontWeight: "600" },
 
-  saleDate: { fontSize: 12, color: COLORS.muted },
+  saleDate: { fontSize: 12 },
 
   starContainer: { flexDirection: "row" },
 
@@ -358,7 +346,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.surface,
+    borderTopColor: "transparent",
   },
 
   detailRow: {
@@ -367,7 +355,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  detailLabel: { fontSize: 14, fontWeight: "600", color: COLORS.dark },
+  detailLabel: { fontSize: 14, fontWeight: "600" },
 
   actionButtons: { flexDirection: "row", gap: 12 },
 
@@ -378,15 +366,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 24,
-    backgroundColor: COLORS.bg,
     borderWidth: 1,
-    borderColor: COLORS.surface,
+    borderColor: "transparent",
     flex: 1,
   },
 
-  actionText: { fontSize: 12, fontWeight: "600", color: COLORS.accent },
+  actionText: { fontSize: 12, fontWeight: "600" },
 
-  disputeButton: { backgroundColor: COLORS.error, borderColor: COLORS.error },
+  disputeButton: {},
 
   // Empty state styles
   emptyState: {
@@ -399,14 +386,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.muted,
     marginTop: 16,
     textAlign: "center",
   },
 
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.muted,
     marginTop: 4,
     textAlign: "center",
     lineHeight: 20,
@@ -414,7 +399,6 @@ const styles = StyleSheet.create({
 
   detailValue: {
     fontSize: 14,
-    color: COLORS.muted,
     fontWeight: "500",
   },
 });

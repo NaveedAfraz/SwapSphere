@@ -1,38 +1,34 @@
 import { Stack, useRouter } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/src/contexts/ThemeContext";
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  white: "#FFFFFF",
-};
-
-export default function InboxLayout() {
+export default function ProfileLayout() {
   const router = useRouter();
+  const { theme } = useTheme();
 
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.white,
+          backgroundColor: theme.colors.surface,
         },
         headerTitleStyle: {
           fontSize: 18,
           fontWeight: "700",
-          color: COLORS.dark,
+          color: theme.colors.primary,
         },
-        headerTintColor: COLORS.accent,
+        headerTintColor: theme.colors.primary,
         headerShadowVisible: false,
         contentStyle: {
-          backgroundColor: "#F9FAFB",
+          backgroundColor: theme.colors.background,
         },
       }}
     >
       <Stack.Screen
         name="index"
         options={{
-          title: "Inbox",
+          title: "Profile",
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.replace("/(tabs)")}
@@ -41,7 +37,7 @@ export default function InboxLayout() {
               <Ionicons
                 name="arrow-back"
                 size={24}
-                color={COLORS.dark}
+                color={theme.colors.primary}
               />
             </TouchableOpacity>
           ),

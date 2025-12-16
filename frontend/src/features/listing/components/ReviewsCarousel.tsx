@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, ScrollView, Image, StyleSheet } from "react-native";
 import { Star, Quote } from "lucide-react-native";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface Review {
   id: number;
@@ -16,22 +18,13 @@ interface ReviewsCarouselProps {
   reviews: Review[];
 }
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  gold: "#FACC15",
-};
-
 export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
+  const { theme } = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Recent Reviews</Text>
-        <Text style={styles.subtitle}>What our users are saying</Text>
+        <ThemedText type="heading" style={styles.title}>Recent Reviews</ThemedText>
+        <ThemedText type="caption" style={styles.subtitle}>What our users are saying</ThemedText>
       </View>
 
       <ScrollView
@@ -40,13 +33,13 @@ export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
         contentContainerStyle={styles.carouselContent}
       >
         {reviews.map((review) => (
-          <View key={review.id} style={styles.reviewCard}>
+          <View key={review.id} style={[styles.reviewCard, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.reviewHeader}>
               <View style={styles.userContainer}>
                 <Image source={{ uri: review.avatar }} style={styles.avatar} />
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{review.name}</Text>
-                  <Text style={styles.listingName}>{review.listing}</Text>
+                  <ThemedText type="body" style={styles.userName}>{review.name}</ThemedText>
+                  <ThemedText type="caption" style={styles.listingName}>{review.listing}</ThemedText>
                 </View>
               </View>
 
@@ -55,21 +48,19 @@ export default function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
                   <Star
                     key={index}
                     size={12}
-                    color={index < review.rating ? COLORS.gold : COLORS.surface}
-                    fill={index < review.rating ? COLORS.gold : "transparent"}
+                    color={index < review.rating ? theme.colors.accent : theme.colors.border}
+                    fill={index < review.rating ? theme.colors.accent : "transparent"}
                   />
                 ))}
               </View>
             </View>
 
             <View style={styles.commentContainer}>
-              <Quote size={16} color={COLORS.accent} style={styles.quoteIcon} />
-              <Text style={styles.comment} numberOfLines={4}>
-                {review.comment}
-              </Text>
+              <Quote size={16} color={theme.colors.primary} style={styles.quoteIcon} />
+              <ThemedText type="caption" style={styles.comment}>{review.comment}</ThemedText>
             </View>
 
-            <Text style={styles.date}>{review.date}</Text>
+            <ThemedText type="caption" style={styles.date}>{review.date}</ThemedText>
           </View>
         ))}
       </ScrollView>
@@ -91,14 +82,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.dark,
     marginBottom: 4,
     letterSpacing: -0.4,
   },
 
   subtitle: {
     fontSize: 14,
-    color: COLORS.muted,
   },
 
   carouselContent: {
@@ -108,17 +97,14 @@ const styles = StyleSheet.create({
 
   reviewCard: {
     width: 280,
-    backgroundColor: COLORS.white,
     borderRadius: 20,
-
     padding: 16,
     marginRight: 16,
-    shadowColor: COLORS.dark,
+    shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 4,
     borderWidth: 1,
-    borderColor: COLORS.surface,
   },
 
   reviewHeader: {
@@ -148,13 +134,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: "700",
-    color: COLORS.dark,
     marginBottom: 2,
   },
 
   listingName: {
     fontSize: 12,
-    color: COLORS.muted,
   },
 
   ratingContainer: {
@@ -177,13 +161,11 @@ const styles = StyleSheet.create({
   comment: {
     fontSize: 13,
     lineHeight: 18,
-    color: COLORS.dark,
     paddingLeft: 12,
   },
 
   date: {
     fontSize: 11,
-    color: COLORS.muted,
     alignSelf: "flex-end",
   },
 });

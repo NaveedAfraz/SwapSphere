@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
 import WorkflowDiagram from "@/src/features/support/components/WorkflowDiagram";
+import { ThemedView } from "@/src/components/ThemedView";
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -129,7 +130,7 @@ export default function SupportScreen() {
   );
 
   return (
-    <View
+    <ThemedView
       style={[
         styles.container,
         { paddingTop: insets.top, paddingBottom: insets.bottom },
@@ -195,7 +196,7 @@ export default function SupportScreen() {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
 

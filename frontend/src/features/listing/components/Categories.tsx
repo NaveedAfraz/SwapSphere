@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 
 interface Category {
   id: number;
@@ -30,6 +32,7 @@ const COLORS = {
 
 export default function Categories({ categories }: CategoriesProps) {
   const router = useRouter();
+  const { theme } = useTheme();
 
   const handleCategoryPress = (category: Category) => {
     router.push(`/listings/${category.name}`);
@@ -37,7 +40,9 @@ export default function Categories({ categories }: CategoriesProps) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Categories</Text>
+      <ThemedText type="subheading" style={styles.sectionTitle}>
+        Categories
+      </ThemedText>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -53,7 +58,9 @@ export default function Categories({ categories }: CategoriesProps) {
             {cat.icon ? (
               <Text style={styles.categoryIcon}>{cat.icon}</Text>
             ) : null}
-            <Text style={styles.categoryName}>{cat.name}</Text>
+            <ThemedText type="caption" style={styles.categoryName}>
+              {cat.name}
+            </ThemedText>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -70,7 +77,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.dark,
     marginBottom: 16,
     letterSpacing: -0.4,
   },
@@ -103,7 +109,6 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.dark,
     textAlign: "center",
   },
 });

@@ -5,13 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Interactions } from '@/src/constants/theme';
 import TermsOfService from '@/src/features/support/components/TermsOfService';
+import { ThemedView } from '@/src/components/ThemedView';
 
 export default function TermsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -23,7 +24,7 @@ export default function TermsScreen() {
       </View>
       
       <TermsOfService />
-    </View>
+    </ThemedView>
   );
 }
 

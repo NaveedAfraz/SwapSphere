@@ -12,6 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "expo-router";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import { fetchMyListingsThunk } from "../../listing/listingThunks";
 import {
   selectMyListings,
@@ -31,6 +33,7 @@ const getStatusText = (isPublished: boolean) => {
 export default function MyListings() {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const { theme } = useTheme();
   
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "active" | "sold" | "pending"
@@ -67,47 +70,39 @@ export default function MyListings() {
 
     return (
       <TouchableOpacity
-        style={styles.listingCard}
+        style={[styles.listingCard, { backgroundColor: theme.colors.surface }]}
         activeOpacity={Interactions.activeOpacity}
         onPress={() => handleListingPress(item)}
       >
         <Image source={{ uri: imageUrl }} style={styles.listingImage} />
         <View style={styles.listingContent}>
-          <Text style={styles.listingTitle} numberOfLines={2}>
+          <ThemedText type="body" style={styles.listingTitle}>
             {item.title}
-          </Text>
-          <Text style={styles.listingPrice}>${item.price}</Text>
+          </ThemedText>
+          <ThemedText type="subheading" style={[styles.listingPrice, { color: theme.colors.primary }]}>
+            ${item.price}
+          </ThemedText>
           <View style={styles.listingStats}>
             <View style={styles.statItem}>
-              <Ionicons name="eye-outline" size={14} color="#6B7280" />
-              <Text style={styles.statText}>{item.view_count}</Text>
+              <Ionicons name="eye-outline" size={14} color={theme.colors.secondary} />
+              <ThemedText type="caption" style={styles.statText}>{item.view_count}</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="heart-outline" size={14} color="#6B7280" />
-              <Text style={styles.statText}>{item.favorites_count}</Text>
+              <Ionicons name="heart-outline" size={14} color={theme.colors.secondary} />
+              <ThemedText type="caption" style={styles.statText}>{item.favorites_count}</ThemedText>
             </View>
           </View>
           <View style={styles.listingFooter}>
-            <Text style={styles.postedTime}>{formatDate(item.created_at)}</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: getStatusColor(item.is_published) },
-              ]}
-            >
-              <Text style={styles.statusText}>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.is_published) }]}>
+              <ThemedText type="caption" style={styles.statusText}>
                 {getStatusText(item.is_published)}
-              </Text>
+              </ThemedText>
             </View>
+            <TouchableOpacity style={styles.moreButton}>
+              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.secondary} />
+            </TouchableOpacity>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => Alert.alert("Options", "Edit, Delete, Mark as Sold")}
-          activeOpacity={Interactions.buttonOpacity}
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
-        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -139,26 +134,27 @@ export default function MyListings() {
     );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filterContainer}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.filterContainer, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         {(["all", "active", "sold", "pending"] as const).map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[
               styles.filterButton,
-              selectedFilter === filter && styles.filterButtonActive,
+              { backgroundColor: selectedFilter === filter ? theme.colors.primary : theme.colors.background }
             ]}
             onPress={() => setSelectedFilter(filter)}
             activeOpacity={Interactions.buttonOpacity}
           >
-            <Text
+            <ThemedText
+              type="caption"
               style={[
                 styles.filterText,
-                selectedFilter === filter && styles.filterTextActive,
+                selectedFilter === filter && { color: "#FFFFFF" }
               ]}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </Text>
+            </ThemedText>
           </TouchableOpacity>
         ))}
       </View>
@@ -172,13 +168,13 @@ export default function MyListings() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="grid-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>No listings found</Text>
-              <Text style={styles.emptySubtext}>
+              <Ionicons name="grid-outline" size={48} color={theme.colors.border} />
+              <ThemedText type="subheading" style={styles.emptyText}>No listings found</ThemedText>
+              <ThemedText type="body" style={styles.emptySubtext}>
               Start by creating your first listing
-            </Text>
-          </View>
-        }
+              </ThemedText>
+            </View>
+          }
         />
       </PullToRefresh>
     </View>
@@ -188,40 +184,28 @@ export default function MyListings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   filterContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#D1D5DB",
   },
   filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: "#F3F4F6",
-  },
-  filterButtonActive: {
-    backgroundColor: "#3B82F6",
   },
   filterText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6B7280",
-  },
-  filterTextActive: {
-    color: "#FFFFFF",
   },
   listContainer: {
     padding: 20,
   },
   listingCard: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     marginBottom: 12,
     padding: 12,
@@ -243,13 +227,11 @@ const styles = StyleSheet.create({
   listingTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
     marginBottom: 4,
   },
   listingPrice: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#3B82F6",
     marginBottom: 8,
   },
   listingStats: {
@@ -263,7 +245,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: "#6B7280",
     marginLeft: 4,
   },
   listingFooter: {
@@ -273,7 +254,6 @@ const styles = StyleSheet.create({
   },
   postedTime: {
     fontSize: 12,
-    color: "#6B7280",
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -296,12 +276,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#6B7280",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#6B7280",
     marginTop: 4,
   },
 });

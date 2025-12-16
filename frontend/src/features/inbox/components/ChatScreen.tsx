@@ -20,6 +20,8 @@ import {
 } from "@/src/features/offer/offerThunks";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Interactions } from "@/src/constants/theme";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import type { Message } from "../types/chat";
 
 // Helper interface for UI message display
@@ -91,6 +93,7 @@ export default function ChatScreen({
 }: ChatScreenProps) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { theme } = useTheme();
   const [uiMessages, setUiMessages] = useState<UIMessage[]>(
     propMessages
       ? (() => {
@@ -176,8 +179,8 @@ export default function ChatScreen({
   // Handle loading state
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>Loading conversation...</Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ThemedText type="body">Loading conversation...</ThemedText>
       </View>
     );
   }
@@ -185,8 +188,8 @@ export default function ChatScreen({
   // Handle error state
   if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>{error}</Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ThemedText type="body" style={[styles.errorText, { color: theme.colors.error }]}>{error}</ThemedText>
       </View>
     );
   }
@@ -237,28 +240,28 @@ export default function ChatScreen({
     <View
       style={[
         styles.container,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
+        { paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: theme.colors.background },
       ]}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={Interactions.buttonOpacity}
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
         </TouchableOpacity>
         <Image source={{ uri: avatarUrl }} style={styles.avatar} />
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.onlineStatus}>Online</Text>
+          <ThemedText type="body" style={styles.userName}>{userName}</ThemedText>
+          <ThemedText type="caption" style={styles.onlineStatus}>Online</ThemedText>
         </View>
         <TouchableOpacity
           style={styles.moreButton}
           activeOpacity={Interactions.buttonOpacity}
         >
-          <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+          <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -305,7 +308,6 @@ export default function ChatScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   centered: {
     justifyContent: "center",
@@ -313,7 +315,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: "#DC2626",
     textAlign: "center",
   },
   header: {
@@ -321,9 +322,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: "transparent",
   },
   backButton: {
     marginRight: 12,
@@ -340,11 +340,9 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111827",
   },
   onlineStatus: {
     fontSize: 14,
-    color: "#10B981",
   },
   moreButton: {
     padding: 4,
