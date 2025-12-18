@@ -30,7 +30,7 @@ interface SettingItem {
 }
 
 export default function Settings() {
-  const { theme, isDark, toggleTheme, animatedValue, isTransitioning } =
+  const { theme, isDark, toggleTheme, isTransitioning } =
     useTheme();
   const [notifications, setNotifications] = useState(true);
   const [locationServices, setLocationServices] = useState(false);

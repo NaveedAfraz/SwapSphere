@@ -135,7 +135,6 @@ interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => void;
   setTheme: (isDark: boolean) => void;
-  animatedValue: Animated.Value;
   isTransitioning: boolean;
   classes: ThemeClasses;
 }
@@ -157,7 +156,6 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const animatedValue = useState(new Animated.Value(0))[0];
 
   // Load saved theme preference
   useEffect(() => {
@@ -206,83 +204,19 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     
     setIsTransitioning(true);
     
-    // Animate the transition
-    Animated.timing(animatedValue, {
-      toValue: dark ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start(() => {
+    // Simple transition without complex animation
+    setTimeout(() => {
       setIsDark(dark);
       saveThemePreference(dark);
       setIsTransitioning(false);
-    });
+    }, 150);
   };
 
   const toggleTheme = () => {
     setTheme(!isDark);
   };
 
-  // Interpolate colors for smooth transitions
-  const interpolateColors = () => {
-    const lightColors = lightTheme.colors;
-    const darkColors = darkTheme.colors;
-    
-    return {
-      ...lightTheme,
-      colors: {
-        primary: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.primary, darkColors.primary],
-        }),
-        accent: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.accent, darkColors.accent],
-        }),
-        secondary: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.secondary, darkColors.secondary],
-        }),
-        border: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.border, darkColors.border],
-        }),
-        background: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.background, darkColors.background],
-        }),
-        surface: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.surface, darkColors.surface],
-        }),
-        subtle: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.subtle, darkColors.subtle],
-        }),
-        success: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.success, darkColors.success],
-        }),
-        error: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.error, darkColors.error],
-        }),
-        warning: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.warning, darkColors.warning],
-        }),
-        info: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.info, darkColors.info],
-        }),
-        pink: animatedValue.interpolate({
-          inputRange: [0, 1],
-          outputRange: [lightColors.pink, darkColors.pink],
-        }),
-      },
-    };
-  };
-
-  const currentTheme = isTransitioning ? interpolateColors() : (isDark ? darkTheme : lightTheme);
+  const currentTheme = isDark ? darkTheme : lightTheme;
   const themeClasses = createThemeClasses(currentTheme);
 
   return (
@@ -291,7 +225,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       isDark, 
       toggleTheme,
       setTheme,
-      animatedValue,
       isTransitioning,
       classes: themeClasses
     }}>

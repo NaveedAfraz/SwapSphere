@@ -64,7 +64,7 @@ export const ThemedTouchableOpacity: React.FC<ThemedTouchableOpacityProps> = ({
 
 // Animated version for smooth transitions
 export const AnimatedThemedView: React.FC<ThemedViewProps> = ({ children, style }) => {
-  const { animatedValue, theme } = useTheme();
+  const { theme } = useTheme();
   
   return (
     <Animated.View style={[{ backgroundColor: theme.colors.background }, style]}>

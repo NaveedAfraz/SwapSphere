@@ -17,10 +17,48 @@ import FeaturedItems from "@/src/features/FeaturedItems";
 import { GlobalThemeWrapper } from "@/src/components/GlobalThemeComponents";
 
 const categories = [
-  { id: 1, name: "Fashion", icon: "", color: "#F3F4F6" },
-  { id: 2, name: "Tech", icon: "", color: "#F3F4F6" },
-  { id: 3, name: "Home", icon: "", color: "#F3F4F6" },
-  { id: 4, name: "Fitness", icon: "", color: "#F3F4F6" },
+  {
+    id: 1,
+    name: "Fashion",
+    icon: "👗",
+    image:
+      "https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop",
+  },
+  {
+    id: 2,
+    name: "Tech",
+    icon: "💻",
+    image:
+      "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=400&fit=crop",
+  },
+  {
+    id: 3,
+    name: "Home",
+    icon: "🏠",
+    image:
+      "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=400&h=400&fit=crop",
+  },
+  {
+    id: 4,
+    name: "Fitness",
+    icon: "💪",
+    image:
+      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=400&fit=crop",
+  },
+  {
+    id: 5,
+    name: "Beauty",
+    icon: "💄",
+    image:
+      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&h=400&fit=crop",
+  },
+  {
+    id: 6,
+    name: "Travel",
+    icon: "✈️",
+    image:
+      "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=400&fit=crop",
+  },
 ];
 
 const searchResults = [

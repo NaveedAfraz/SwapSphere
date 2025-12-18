@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ImageBackground,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Interactions } from "@/src/constants/theme";
@@ -15,7 +16,7 @@ interface Category {
   id: number;
   name: string;
   icon: string;
-  color: string;
+  image?: string;
 }
 
 interface CategoriesProps {
@@ -52,15 +53,24 @@ export default function Categories({ categories }: CategoriesProps) {
           <TouchableOpacity
             key={cat.id}
             activeOpacity={Interactions.activeOpacity}
-            style={[styles.categoryCard, { backgroundColor: cat.color }]}
             onPress={() => handleCategoryPress(cat)}
           >
-            {cat.icon ? (
-              <Text style={styles.categoryIcon}>{cat.icon}</Text>
-            ) : null}
-            <ThemedText type="caption" style={styles.categoryName}>
-              {cat.name}
-            </ThemedText>
+            <ImageBackground
+              source={{ uri: cat.image }}
+              style={styles.categoryCard}
+              imageStyle={styles.categoryImage}
+            >
+              {/* Gradient Overlay */}
+              <View style={styles.overlay} />
+
+              {/* Content */}
+              <View style={styles.categoryContent}>
+                {cat.icon ? (
+                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                ) : null}
+                <Text style={styles.categoryName}>{cat.name}</Text>
+              </View>
+            </ImageBackground>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -87,28 +97,45 @@ const styles = StyleSheet.create({
   },
 
   categoryCard: {
-    width: 104,
-    height: 104,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 120,
+    height: 140,
     marginRight: 16,
-    shadowColor: COLORS.dark,
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: COLORS.white,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+
+  categoryImage: {
+    borderRadius: 24,
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    borderRadius: 24,
+  },
+
+  categoryContent: {
+    padding: 2,
+    alignItems: "center",
+    zIndex: 1,
   },
 
   categoryIcon: {
-    fontSize: 34,
-    marginBottom: 6,
+    fontSize: 25,
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 
   categoryName: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
+    color: COLORS.white,
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    letterSpacing: 0.3,
   },
 });

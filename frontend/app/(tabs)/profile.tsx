@@ -251,7 +251,7 @@ export default function ProfileScreen() {
                   styles.modeToggle,
                   isSellerMode && [
                     styles.modeToggleActive,
-                    { backgroundColor: theme.colors.primary },
+                    { backgroundColor: theme.colors.accent },
                   ],
                 ]}
                 onPress={() => setIsSellerMode(!isSellerMode)}
@@ -260,7 +260,7 @@ export default function ProfileScreen() {
                 <Ionicons
                   name="storefront-outline"
                   size={18}
-                  color={isSellerMode ? "#FFFFFF" : theme.colors.primary}
+                  color={isSellerMode ? "#FFFFFF" : theme.colors.accent}
                 />
                 <ThemedText
                   type="caption"
@@ -280,7 +280,7 @@ export default function ProfileScreen() {
                   styles.modeToggle,
                   !isSellerMode && [
                     styles.modeToggleActive,
-                    { backgroundColor: theme.colors.primary },
+                    { backgroundColor: theme.colors.accent },
                   ],
                 ]}
                 onPress={() => setIsSellerMode(!isSellerMode)}
@@ -289,7 +289,7 @@ export default function ProfileScreen() {
                 <Ionicons
                   name="person-outline"
                   size={18}
-                  color={!isSellerMode ? "#FFFFFF" : theme.colors.primary}
+                  color={!isSellerMode ? "#FFFFFF" : theme.colors.accent}
                 />
                 <ThemedText
                   type="caption"

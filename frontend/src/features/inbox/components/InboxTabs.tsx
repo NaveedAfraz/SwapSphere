@@ -22,7 +22,7 @@ export default function InboxTabs({
       <View
         style={[
           styles.tabsContainer,
-          { backgroundColor: theme.colors.surface || "#F3F4F6" },
+          { backgroundColor: theme.colors.surface },
         ]}
       >
         <TouchableOpacity
@@ -30,7 +30,7 @@ export default function InboxTabs({
             styles.tab,
             selectedTab === "all" && [
               styles.tabActive,
-              { backgroundColor: theme.colors.primary || "#3B82F6" },
+              { backgroundColor: theme.colors.accent || "#3B82F6" },
             ],
           ]}
           onPress={() => onSelectTab("all")}
@@ -38,7 +38,10 @@ export default function InboxTabs({
         >
           <ThemedText
             type="body"
-            style={[styles.tabText, selectedTab === "all"]}
+            style={[
+              styles.tabText,
+              selectedTab === "all" && styles.tabTextActive
+            ]}
           >
             All Messages
           </ThemedText>
@@ -49,7 +52,7 @@ export default function InboxTabs({
             styles.tab,
             selectedTab === "unread" && [
               styles.tabActive,
-              { backgroundColor: theme.colors.primary || "#3B82F6" },
+              { backgroundColor: theme.colors.accent || "#3B82F6" },
             ],
           ]}
           onPress={() => onSelectTab("unread")}
@@ -58,7 +61,10 @@ export default function InboxTabs({
           <View style={styles.tabContent}>
             <ThemedText
               type="body"
-              style={[styles.tabText, selectedTab === "unread"]}
+              style={[
+                styles.tabText,
+                selectedTab === "unread" && styles.tabTextActive
+              ]}
             >
               Unread
             </ThemedText>

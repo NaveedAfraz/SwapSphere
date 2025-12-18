@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  FlatList,
-} from "react-native";
+import { View, ScrollView, StyleSheet, Text, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "expo-router";
@@ -28,22 +22,57 @@ import {
 } from "@/src/features/listing/listingSelectors";
 import { selectUnreadCount } from "@/src/features/notification/notificationSelectors";
 import { useTheme } from "@/src/contexts/ThemeContext";
-import { GlobalThemeWrapper, ThemedText } from "@/src/components/GlobalThemeComponents";
+import {
+  GlobalThemeWrapper,
+  ThemedText,
+} from "@/src/components/GlobalThemeComponents";
 import type { Listing } from "@/src/features/listing/types/listing";
 
 // Categories data
 const categories = [
-  { id: 1, name: "Electronics", icon: "", color: "#95E1D3" },
-  { id: 2, name: "Fashion", icon: "", color: "#FFE66D" },
-  { id: 3, name: "Home", icon: "", color: "#F6C1C1" },
-  { id: 4, name: "Sports", icon: "", color: "#F38181" },
-  { id: 5, name: "Books", icon: "", color: "#A8E6CF" },
-  { id: 6, name: "Toys", icon: "", color: "#FFD3B6" },
-  { id: 7, name: "Automotive", icon: "", color: "#FFAAA5" },
-  { id: 8, name: "Health", icon: "", color: "#C7CEEA" },
-  { id: 9, name: "Other", icon: "", color: "#B2E1D4" },
+  {
+    id: 1,
+    name: "Fashion",
+    icon: "👗",
+    image:
+      "https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop",
+  },
+  {
+    id: 2,
+    name: "Tech",
+    icon: "💻",
+    image:
+      "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=400&fit=crop",
+  },
+  {
+    id: 3,
+    name: "Home",
+    icon: "🏠",
+    image:
+      "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=400&h=400&fit=crop",
+  },
+  {
+    id: 4,
+    name: "Fitness",
+    icon: "💪",
+    image:
+      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=400&fit=crop",
+  },
+  {
+    id: 5,
+    name: "Beauty",
+    icon: "💄",
+    image:
+      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&h=400&fit=crop",
+  },
+  {
+    id: 6,
+    name: "Travel",
+    icon: "✈️",
+    image:
+      "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=400&fit=crop",
+  },
 ];
-
 // Mock data for components that don't have real data yet
 const trendingItems = [
   {
@@ -160,15 +189,13 @@ export default function HomePage() {
     setRefreshing(true);
     Promise.all([
       dispatch(fetchListingsThunk({ page: 1, limit: 20 }) as any),
-      dispatch(fetchUnreadCountThunk() as any)
-    ]).finally(() =>
-      setRefreshing(false)
-    );
+      dispatch(fetchUnreadCountThunk() as any),
+    ]).finally(() => setRefreshing(false));
   };
 
   const handleNotificationPress = () => {
     // Navigate to notifications screen
-    router.push('/notifications');
+    router.push("/notifications");
   };
 
   // Transform listing data for FeaturedItems component
@@ -217,7 +244,7 @@ export default function HomePage() {
   const handleProductPress = (item: any) => {
     // Alert the press with ID
     alert(`Product pressed with ID: ${item.id}`);
-    
+
     // Navigate directly with UUID
     router.push(`/product/${item.id}`);
   };
@@ -231,7 +258,10 @@ export default function HomePage() {
   const latestListings = transformListings(listings.slice(6, 12));
 
   return (
-    <GlobalThemeWrapper useFullPage={true} style={{ paddingBottom: insets.bottom }}>
+    <GlobalThemeWrapper
+      useFullPage={true}
+      style={{ paddingBottom: insets.bottom }}
+    >
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -240,7 +270,10 @@ export default function HomePage() {
         onNotificationPress={handleNotificationPress}
       />
 
-      <PullToRefresh refreshing={refreshing && isLoading} onRefresh={handleRefresh}>
+      <PullToRefresh
+        refreshing={refreshing && isLoading}
+        onRefresh={handleRefresh}
+      >
         <Categories categories={categories} />
 
         {/* Featured Items Section */}
@@ -267,7 +300,9 @@ export default function HomePage() {
 
         {/* Top Sellers Section */}
         <View style={styles.section}>
-          <ThemedText type="heading" style={styles.sectionTitle}>Top Sellers</ThemedText>
+          <ThemedText type="heading" style={styles.sectionTitle}>
+            Top Sellers
+          </ThemedText>
           {sellers.map((seller) => (
             <SellerBadge
               key={seller.id}
@@ -283,14 +318,31 @@ export default function HomePage() {
 
         {/* Loading and Error States */}
         {isLoading && listings.length === 0 && (
-          <View style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]}>
-            <ThemedText type="body" style={styles.loadingText}>Loading listings...</ThemedText>
+          <View
+            style={[
+              styles.loadingContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <ThemedText type="body" style={styles.loadingText}>
+              Loading listings...
+            </ThemedText>
           </View>
         )}
 
         {listingError && (
-          <View style={[styles.errorContainer, { backgroundColor: theme.colors.error + '20' }]}>
-            <ThemedText type="body" style={[styles.errorText, { color: theme.colors.error }]}>Error: {listingError}</ThemedText>
+          <View
+            style={[
+              styles.errorContainer,
+              { backgroundColor: theme.colors.error + "20" },
+            ]}
+          >
+            <ThemedText
+              type="body"
+              style={[styles.errorText, { color: theme.colors.error }]}
+            >
+              Error: {listingError}
+            </ThemedText>
           </View>
         )}
       </PullToRefresh>

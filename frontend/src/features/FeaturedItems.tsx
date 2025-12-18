@@ -51,7 +51,7 @@ export default function FeaturedItems({
         <ThemedText type="subheading" style={styles.sectionTitle}>{sectionTitle}</ThemedText>
         {showSeeAll && (
           <TouchableOpacity>
-            <ThemedText type="caption" style={styles.seeAll}>View All</ThemedText>
+            <ThemedText type="caption" style={[styles.seeAll, { color: theme.colors.accent }]}>View All</ThemedText>
           </TouchableOpacity>
         )}
       </View>
@@ -79,7 +79,7 @@ export default function FeaturedItems({
             />
           </TouchableOpacity>
           <View style={styles.featuredContent}>
-            <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.categoryBadge, { backgroundColor: theme.colors.subtle }]}>
               <ThemedText type="caption" style={styles.categoryBadgeText}>{item.category}</ThemedText>
             </View>
             <ThemedText type="body" style={styles.featuredTitle}>{item.title}</ThemedText>
@@ -96,7 +96,7 @@ export default function FeaturedItems({
             <View style={styles.featuredFooter}>
               <ThemedText type="body" style={styles.price}>{item.price}</ThemedText>
               <TouchableOpacity
-                style={[styles.bookBtn, { backgroundColor: theme.colors.primary }]}
+                style={[styles.bookBtn, { backgroundColor: theme.colors.accent }]}
                 onPress={() => onMakeOffer?.(item)}
                 activeOpacity={Interactions.buttonOpacity}
               >
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },

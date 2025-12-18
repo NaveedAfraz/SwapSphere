@@ -85,7 +85,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             end={{ x: 1, y: 1 }}
             style={[styles.centerButton, isActive && styles.centerButtonActive]}
           >
-            <Icon size={32} color="#FFFFFF" strokeWidth={2.5} />
+            <Icon size={32} color={isDark ? "#111827" : "#FFFFFF"} strokeWidth={2.5} />
           </LinearGradient>
 
           {/* Glow effect for active state */}
