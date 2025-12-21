@@ -50,40 +50,42 @@ export default function OfferNegotiation({
     const newOffer = parseFloat(tempOffer);
     
     if (!isNaN(newOffer) && newOffer > 0) {
-      // Dispatch thunk directly if we have the offerId
-      if (offerId) {
-        if (isOwnOffer) {
-          // User is updating their own offer
-          dispatch(updateOfferThunk({
-            id: offerId,
-            data: { counter_amount: newOffer }
-          }) as any).then((result: any) => {
-            // Refresh chat data to get updated offer information
-            const chatIdToRefresh = actualChatId || conversationId;
-            if (chatIdToRefresh) {
-              dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
-            }
-          }).catch((error: any) => {
-            console.error("OWN OFFER UPDATE FAILED:", error);
-          });
-        } else {
-          // User is making a counter offer to someone else's offer
-          dispatch(counterOfferThunk({
-            offer_id: offerId,
-            counter_amount: newOffer
-          }) as any).then((result: any) => {
-            // Refresh chat data to get updated offer information
-            const chatIdToRefresh = actualChatId || conversationId;
-            if (chatIdToRefresh) {
-              dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
-            }
-          }).catch((error: any) => {
-            console.error("COUNTER OFFER FAILED:", error);
-          });
-        }
-      } else if (onOfferUpdate) {
-        // Fallback to parent component handler
+      // Always call parent handler if available
+      if (onOfferUpdate) {
         onOfferUpdate(newOffer);
+      } else {
+        // Fallback to direct thunk dispatch only if no handler provided
+        if (offerId) {
+          if (isOwnOffer) {
+            // User is updating their own offer
+            dispatch(updateOfferThunk({
+              id: offerId,
+              data: { counter_amount: newOffer }
+            }) as any).then((result: any) => {
+              // Refresh chat data to get updated offer information
+              const chatIdToRefresh = actualChatId || conversationId;
+              if (chatIdToRefresh) {
+                dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+              }
+            }).catch((error: any) => {
+              console.error("UPDATE OFFER FAILED:", error);
+            });
+          } else {
+            // User is making a counter offer to someone else's offer
+            dispatch(counterOfferThunk({
+              offer_id: offerId,
+              counter_amount: newOffer,
+            }) as any).then((result: any) => {
+              // Refresh chat data to get updated offer information
+              const chatIdToRefresh = actualChatId || conversationId;
+              if (chatIdToRefresh) {
+                dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
+              }
+            }).catch((error: any) => {
+              console.error("COUNTER OFFER FAILED:", error);
+            });
+          }
+        }
       }
       setIsEditing(false);
     }
@@ -149,9 +151,23 @@ export default function OfferNegotiation({
           </View>
         ) : (
           <View style={styles.offerDisplay}>
-            <ThemedText type="body" style={styles.offerAmount}>
-            {currentOffer !== undefined ? `$${currentOffer}` : "No offer yet"}
-          </ThemedText>
+            <View style={styles.offerInfo}>
+              <ThemedText type="body" style={styles.offerAmount}>
+                {currentOffer !== undefined ? `$${currentOffer}` : "No offer yet"}
+              </ThemedText>
+              {offerStatus && (
+                <ThemedText type="caption" style={[
+                  styles.statusText, 
+                  { 
+                    color: offerStatus === 'accepted' ? '#10B981' : 
+                           offerStatus === 'countered' ? '#F59E0B' : 
+                           offerStatus === 'pending' ? '#6B7280' : '#6B7280'
+                  }
+                ]}>
+                  {offerStatus.charAt(0).toUpperCase() + offerStatus.slice(1)}
+                </ThemedText>
+              )}
+            </View>
             {!isOwnOffer && onAcceptOffer && (
               <TouchableOpacity
                 style={[styles.acceptButton, { backgroundColor: theme.colors.accent }]}
@@ -173,13 +189,21 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 20,
     marginVertical: 12,
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   itemInfo: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   itemName: {
     fontSize: 16,
@@ -188,46 +212,49 @@ const styles = StyleSheet.create({
   },
   originalPrice: {
     fontSize: 14,
+    opacity: 0.7,
   },
   offerSection: {
     borderTopWidth: 1,
     borderTopColor: 'transparent',
-    paddingTop: 12,
+    paddingTop: 16,
   },
   offerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   offerLabel: {
     fontSize: 14,
     fontWeight: '600',
   },
   editButton: {
+    padding: 4,
   },
   editContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   offerInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
     fontWeight: '600',
-    minWidth: 100,
+    minWidth: 120,
     marginBottom: 12,
   },
   editActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    minWidth: 80,
   },
   cancelButton: {},
   saveButton: {},
@@ -244,16 +271,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  offerInfo: {
+    flex: 1,
+  },
   offerAmount: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
   acceptButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
   },
   acceptText: {
     fontSize: 14,

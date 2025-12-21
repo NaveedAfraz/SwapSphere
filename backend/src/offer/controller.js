@@ -13,16 +13,16 @@ const { createNotification, updateNotificationStatus } = require('../notificatio
 const createOffer = async (req, res) => {
   try {
     const buyerId = req.user.id;
-    const { listing_id, offered_price, offered_quantity, expires_at } = req.body;
+    const { listing_id, offered_price, offered_quantity, expires_at, intent_id } = req.body;
     
-    // Get seller ID for the listing
+    
+    // Get listing details
     const listingQuery = `
-      SELECT l.seller_id, l.title, l.price, s.user_id as seller_user_id
+      SELECT l.*, s.user_id as seller_user_id
       FROM listings l
       JOIN sellers s ON l.seller_id = s.id
-      WHERE l.id = $1 AND l.is_published = true AND l.deleted_at IS NULL
+      WHERE l.id = $1
     `;
-    
     const listingResult = await pool.query(listingQuery, [listing_id]);
     
     if (listingResult.rows.length === 0) {
@@ -31,39 +31,116 @@ const createOffer = async (req, res) => {
     
     const listing = listingResult.rows[0];
     
-    // Prevent buyer from making offer on their own listing
-    if (listing.seller_user_id === buyerId) {
+    // Check if this is a seller responding to an intent
+    const isSellerRespondingToIntent = intent_id && listing.seller_user_id === buyerId;
+    
+    
+    // Prevent buyer from making offer on their own listing, unless it's a seller responding to intent
+    if (!isSellerRespondingToIntent && listing.seller_user_id === buyerId) {
       return res.status(400).json({ error: 'Cannot make offer on your own listing' });
     }
     
-    const offer = await createOfferModel(buyerId, listing.seller_id, {
-      listing_id,
-      offered_price,
-      offered_quantity,
-      expires_at
+    
+    // Create or find deal room first
+    let dealRoom;
+    if (isSellerRespondingToIntent && intent_id) {
+      // For seller responding to intent, find existing deal room or create new one
+      try {
+        const findDealRoomQuery = `
+          SELECT id FROM deal_rooms 
+          WHERE intent_id = $1 AND listing_id = $2
+        `;
+        const existingDealRoom = await pool.query(findDealRoomQuery, [intent_id, listing_id]);
+        
+        if (existingDealRoom.rows.length > 0) {
+          dealRoom = existingDealRoom.rows[0];
+          console.log('Found existing deal room:', dealRoom.id);
+        } else {
+          // Create new deal room
+          const createDealRoomQuery = `
+            INSERT INTO deal_rooms (intent_id, listing_id, buyer_id, seller_id)
+            SELECT $1, $2, buyer_id, $3 FROM intents WHERE id = $1
+            RETURNING *
+          `;
+          const newDealRoom = await pool.query(createDealRoomQuery, [intent_id, listing_id, listing.seller_id]);
+          dealRoom = newDealRoom.rows[0];
+          console.log('Created new deal room:', dealRoom.id);
+        }
+      } catch (error) {
+        console.error('Error creating/deal room:', error);
+        // Continue without deal room for now
+      }
+    }
+    
+    // Create offer with deal room ID
+    let offer;
+    if (isSellerRespondingToIntent) {
+      // This is a seller responding to an intent, treat as counter-offer
+      // Use seller_user_id (the actual user) not seller_id (the seller record)
+      offer = await createOfferModel(listing.seller_user_id, listing.seller_id, {
+        listing_id,
+        offered_price,
+        offered_quantity,
+        expires_at,
+        intent_id, // Link to the original intent
+        deal_room_id: dealRoom?.id, // Link to deal room
+        is_counter_offer: true, // Flag this as a counter-offer
+      });
+      
+      
+      // Get the original intent to find the buyer
+      const intentQuery = `
+        SELECT buyer_id FROM intents WHERE id = $1
+      `;
+      const intentResult = await pool.query(intentQuery, [intent_id]);
+      
+      if (intentResult.rows.length > 0) {
+        const buyerId = intentResult.rows[0].buyer_id;
+        
+        await createNotification(buyerId, {
+          type: 'offer_countered',
+          payload: {
+            offer_id: offer.id,
+            listing_id: listing_id,
+            listing_title: listing.title,
+            offered_price: offered_price,
+            offered_quantity: offered_quantity,
+            seller_user_id: listing.seller_user_id,
+            intent_id: intent_id,
+            deal_room_id: dealRoom?.id, // Add deal room ID to notification
+          },
+          actor_id: listing.seller_user_id
+        });
+      }
+    } else {
+      // Regular buyer offer
+      offer = await createOfferModel(buyerId, listing.seller_id, {
+        listing_id,
+        offered_price,
+        offered_quantity,
+        expires_at,
+        deal_room_id: dealRoom?.id, // Link to deal room if available
+      });
+      
+      
+      await createNotification(listing.seller_user_id, {
+        type: 'offer_received',
+        payload: {
+          offer_id: offer.id,
+          listing_id: listing_id,
+          listing_title: listing.title,
+          offered_price: offered_price,
+          offered_quantity: offered_quantity,
+          buyer_id: buyerId
+        },
+        actor_id: buyerId
+      });
+    }
+    
+    res.status(201).json({
+      ...offer,
+      deal_room_id: dealRoom?.id
     });
-    
-    // Create notification for seller about new offer
-    console.log('=== NOTIFICATION CREATION DEBUG ===');
-    console.log('buyerId (req.user.id):', buyerId);
-    console.log('seller_user_id:', listing.seller_user_id);
-    console.log('Notification will be created for user:', listing.seller_user_id);
-    console.log('Actor ID will be:', buyerId);
-    
-    await createNotification(listing.seller_user_id, {
-      type: 'offer_received',
-      payload: {
-        offer_id: offer.id,
-        listing_id: listing_id,
-        listing_title: listing.title,
-        offered_price: offered_price,
-        offered_quantity: offered_quantity,
-        buyer_id: buyerId
-      },
-      actor_id: buyerId
-    });
-    
-    res.status(201).json(offer);
   } catch (error) {
     console.error('Error creating offer:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -293,21 +370,11 @@ const declineOffer = async (req, res) => {
 
 const counterOffer = async (req, res) => {
   try {
-    const sellerUserId = req.user.id;
     const { id } = req.params;
     const { offered_price, offered_quantity, expires_at } = req.body;
+    const userId = req.user.id; // Use userId instead of sellerUserId
     
-    // Get seller ID for this user
-    const sellerQuery = 'SELECT id FROM sellers WHERE user_id = $1';
-    const sellerResult = await pool.query(sellerQuery, [sellerUserId]);
-    
-    if (sellerResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Seller profile not found' });
-    }
-    
-    const sellerId = sellerResult.rows[0].id;
-    
-    const counterOffer = await createCounterOffer(sellerId, id, {
+    const counterOffer = await createCounterOffer(userId, id, {
       offered_price,
       offered_quantity,
       expires_at
@@ -325,20 +392,26 @@ const counterOffer = async (req, res) => {
     if (originalOfferResult.rows.length > 0) {
       const originalOffer = originalOfferResult.rows[0];
       
-      // Create notification for buyer about counter offer
-      await createNotification(originalOffer.buyer_id, {
-        type: 'offer_countered',
-        payload: {
-          offer_id: counterOffer.id,
-          original_offer_id: id,
-          listing_id: counterOffer.listing_id,
-          listing_title: originalOffer.listing_title,
-          offered_price: offered_price,
-          offered_quantity: offered_quantity,
-          seller_user_id: sellerUserId
-        },
-        actor_id: sellerUserId
-      });
+      // Create notification for the OTHER party about counter offer
+    // If current user is seller, notify buyer. If current user is buyer, notify seller.
+    const notificationRecipientId = original.seller_id === userId ? original.buyer_id : original.seller_id;
+    
+    
+    await createNotification(notificationRecipientId, {
+      type: 'offer_countered',
+      payload: {
+        offer_id: counterOffer.id,
+        original_offer_id: id,
+        listing_id: counterOffer.listing_id,
+        listing_title: originalOffer.listing_title,
+        offered_price: offered_price,
+        offered_quantity: offered_quantity,
+        seller_user_id: original.seller_id, // Always use actual seller ID
+        deal_room_id: original.deal_room_id // Add deal room ID to notification
+      },
+      actor_id: userId
+    });
+    
     }
     
     res.status(201).json(counterOffer);

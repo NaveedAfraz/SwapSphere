@@ -18,11 +18,9 @@ export function AuthHydrationProvider({ children }: AuthHydrationProviderProps) 
     // Only run hydration once on app startup
     const performHydration = async () => {
       try {
-        console.log("=== AUTH HYDRATION PROVIDER: STARTING HYDRATION ===");
         await dispatch(hydrateAuth() as any);
-        console.log("=== AUTH HYDRATION PROVIDER: HYDRATION COMPLETED ===");
       } catch (error) {
-        console.error("=== AUTH HYDRATION PROVIDER: HYDRATION FAILED ===", error);
+        console.error("Auth hydration failed:", error);
       } finally {
         setIsHydrating(false);
       }

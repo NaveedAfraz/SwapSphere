@@ -108,11 +108,80 @@ const getUnreadCount = async (req, res) => {
   }
 };
 
+const updateNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { is_read } = req.body;
+    
+    // Handle different body structures
+    const { status, payload, updates } = req.body;
+    
+    let updateData = {};
+    if (updates) {
+      // Frontend might send { updates: { status, payload } }
+      updateData = updates;
+    } else {
+      // Direct { status, payload }
+      updateData = { status, payload };
+    }
+    
+    
+    // Verify notification belongs to user
+    const verifyQuery = `
+      SELECT id FROM notifications 
+      WHERE id = $1 AND user_id = $2
+    `;
+    const verifyResult = await pool.query(verifyQuery, [id, userId]);
+    
+    if (verifyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    // Build update query dynamically based on provided fields
+    const updateFields = [];
+    const updateValues = [];
+    let paramIndex = 1;
+    
+    if (updateData.status !== undefined) {
+      updateFields.push(`status = $${paramIndex++}`);
+      updateValues.push(updateData.status);
+    }
+    
+    if (updateData.payload !== undefined) {
+      updateFields.push(`payload = $${paramIndex++}`);
+      updateValues.push(JSON.stringify(updateData.payload));
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    const updateQuery = `
+      UPDATE notifications 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+    
+    updateValues.push(id);
+    
+    const result = await pool.query(updateQuery, updateValues);
+    
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createNotification,
   getNotifications,
   markAsRead,
   markAllAsRead,
   deleteNotification: deleteNotificationController,
-  getUnreadCount
+  getUnreadCount,
+  updateNotification
 };

@@ -53,8 +53,8 @@ export default function MyListings() {
     setRefreshing(true);
     try {
       await dispatch(fetchMyListingsThunk({ page: 1, limit: 20 }) as any);
-    } catch (error) {
-      console.error('Error refreshing listings:', error);
+    } catch (error: any) {
+      // Error refreshing listings
     } finally {
       setRefreshing(false);
     }
@@ -150,7 +150,9 @@ export default function MyListings() {
               type="caption"
               style={[
                 styles.filterText,
-                selectedFilter === filter && { color: "#FFFFFF" }
+                selectedFilter === filter 
+                  ? { color: "#FFFFFF" } 
+                  : { color: theme.colors.secondary }
               ]}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}

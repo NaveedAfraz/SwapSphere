@@ -1,16 +1,16 @@
 const { pool } = require("../database/db");
 
 const createOffer = async (buyerId, sellerId, offerData) => {
-  const { listing_id, offered_price, offered_quantity, expires_at } = offerData;
+  const { listing_id, offered_price, offered_quantity, expires_at, deal_room_id } = offerData;
   
   const query = `
-    INSERT INTO offers (listing_id, buyer_id, seller_id, offered_price, offered_quantity, expires_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO offers (listing_id, buyer_id, seller_id, offered_price, offered_quantity, expires_at, deal_room_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *
   `;
   
   const result = await pool.query(query, [
-    listing_id, buyerId, sellerId, offered_price, offered_quantity || 1, expires_at
+    listing_id, buyerId, sellerId, offered_price, offered_quantity || 1, expires_at, deal_room_id
   ]);
   
   return result.rows[0];
@@ -48,7 +48,7 @@ const getOffersByUser = async (userId, userType, filters = {}, options = {}) => 
   const dataQuery = `
     SELECT o.*, l.title as listing_title, l.price as listing_price,
            li.url as listing_image,
-           pb.name as buyer_name, pb.email as buyer_email,
+           pb.name as buyer_name, ub.email as buyer_email,
            ps.name as seller_name, s.store_name,
            (SELECT COUNT(*) FROM offers counter WHERE counter.counter_for = o.id) as counter_count
     FROM offers o
@@ -109,7 +109,7 @@ const getOffersByListing = async (listingId, filters = {}, options = {}) => {
   
   const dataQuery = `
     SELECT o.*, 
-           pb.name as buyer_name, pb.email as buyer_email,
+           pb.name as buyer_name, ub.email as buyer_email,
            pb.avatar_key as buyer_avatar
     FROM offers o
     LEFT JOIN users ub ON o.buyer_id = ub.id
@@ -146,7 +146,7 @@ const getOfferById = async (userId, offerId) => {
   const query = `
     SELECT o.*, l.title as listing_title, l.price as listing_price,
            li.url as listing_image,
-           pb.name as buyer_name, pb.email as buyer_email,
+           pb.name as buyer_name, ub.email as buyer_email,
            ps.name as seller_name, s.store_name,
            (SELECT COUNT(*) FROM offers counter WHERE counter.counter_for = o.id) as counter_count
     FROM offers o
@@ -211,26 +211,32 @@ const updateOfferStatus = async (userId, offerId, status) => {
   }
 };
 
-const createCounterOffer = async (sellerId, originalOfferId, counterData) => {
-  const { offered_price, offered_quantity, expires_at } = counterData;
+const createCounterOffer = async (userId, originalOfferId, counterData) => {
+  const { counter_amount, expires_at } = counterData;
   
   await pool.query('BEGIN');
   
   try {
-    // Get original offer details
+    // Get the original offer details
     const originalQuery = `
-      SELECT o.listing_id, o.buyer_id, o.status
+      SELECT o.*, l.title as listing_title, l.seller_user_id
       FROM offers o
-      WHERE o.id = $1 AND o.seller_id = $2
+      JOIN listings l ON o.listing_id = l.id
+      WHERE o.id = $1
     `;
     
-    const originalResult = await pool.query(originalQuery, [originalOfferId, sellerId]);
+    const originalResult = await pool.query(originalQuery, [originalOfferId]);
     
     if (originalResult.rows.length === 0) {
-      throw new Error('Original offer not found or not authorized');
+      throw new Error('Original offer not found');
     }
     
     const original = originalResult.rows[0];
+    
+    // Check if user is authorized to counter (either buyer or seller)
+    if (original.buyer_id !== userId && original.seller_id !== userId) {
+      throw new Error('You are not authorized to counter this offer');
+    }
     
     if (original.status !== 'pending' && original.status !== 'countered') {
       throw new Error('Cannot counter offer that is not pending');
@@ -288,6 +294,8 @@ const updateOffer = async (userId, offerId, updateData) => {
       throw new Error('Offer not found or not authorized');
     }
     
+    const originalOffer = offerCheck.rows[0];
+    
     // Update the offer
     const updateQuery = `
       UPDATE offers 
@@ -303,9 +311,44 @@ const updateOffer = async (userId, offerId, updateData) => {
       userId
     ]);
     
+    const updatedOffer = result.rows[0];
+    
+    
+    try {
+      const sellerQuery = `
+        SELECT user_id FROM sellers WHERE id = $1
+      `;
+      const sellerResult = await pool.query(sellerQuery, [originalOffer.seller_id]);
+      
+      if (sellerResult.rows.length === 0) {
+        return; // Skip notification if seller not found
+      }
+      
+      const sellerUserId = sellerResult.rows[0].user_id;
+      
+      const { createNotification } = require('../notification/model');
+      
+      await createNotification(sellerUserId, {
+        type: 'offer_countered',
+        payload: {
+          offer_id: updatedOffer.id,
+          original_offer_id: offerId,
+          listing_id: updatedOffer.listing_id,
+          offered_price: counter_amount,
+          offered_quantity: updatedOffer.offered_quantity || 1,
+          seller_user_id: originalOffer.seller_id,
+          deal_room_id: originalOffer.deal_room_id
+        },
+        actor_id: userId
+      });
+      
+    } catch (notificationError) {
+        // Don't throw here - the offer update should still succeed even if notification fails
+    }
+    
     await pool.query('COMMIT');
     
-    return result.rows[0];
+    return updatedOffer;
   } catch (error) {
     await pool.query('ROLLBACK');
     throw error;

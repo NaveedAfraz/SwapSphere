@@ -57,6 +57,8 @@ export interface CreateOfferPayload {
   amount: number;
   message?: string;
   expires_at?: string;
+  buyer_id: string; // Explicitly specify who is the buyer
+  intent_id?: string; // For seller counter-offers to intents
 }
 
 export interface UpdateOfferPayload {
@@ -78,6 +80,7 @@ export interface OfferSearchParams {
   listing_id?: string;
   buyer_id?: string;
   seller_id?: string;
+  deal_room_id?: string;
   minAmount?: number;
   maxAmount?: number;
   page?: number;

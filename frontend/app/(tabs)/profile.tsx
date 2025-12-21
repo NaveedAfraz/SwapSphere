@@ -23,7 +23,9 @@ import { useUserMode } from "@/src/contexts/UserModeContext";
 import { fetchMyProfileThunk } from "@/src/features/profile/profileThunks";
 import { logoutThunk } from "@/src/features/auth/authThunks";
 import { PullToRefresh } from "@/src/components/PullToRefresh";
+import AuthGuard from "@/src/components/AuthGuard";
 import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
+import { isAuthenticated } from "@/src/services/authService";
 import {
   selectCurrentProfile,
   selectProfileDisplayName,
@@ -75,6 +77,17 @@ export default function ProfileScreen() {
   const { isSellerMode, setIsSellerMode } = useUserMode();
 
   // Redux state selectors
+  const currentUser = useSelector(selectAuthUser);
+  const userIsAuthenticated = isAuthenticated();
+
+  // Don't fetch profile if user is not authenticated
+  useEffect(() => {
+    if (userIsAuthenticated) {
+      dispatch(fetchMyProfileThunk() as any);
+    }
+  }, [dispatch, userIsAuthenticated]);
+
+  // Redux state selectors (only if authenticated)
   const currentProfile = useSelector(selectCurrentProfile);
   const displayName = useSelector(selectProfileDisplayName);
   const avatar = useSelector(selectProfileAvatar);
@@ -85,11 +98,6 @@ export default function ProfileScreen() {
   const averageRating = useSelector(selectProfileAverageRating);
   const activeListings = useSelector(selectProfileActiveListings);
   const soldItems = useSelector(selectProfileSoldItems);
-
-  // Fetch profile data on mount
-  useEffect(() => {
-    dispatch(fetchMyProfileThunk() as any);
-  }, [dispatch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -129,17 +137,18 @@ export default function ProfileScreen() {
   ];
 
   const getCustomerMenuItems = () => [
-    { id: 1, title: "My Purchases", icon: "bag-outline", count: 0 }, // TODO: Add purchases count
-    { id: 2, title: "My Reviews", icon: "star-outline", count: 0 }, // TODO: Add customer reviews count
-    { id: 3, title: "Settings", icon: "settings-outline", count: null },
+    { id: 1, title: "My Requests", icon: "search-outline", count: 0 }, // TODO: Add intents count
+    { id: 2, title: "My Purchases", icon: "bag-outline", count: 0 }, // TODO: Add purchases count
+    { id: 3, title: "My Reviews", icon: "star-outline", count: 0 }, // TODO: Add customer reviews count
+    { id: 4, title: "Settings", icon: "settings-outline", count: null },
     {
-      id: 4,
+      id: 5,
       title: "Help & Support",
       icon: "help-circle-outline",
       count: null,
     },
     {
-      id: 5,
+      id: 6,
       title: "Sign Out",
       icon: "log-out-outline",
       count: null,
@@ -182,6 +191,7 @@ export default function ProfileScreen() {
       // Navigate to appropriate screen based on item title and mode
       const routeMap: Record<string, any> = {
         "My Listings": "/profile/my-listings",
+        "My Requests": "/profile/my-listings", // Reuses same route but shows intents in customer mode
         Sales: "/profile/sales",
         Reviews: "/profile/my-reviews",
         Settings: "/profile/settings",
@@ -203,216 +213,255 @@ export default function ProfileScreen() {
   };
 
   return (
-    <GlobalThemeWrapper useFullPage={true}>
-      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: theme.colors.surface,
-              borderBottomColor: theme.colors.border,
-            },
-          ]}
-        >
-          <View style={styles.headerTop}>
-            <ThemedText type="heading" style={styles.title}>
-              Profile
-            </ThemedText>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEditProfile}
-              activeOpacity={Interactions.buttonOpacity}
-            >
-              <Ionicons
-                name="create-outline"
-                size={20}
-                color={theme.colors.accent}
-              />
-            </TouchableOpacity>
-          </View>
-
+    <AuthGuard>
+      <GlobalThemeWrapper useFullPage={true}>
+        <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
           <View
             style={[
-              styles.modeToggleContainer,
-              { backgroundColor: theme.colors.surface },
+              styles.header,
+              {
+                backgroundColor: theme.colors.surface,
+                borderBottomColor: theme.colors.border,
+              },
             ]}
           >
-            <ThemedText type="body" style={styles.sectionTitle}>
-              Mode:
-            </ThemedText>
-            <View
-              style={[
-                styles.modeToggleGroup,
-                { backgroundColor: theme.colors.border },
-              ]}
-            >
+            <View style={styles.headerTop}>
+              <ThemedText type="heading" style={styles.title}>
+                Profile
+              </ThemedText>
               <TouchableOpacity
-                style={[
-                  styles.modeToggle,
-                  isSellerMode && [
-                    styles.modeToggleActive,
-                    { backgroundColor: theme.colors.accent },
-                  ],
-                ]}
-                onPress={() => setIsSellerMode(!isSellerMode)}
+                style={styles.editButton}
+                onPress={handleEditProfile}
                 activeOpacity={Interactions.buttonOpacity}
               >
                 <Ionicons
-                  name="storefront-outline"
-                  size={18}
-                  color={isSellerMode ? "#FFFFFF" : theme.colors.accent}
+                  name="create-outline"
+                  size={20}
+                  color={theme.colors.accent}
                 />
-                <ThemedText
-                  type="caption"
-                  style={[
-                    styles.modeText,
-                    isSellerMode && [
-                      styles.modeTextActive,
-                      { color: "#FFFFFF" },
-                    ],
-                  ]}
-                >
-                  Seller
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modeToggle,
-                  !isSellerMode && [
-                    styles.modeToggleActive,
-                    { backgroundColor: theme.colors.accent },
-                  ],
-                ]}
-                onPress={() => setIsSellerMode(!isSellerMode)}
-                activeOpacity={Interactions.buttonOpacity}
-              >
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={!isSellerMode ? "#FFFFFF" : theme.colors.accent}
-                />
-                <ThemedText
-                  type="caption"
-                  style={[
-                    styles.modeText,
-                    !isSellerMode && [
-                      styles.modeTextActive,
-                      { color: "#FFFFFF" },
-                    ],
-                  ]}
-                >
-                  Customer
-                </ThemedText>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
 
-        <ProfileHeader
-          name={displayName || "User"}
-          avatar={
-            avatar ||
-            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400"
-          }
-          memberSince={memberSince || new Date().getFullYear().toString()}
-          verified={isVerified}
-          onEdit={handleEditProfile}
-        />
-
-        <ProfileStats
-          totalListings={totalListings}
-          totalReviews={totalReviews}
-          rating={averageRating}
-        />
-
-        <View
-          style={[
-            styles.menuSection,
-            { backgroundColor: theme.colors.surface },
-          ]}
-        >
-          {(isSellerMode ? getSellerMenuItems() : getCustomerMenuItems()).map(
-            (item) => (
-              <TouchableOpacity
-                key={item.id}
+            <View
+              style={[
+                styles.modeToggleContainer,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <ThemedText type="body" style={styles.sectionTitle}>
+                Mode:
+              </ThemedText>
+              <View
                 style={[
-                  styles.menuItem,
-                  selectedItem === item.id && [
-                    styles.menuItemSelected,
-                    { backgroundColor: theme.colors.primary + "20" },
-                  ],
-                  item.isDestructive && [
-                    styles.menuItemDestructive,
-                    { borderBottomColor: theme.colors.error + "20" },
-                  ],
-                  { borderBottomColor: theme.colors.border },
+                  styles.modeToggleGroup,
+                  { backgroundColor: theme.colors.border },
                 ]}
-                onPress={() => handleMenuItemPress(item)}
-                activeOpacity={Interactions.activeOpacity}
               >
-                <View style={styles.menuItemLeft}>
+                <TouchableOpacity
+                  style={[
+                    styles.modeToggle,
+                    isSellerMode && [
+                      styles.modeToggleActive,
+                      { backgroundColor: theme.colors.accent },
+                    ],
+                  ]}
+                  onPress={() => setIsSellerMode(!isSellerMode)}
+                  activeOpacity={Interactions.buttonOpacity}
+                >
                   <Ionicons
-                    name={item.icon as any}
-                    size={24}
-                    color={
-                      item.isDestructive
-                        ? theme.colors.error
-                        : theme.colors.secondary
-                    }
+                    name="storefront-outline"
+                    size={18}
+                    color={isSellerMode ? "#FFFFFF" : theme.colors.accent}
                   />
                   <ThemedText
-                    type="body"
+                    type="caption"
                     style={[
-                      styles.menuItemText,
-                      item.isDestructive && [
-                        styles.menuItemTextDestructive,
-                        { color: theme.colors.error },
+                      styles.modeText,
+                      isSellerMode && [
+                        styles.modeTextActive,
+                        { color: "#FFFFFF" },
                       ],
                     ]}
                   >
-                    {item.title}
+                    Seller
                   </ThemedText>
-                </View>
-                <View style={styles.menuItemRight}>
-                  {item.count !== null && (
-                    <View
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modeToggle,
+                    !isSellerMode && [
+                      styles.modeToggleActive,
+                      { backgroundColor: theme.colors.accent },
+                    ],
+                  ]}
+                  onPress={() => setIsSellerMode(!isSellerMode)}
+                  activeOpacity={Interactions.buttonOpacity}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={!isSellerMode ? "#FFFFFF" : theme.colors.accent}
+                  />
+                  <ThemedText
+                    type="caption"
+                    style={[
+                      styles.modeText,
+                      !isSellerMode && [
+                        styles.modeTextActive,
+                        { color: "#FFFFFF" },
+                      ],
+                    ]}
+                  >
+                    Customer
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <ProfileHeader
+            name={displayName || "User"}
+            avatar={
+              avatar ||
+              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400"
+            }
+            memberSince={memberSince || new Date().getFullYear().toString()}
+            verified={isVerified}
+            onEdit={handleEditProfile}
+          />
+
+          <ProfileStats
+            totalListings={totalListings}
+            totalReviews={totalReviews}
+            rating={averageRating}
+          />
+
+          <View
+            style={[
+              styles.menuSection,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            {(isSellerMode ? getSellerMenuItems() : getCustomerMenuItems()).map(
+              (item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.menuItem,
+                    selectedItem === item.id && [
+                      styles.menuItemSelected,
+                      { backgroundColor: theme.colors.primary + "20" },
+                    ],
+                    item.isDestructive && [
+                      styles.menuItemDestructive,
+                      { borderBottomColor: theme.colors.error + "20" },
+                    ],
+                    { borderBottomColor: theme.colors.border },
+                  ]}
+                  onPress={() => handleMenuItemPress(item)}
+                  activeOpacity={Interactions.activeOpacity}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <Ionicons
+                      name={item.icon as any}
+                      size={24}
+                      color={
+                        item.isDestructive
+                          ? theme.colors.error
+                          : theme.colors.secondary
+                      }
+                    />
+                    <ThemedText
+                      type="body"
                       style={[
-                        styles.countBadge,
-                        { backgroundColor: theme.colors.border },
+                        styles.menuItemText,
+                        item.isDestructive && [
+                          styles.menuItemTextDestructive,
+                          { color: theme.colors.error },
+                        ],
                       ]}
                     >
-                      <ThemedText type="caption" style={styles.countText}>
-                        {item.count}
-                      </ThemedText>
-                    </View>
-                  )}
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={theme.colors.border}
-                  />
-                </View>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
+                      {item.title}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.menuItemRight}>
+                    {item.count !== null && (
+                      <View
+                        style={[
+                          styles.countBadge,
+                          { backgroundColor: theme.colors.border },
+                        ]}
+                      >
+                        <ThemedText type="caption" style={styles.countText}>
+                          {item.count}
+                        </ThemedText>
+                      </View>
+                    )}
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={theme.colors.border}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
 
-        <View style={styles.footer}>
-          <ThemedText type="caption" style={styles.footerText}>
-            SwapSphere v1.0.0
-          </ThemedText>
-          <ThemedText type="caption" style={styles.footerText}>
-            Made with ❤️ for peer-to-peer trading
-          </ThemedText>
-        </View>
-      </PullToRefresh>
-    </GlobalThemeWrapper>
+          <View style={styles.footer}>
+            <ThemedText type="caption" style={styles.footerText}>
+              SwapSphere v1.0.0
+            </ThemedText>
+            <ThemedText type="caption" style={styles.footerText}>
+              Made with ❤️ for peer-to-peer trading
+            </ThemedText>
+          </View>
+        </PullToRefresh>
+      </GlobalThemeWrapper>
+    </AuthGuard>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  authPromptContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+    margin: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  authPromptTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  authPromptMessage: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  signInButton: {
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 12,
+    minWidth: 200,
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
   },
   header: {
     display: "flex",

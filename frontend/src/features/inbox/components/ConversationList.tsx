@@ -24,12 +24,7 @@ export default function ConversationList({
 }: ConversationListProps) {
   const { theme } = useTheme();
 
-  console.log("=== ConversationList Debug ===");
-  console.log("Conversations received:", conversations);
-  console.log("Conversations length:", conversations.length);
-  console.log("Conversations type:", typeof conversations);
-  console.log("First conversation:", conversations[0]);
-
+    
   return (
     <View style={styles.container}>
       {conversations.length === 0 ? (

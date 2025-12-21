@@ -78,7 +78,7 @@ export const getUserByIdThunk = createAsyncThunk<
       avg_response_time: undefined,
       verification_status: undefined,
       created_at: response.data.created_at,
-      updated_at: response.data.created_at,
+      updated_at: response.data.created_at, // Use created_at as fallback since API doesn't provide updated_at
     };
 
     return { user: userProfile };

@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { apiClient } from "@/src/services/api";
 import type { 
   CreateNotificationPayload, 
   UpdateNotificationPayload,
@@ -16,26 +15,6 @@ import type {
 } from "./types/notification";
 import { markAsReadLocal } from "./notificationSlice";
 
-const API_BASE = "http://192.168.0.104:5000/api/notification";
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000,
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export const fetchNotificationsThunk = createAsyncThunk<
   NotificationsResponse,
   NotificationSearchParams,
@@ -44,7 +23,7 @@ export const fetchNotificationsThunk = createAsyncThunk<
   "notification/fetchNotifications",
   async (searchParams: NotificationSearchParams = {}, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<NotificationsResponse>("/", { params: searchParams });
+      const response = await apiClient.get<NotificationsResponse>("/notification", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -62,7 +41,7 @@ export const fetchNotificationByIdThunk = createAsyncThunk<
   "notification/fetchNotificationById",
   async (notificationId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<NotificationResponse>(`/${notificationId}`);
+      const response = await apiClient.get<NotificationResponse>(`/notification/${notificationId}`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -80,7 +59,7 @@ export const createNotificationThunk = createAsyncThunk<
   "notification/createNotification",
   async (notificationData: CreateNotificationPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<NotificationResponse>("/", notificationData);
+      const response = await apiClient.post<NotificationResponse>("/notification", notificationData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -98,7 +77,7 @@ export const updateNotificationThunk = createAsyncThunk<
   "notification/updateNotification",
   async ({ id, data }: { id: string; data: UpdateNotificationPayload }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put<NotificationResponse>(`/${id}`, data);
+      const response = await apiClient.put<NotificationResponse>(`/notification/${id}`, data);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -116,7 +95,7 @@ export const deleteNotificationThunk = createAsyncThunk<
   "notification/deleteNotification",
   async (notificationId: string, { rejectWithValue }) => {
     try {
-      await apiClient.delete(`/${notificationId}`);
+      await apiClient.delete(`/notification/${notificationId}`);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to delete notification";
@@ -137,7 +116,7 @@ export const markAsReadThunk = createAsyncThunk<
       dispatch(markAsReadLocal(notificationId));
       
       // Then make the API call
-      await apiClient.post(`/${notificationId}/read`);
+      await apiClient.post(`/notification/${notificationId}/read`);
       return { notification_id: notificationId };
     } catch (error: any) {
       const errorMessage =
@@ -155,7 +134,7 @@ export const markAllAsReadThunk = createAsyncThunk<
   "notification/markAllAsRead",
   async (payload: MarkAllAsReadPayload, { rejectWithValue }) => {
     try {
-      await apiClient.post("/mark-all-read", payload);
+      await apiClient.post("/notification/mark-all-read", payload);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to mark all notifications as read";
@@ -172,7 +151,7 @@ export const bulkDeleteThunk = createAsyncThunk<
   "notification/bulkDelete",
   async (payload: BulkDeletePayload, { rejectWithValue }) => {
     try {
-      await apiClient.post("/bulk-delete", payload);
+      await apiClient.post("/notification/bulk-delete", payload);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to delete notifications";
@@ -189,7 +168,7 @@ export const fetchUnreadCountThunk = createAsyncThunk<
   "notification/fetchUnreadCount",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<UnreadCountResponse>("/unread-count");
+      const response = await apiClient.get<UnreadCountResponse>("/notification/unread-count");
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -207,7 +186,7 @@ export const fetchUnreadNotificationsThunk = createAsyncThunk<
   "notification/fetchUnreadNotifications",
   async (searchParams: NotificationSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<NotificationsResponse>("/unread", { params: searchParams });
+      const response = await apiClient.get<NotificationsResponse>("/notification/unread", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -225,7 +204,7 @@ export const fetchNotificationsByTypeThunk = createAsyncThunk<
   "notification/fetchNotificationsByType",
   async ({ type, params = {} }: { type: string; params?: NotificationSearchParams }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<NotificationsResponse>(`/type/${type}`, { params });
+      const response = await apiClient.get<NotificationsResponse>(`/notification/type/${type}`, { params });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -243,7 +222,7 @@ export const fetchNotificationsByPriorityThunk = createAsyncThunk<
   "notification/fetchNotificationsByPriority",
   async ({ priority, params = {} }: { priority: string; params?: NotificationSearchParams }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<NotificationsResponse>(`/priority/${priority}`, { params });
+      const response = await apiClient.get<NotificationsResponse>(`/notification/priority/${priority}`, { params });
       return response.data;
     } catch (error: any) {
       const errorMessage =

@@ -24,6 +24,7 @@ import { useTheme } from "@/src/contexts/ThemeContext";
 import { ThemedText } from "@/src/components/GlobalThemeComponents";
 import { ThemedView } from "@/src/components/ThemedView";
 import { GlobalThemeWrapper } from "@/src/components/GlobalThemeComponents";
+import { MessageModal } from "@/src/components/MessageModal";
 import { createListingThunk } from "@/src/features/listing/listingThunks";
 import {
   selectCreateStatus,
@@ -52,11 +53,47 @@ const categories = [
 
 const conditions = ["new", "like_new", "good", "fair", "poor"];
 
-export default function CreateScreen() {
+export default function CreateListingScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+
+  // Modal state
+  const [messageModal, setMessageModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: 'info' as 'error' | 'success' | 'info',
+    onConfirm: undefined as (() => void) | undefined,
+    showCancel: false,
+  });
+
+  const showMessage = (title: string, message: string, type: 'error' | 'success' | 'info' = 'info', onConfirm?: () => void, showCancel = false) => {
+    setMessageModal({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      showCancel,
+    });
+  };
+
+  const closeMessageModal = () => {
+    if (messageModal.onConfirm) {
+      messageModal.onConfirm();
+      setMessageModal(prev => ({ ...prev, onConfirm: undefined }));
+    }
+    setMessageModal({
+      visible: false,
+      title: "",
+      message: "",
+      type: 'info',
+      onConfirm: undefined,
+      showCancel: false,
+    });
+  };
 
   // Redux state
   const isCreating = useSelector(selectIsCreating);
@@ -81,38 +118,41 @@ export default function CreateScreen() {
   ]);
   const [visibility, setVisibility] = useState("public");
   const [images, setImages] = useState<string[]>([]);
+  
+  // New database fields
+  const [allowOffers, setAllowOffers] = useState(true);
+  const [intentEligible, setIntentEligible] = useState(false);
+  const [acceptSwaps, setAcceptSwaps] = useState(false);
 
   // Handle successful creation
   useEffect(() => {
     if (createStatus === "success") {
-      Alert.alert("Success", "Listing created successfully!", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Reset form
-            setTitle("");
-            setDescription("");
-            setPrice("");
-            setQuantity("1");
-            setCurrency("USD");
-            setCategory(0);
-            setCondition("");
-            setLocation("");
-            setTags([]);
-            setVisibility("public");
-            setImages([]);
-            // Navigate back to home
-            router.replace("/(tabs)");
-          },
-        },
-      ]);
+      showMessage("Success", "Listing created successfully!", 'success', () => {
+        // Reset form
+        setTitle("");
+        setDescription("");
+        setPrice("");
+        setQuantity("1");
+        setCurrency("USD");
+        setCategory(0);
+        setCondition("");
+        setLocation("");
+        setTags([]);
+        setVisibility("public");
+        setImages([]);
+        setAllowOffers(true);
+        setIntentEligible(false);
+        setAcceptSwaps(false);
+        // Navigate back to home
+        router.replace("/(tabs)");
+      });
     }
   }, [createStatus, router]);
 
   // Handle creation errors
   useEffect(() => {
     if (createError) {
-      Alert.alert("Error", createError);
+      showMessage("Error", createError, 'error');
     }
   }, [createError]);
 
@@ -137,12 +177,12 @@ export default function CreateScreen() {
       !currency ||
       !visibility
     ) {
-      Alert.alert("Missing Information", "Please fill in all required fields");
+      showMessage("Missing Information", "Please fill in all required fields", 'error');
       return;
     }
 
     if (images.length === 0) {
-      Alert.alert("Add Images", "Please add at least one image");
+      showMessage("Add Images", "Please add at least one image", 'error');
       return;
     }
 
@@ -164,7 +204,7 @@ export default function CreateScreen() {
 
     const selectedCategory = categoryMap[category];
     if (!selectedCategory) {
-      Alert.alert("Error", "Invalid category selected");
+      showMessage("Error", "Invalid category selected", 'error');
       return;
     }
 
@@ -228,6 +268,9 @@ export default function CreateScreen() {
       tags: tags,
       visibility: visibility,
       images: listingImages,
+      allow_offers: allowOffers,
+      intent_eligible: intentEligible,
+      accept_swaps: acceptSwaps,
     };
 
     // Dispatch create listing thunk
@@ -271,9 +314,9 @@ export default function CreateScreen() {
                 activeOpacity={0.9}
               >
                 {isCreating ? (
-                  <Ionicons name="hourglass-outline" size={18} />
+                  <Ionicons name="hourglass-outline" size={18} color={theme.colors.surface} />
                 ) : (
-                  <Ionicons name="checkmark" size={18} />
+                  <Ionicons name="checkmark" size={18} color={theme.colors.surface} />
                 )}
                 <Text style={[styles.postButtonText]}>
                   {isCreating ? "Posting..." : "Post"}
@@ -362,9 +405,65 @@ export default function CreateScreen() {
               onChangeText={setLocation}
               placeholder="City, State"
             />
+
+            <View style={styles.toggleSection}>
+              <ThemedText type="subheading" style={styles.toggleSectionTitle}>Listing Options</ThemedText>
+              
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <ThemedText type="body" style={styles.toggleLabel}>Allow Offers</ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>Buyers can send price offers</ThemedText>
+                </View>
+                <TouchableOpacity
+                  style={[styles.toggle, allowOffers && styles.toggleActive, { backgroundColor: allowOffers ? theme.colors.primary : theme.colors.border }]}
+                  onPress={() => setAllowOffers(!allowOffers)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.toggleThumb, { backgroundColor: allowOffers ? '#FFFFFF' : theme.colors.secondary }]} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <ThemedText type="body" style={styles.toggleLabel}>Intent Eligible</ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>Show in buyer request matches</ThemedText>
+                </View>
+                <TouchableOpacity
+                  style={[styles.toggle, intentEligible && styles.toggleActive, { backgroundColor: intentEligible ? theme.colors.primary : theme.colors.border }]}
+                  onPress={() => setIntentEligible(!intentEligible)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.toggleThumb, { backgroundColor: intentEligible ? '#FFFFFF' : theme.colors.secondary }]} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <ThemedText type="body" style={styles.toggleLabel}>Accept Swaps</ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>Willing to trade items</ThemedText>
+                </View>
+                <TouchableOpacity
+                  style={[styles.toggle, acceptSwaps && styles.toggleActive, { backgroundColor: acceptSwaps ? theme.colors.primary : theme.colors.border }]}
+                  onPress={() => setAcceptSwaps(!acceptSwaps)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.toggleThumb, { backgroundColor: acceptSwaps ? '#FFFFFF' : theme.colors.secondary }]} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      <MessageModal
+        visible={messageModal.visible}
+        title={messageModal.title}
+        message={messageModal.message}
+        type={messageModal.type}
+        onConfirm={messageModal.onConfirm}
+        showCancel={messageModal.showCancel}
+        onClose={closeMessageModal}
+      />
     </GlobalThemeWrapper>
   );
 }
@@ -419,6 +518,7 @@ const styles = StyleSheet.create({
   postButtonText: {
     fontWeight: "600",
     fontSize: 15,
+    color: "#FFFFFF",
   },
 
   postButtonDisabled: {
@@ -427,5 +527,58 @@ const styles = StyleSheet.create({
 
   formContainer: {
     paddingHorizontal: 20,
+  },
+
+  toggleSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+
+  toggleSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  toggleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+
+  toggleDescription: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+
+  toggle: {
+    width: 51,
+    height: 31,
+    borderRadius: 16,
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+
+  toggleActive: {
+    // Active state handled by theme color
+  },
+
+  toggleThumb: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    alignSelf: "flex-start",
   },
 });

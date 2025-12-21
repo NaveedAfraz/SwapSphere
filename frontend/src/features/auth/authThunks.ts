@@ -1,18 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { apiClient } from "@/src/services/api";
 import type { LoginPayload, RegisterPayload, AuthResponse } from "./types/auth";
-
-const API_BASE = "http://192.168.0.104:5000/api/auth"; // Update with your backend URL
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000, // 10 seconds timeout
-});
 
 export const loginThunk = createAsyncThunk<
   AuthResponse,
@@ -26,19 +15,17 @@ export const loginThunk = createAsyncThunk<
   ) => {
     try {
       const response = await apiClient.post<AuthResponse>(
-        "/login",
+        "/auth/login",
         credentials
       );
       
       // Store tokens in AsyncStorage after successful login
       if (response.data.token) {
         await AsyncStorage.setItem("authToken", response.data.token);
-        console.log("Stored auth token after login");
       }
       
       if (response.data.refreshToken) {
         await AsyncStorage.setItem("refreshToken", response.data.refreshToken);
-        console.log("Stored refresh token after login");
       }
       
       return response.data;
@@ -62,24 +49,15 @@ export const registerThunk = createAsyncThunk<
   ) => {
     try {
       const response = await apiClient.post<AuthResponse>(
-        "/register",
+        "/auth/register",
         userData
       );
 
       // Store user ID in async storage for profile setup
       if (response.data.user?.id) {
-        console.log(
-          "Storing user ID from registration:",
-          response.data.user.id
-        );
         await AsyncStorage.setItem(
           "pendingProfileUserId",
           response.data.user.id
-        );
-      } else {
-        console.log(
-          "No user ID found in registration response:",
-          response.data
         );
       }
 
@@ -104,7 +82,7 @@ export const googleAuthThunk = createAsyncThunk<
   ) => {
     try {
       const response = await apiClient.post<AuthResponse>(
-        "/google",
+        "/auth/google",
         googleData
       );
 
@@ -136,7 +114,7 @@ export const refreshTokenThunk = createAsyncThunk<
     { rejectWithValue }: { rejectWithValue: (value: string) => any }
   ) => {
     try {
-      const response = await apiClient.post<{ token: string }>("/refresh", {
+      const response = await apiClient.post<{ token: string }>("/auth/refresh", {
         refreshToken,
       });
       return response.data;
@@ -160,7 +138,7 @@ export const logoutThunk = createAsyncThunk<
   ) => {
     try {
       // Call backend logout endpoint
-      await apiClient.post("/logout");
+      await apiClient.post("/auth/logout");
     } catch (error: any) {
       // Even if backend call fails, we still want to clear local state
       console.warn(
@@ -175,7 +153,6 @@ export const logoutThunk = createAsyncThunk<
       await AsyncStorage.removeItem("authToken");
       await AsyncStorage.removeItem("refreshToken");
       await AsyncStorage.removeItem("pendingProfileUserId");
-      console.log("Local storage cleared successfully");
     } catch (storageError) {
       console.error("Failed to clear local storage:", storageError);
     }
@@ -206,27 +183,20 @@ export const updateProfileThunk = createAsyncThunk<
       // Get stored user ID from async storage
       let userId = await AsyncStorage.getItem("pendingProfileUserId");
 
-      console.log("Retrieved userId from storage:", userId);
-
       if (!userId) {
-        // userId = "12f7cbbb-5fde-4024-800d-edfbd1895729";
         throw new Error("User ID not found. Please register again.");
       }
 
-      console.log("Making request to:", `/profile/${userId}`);
-
       // Send profile data with user ID
-      const response = await apiClient.post(`/profile/${userId}`, profileData);
+      const response = await apiClient.post(`/auth/profile/${userId}`, profileData);
 
       // Store tokens in AsyncStorage after successful profile setup
       if (response.data.token) {
         await AsyncStorage.setItem("authToken", response.data.token);
-        console.log("Stored auth token after profile setup");
       }
       
       if (response.data.refreshToken) {
         await AsyncStorage.setItem("refreshToken", response.data.refreshToken);
-        console.log("Stored refresh token after profile setup");
       }
 
       // Clear stored user ID after successful profile setup
@@ -255,7 +225,7 @@ export const toggleSellerModeThunk = createAsyncThunk<
   ) => {
     try {
       const response = await apiClient.post<{ sellerMode: boolean }>(
-        "/toggle-seller-mode",
+        "/auth/toggle-seller-mode",
         { enabled, description }
       );
       return response.data;
@@ -278,34 +248,18 @@ export const hydrateAuth = createAsyncThunk<
   "auth/hydrate",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("=== AUTH HYDRATION: STARTING ===");
-      
       // Check if token exists in AsyncStorage
       const token = await AsyncStorage.getItem("authToken");
       
       if (!token) {
-        console.log("=== AUTH HYDRATION: NO TOKEN FOUND ===");
         return rejectWithValue("No auth token found");
       }
       
-      console.log("=== AUTH HYDRATION: TOKEN FOUND, FETCHING USER DATA ===");
-      
       // Validate token with backend and get current user data
-      const response = await apiClient.get<AuthResponse>("/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      console.log("=== AUTH HYDRATION: USER DATA RECEIVED ===");
-      console.log("Full response data:", response.data);
-      console.log("Response data structure:", JSON.stringify(response.data, null, 2));
+      const response = await apiClient.get("/auth/me");
       
       // Check if response has user property or is direct user data
       const userData = response.data.user || response.data;
-      console.log("Extracted user data:", userData);
-      console.log("User ID:", userData?.id);
-      console.log("User email:", userData?.email);
       
       // Update AsyncStorage with fresh token if needed
       // if (response.data.token) {
@@ -314,12 +268,8 @@ export const hydrateAuth = createAsyncThunk<
       
       return response.data;
     } catch (error: any) {
-      console.error("=== AUTH HYDRATION: ERROR ===");
-      console.error("Error:", error);
-      
       // If token is invalid, clear AsyncStorage
       if (error.response?.status === 401) {
-        console.log("=== AUTH HYDRATION: INVALID TOKEN, CLEARING STORAGE ===");
         await AsyncStorage.multiRemove(["authToken", "refreshToken"]);
       }
       

@@ -15,6 +15,9 @@ const createListing = async (listingData) => {
     tags,
     metadata,
     images,
+    allow_offers,
+    intent_eligible,
+    accept_swaps,
   } = listingData;
 
   const client = await pool.connect();
@@ -24,24 +27,29 @@ const createListing = async (listingData) => {
 
     // Create listing
     const listingQuery = `
-      INSERT INTO listings (seller_id, title, description, price, currency, quantity, condition, category, location, tags, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO listings (seller_id, title, description, price, currency, quantity, condition, category, location, tags, metadata, allow_offers, intent_eligible, accept_swaps)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `;
 
-    const listingResult = await client.query(listingQuery, [
+    const listingValues = [
       seller_id,
       title,
       description,
       price,
-      currency || "USD",
-      quantity || 1,
+      currency,
+      quantity,
       condition,
       category,
-      location,
-      tags,
-      metadata,
-    ]);
+      JSON.stringify(location),
+      JSON.stringify(tags),
+      JSON.stringify(metadata),
+      allow_offers,
+      intent_eligible,
+      accept_swaps,
+    ];
+
+    const listingResult = await client.query(listingQuery, listingValues);
 
     const listing = listingResult.rows[0];
 
@@ -227,6 +235,9 @@ const updateListing = async (id, updates) => {
     "tags",
     "is_published",
     "metadata",
+    "allow_offers",
+    "intent_eligible",
+    "accept_swaps",
   ];
   const updateFields = [];
   const values = [];

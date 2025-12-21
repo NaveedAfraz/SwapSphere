@@ -76,14 +76,32 @@ export function CategorySelector({ categories, selectedCategory, onSelectCategor
             key={cat.id}
             style={[
               styles.categoryButton,
-              selectedCategory === cat.id && [styles.categoryButtonSelected, { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }],
+              selectedCategory === cat.id && [
+                styles.categoryButtonSelected, 
+                { 
+                  backgroundColor: cat.color, 
+                  borderColor: cat.color,
+                  shadowColor: cat.color,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 4,
+                  transform: [{ scale: 1.05 }]
+                }
+              ],
               { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
             ]}
             onPress={() => onSelectCategory(cat.id)}
           >
             <Text style={[
               styles.categoryButtonText,
-              selectedCategory === cat.id && styles.categoryButtonTextSelected,
+              selectedCategory === cat.id && [
+                styles.categoryButtonTextSelected,
+                { 
+                  color: '#FFFFFF',
+                  fontWeight: '700',
+                  fontSize: 15
+                }
+              ],
               { color: selectedCategory === cat.id ? '#FFFFFF' : theme.colors.secondary }
             ]}>
               {cat.name}

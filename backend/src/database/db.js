@@ -1,19 +1,11 @@
 const { Pool } = require("pg");
-
+console.log("database url ", process.env.DATABASE_URL);
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-  ssl: {
-    rejectUnauthorized: false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: { 
+    rejectUnauthorized: false, // required for Neon
   },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
-
 // Handle pool errors
 pool.on("error", (err, client) => {
   console.error("Unexpected error on idle client", err);

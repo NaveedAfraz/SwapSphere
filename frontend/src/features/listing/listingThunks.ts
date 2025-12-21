@@ -61,14 +61,11 @@ export const fetchListingByIdThunk = createAsyncThunk<
   "listing/fetchListingById",
   async (listingId: string, { rejectWithValue }) => {
     try {
-      console.log('Fetching listing with ID:', listingId);
       const response = await apiClient.get<Listing>(
         `/${listingId}`
       );
-      console.log('API response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching listing:', error);
       const errorMessage =
         error.response?.data?.error ||
         error.message ||
@@ -257,8 +254,7 @@ export const incrementViewCountThunk = createAsyncThunk<
     try {
       await apiClient.post(`/${listingId}/view`);
     } catch (error: any) {
-      // Don't reject on view count errors, just log them
-      console.warn("Failed to increment view count:", error.message);
+      // Failed to increment view count
     }
   }
 );

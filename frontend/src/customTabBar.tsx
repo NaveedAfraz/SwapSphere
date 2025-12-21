@@ -54,10 +54,10 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     { id: "inbox", icon: MessageSquare, label: "Inbox" },
     { id: "index", icon: Home, label: "Home", isCenter: true },
     {
-      id: isSellerMode ? "add" : "support",
-      icon: isSellerMode ? Plus : HeadphonesIcon,
-      label: isSellerMode ? "Add" : "Support",
-      isSupport: !isSellerMode,
+      id: isSellerMode ? "add" : "create-intent",
+      icon: Plus,
+      label: isSellerMode ? "Add" : "Create Intent",
+      isIntent: !isSellerMode,
     },
     { id: "profile", icon: User, label: "Profile" },
   ];
@@ -99,7 +99,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       <TouchableOpacity
         key={tab.id}
         onPress={() =>
-          tab.isSupport ? router.push("/support") : navTo(tab.id)
+          tab.isIntent ? router.push("/create-intent") : navTo(tab.id)
         }
         style={styles.tabButton}
         activeOpacity={0.7}

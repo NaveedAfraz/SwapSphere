@@ -2,6 +2,7 @@ export type NotificationStatus = "idle" | "loading" | "success" | "error";
 
 // Database-based notification types matching the backend
 export type NotificationType = 
+  | "intent_match"
   | "offer_received"
   | "offer_countered" 
   | "offer_accepted"
@@ -26,6 +27,9 @@ export interface Notification {
   status?: string; // Offer status field (e.g., 'pending', 'accepted', 'declined')
   delivered_at?: string;
   created_at: string;
+  // API response fields (not in database schema)
+  actor_avatar?: string;
+  actor_name?: string;
   // Optional fields for enhanced functionality
   actor?: {
     id: string;
@@ -64,6 +68,7 @@ export interface CreateNotificationPayload {
 }
 
 export interface UpdateNotificationPayload {
+  status?: string;
   payload?: any;
   is_read?: boolean;
   delivered_at?: string;

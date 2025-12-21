@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { apiClient } from "@/src/services/api";
 import type { 
   ChatResponse,
   MessageResponse,
@@ -12,40 +11,7 @@ import type {
   MessagesResponse
 } from "./types/chat";
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ? 
-  `${process.env.EXPO_PUBLIC_API_URL}/api/chat` : 
-  "http://192.168.0.104:5000/api/chat";
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000,
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Add response error handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired - clear storage and redirect to login
-      AsyncStorage.removeItem("authToken");
-      // You could add navigation logic here if needed
-    }
-    return Promise.reject(error);
-  }
-);
+const API_BASE = "/api/chat"; // Use relative path with unified API client
 
 export const fetchChatsThunk = createAsyncThunk<
   ChatsResponse,
@@ -55,7 +21,7 @@ export const fetchChatsThunk = createAsyncThunk<
   "chat/fetchChats",
   async (searchParams: ChatSearchParams = {}, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<ChatsResponse>("/", { params: searchParams });
+      const response = await apiClient.get<ChatsResponse>("/chat", { params: searchParams });
       return {
         success: true,
         chats: response.data.chats || [],
@@ -84,7 +50,7 @@ export const fetchChatByIdThunk = createAsyncThunk<
   "chat/fetchChatById",
   async (chatId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<ChatResponse>(`/${chatId}`);
+      const response = await apiClient.get<ChatResponse>(`/chat/${chatId}`);
       return {
         success: true,
         data: response.data.data || response.data
@@ -105,7 +71,7 @@ export const createChatThunk = createAsyncThunk<
   "chat/createChat",
   async (chatData: CreateChatPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<ChatResponse>("/", chatData);
+      const response = await apiClient.post<ChatResponse>("/chat", chatData);
       return {
         success: true,
         data: response.data.data || response.data
@@ -126,7 +92,7 @@ export const fetchMessagesThunk = createAsyncThunk<
   "chat/fetchMessages",
   async ({ chatId, params = {} }: { chatId: string; params?: MessageSearchParams }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<MessagesResponse>(`/${chatId}/messages`, { params });
+      const response = await apiClient.get<MessagesResponse>(`/chat/${chatId}/messages`, { params });
       return {
         success: true,
         messages: response.data.messages || [],
@@ -140,7 +106,6 @@ export const fetchMessagesThunk = createAsyncThunk<
         },
       };
     } catch (error: any) {
-      console.log("Messages fetch error:", error.response?.data || error.message);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to fetch messages";
       return rejectWithValue(errorMessage);
@@ -156,53 +121,14 @@ export const sendMessageThunk = createAsyncThunk<
   "chat/sendMessage",
   async ({ chatId, messageData }: { chatId: string; messageData: SendMessagePayload }, { rejectWithValue, dispatch }) => {
     try {
-      const response = await apiClient.post<MessageResponse>(`/${chatId}/messages`, messageData);
+      const response = await apiClient.post<MessageResponse>(`/chat/${chatId}/messages`, messageData);
       return {
         success: true,
         data: response.data.data || response.data
       };
     } catch (error: any) {
-      console.log("=== SEND MESSAGE ERROR ===");
-      console.log("Error:", error);
-      console.log("Error Response:", error.response);
-      console.log("Error Status:", error.response?.status);
-      console.log("Error Data:", error.response?.data);
-      
-      // If chat not found (404), try to create a new chat first
-      if (error.response?.status === 404 && error.response?.data?.error === "Chat not found") {
-        try {
-          // Extract participant ID from chatId (assuming chatId is the recipient's user ID for new chats)
-          const participantId = chatId;
-          
-          // Create new chat
-          const createChatResult = await dispatch(createChatThunk({
-            participant_id: participantId
-          }) as any);
-
-          if (createChatResult.payload && (createChatResult.payload.data || createChatResult.payload.id)) {
-            const newChat = createChatResult.payload.data || createChatResult.payload;
-
-            // Now try to send the message to the newly created chat
-            const retryResponse = await apiClient.post<MessageResponse>(`/${newChat.id}/messages`, messageData);
-            return {
-              success: true,
-              data: retryResponse.data.data || retryResponse.data
-            };
-          } else {
-            console.error("Failed to create new chat:", createChatResult.payload);
-            return rejectWithValue("Failed to create new chat");
-          }
-        } catch (createError: any) {
-          console.error("Error creating new chat:", createError);
-          const errorMessage = createError.response?.data?.error || createError.message || "Failed to create new chat";
-          return rejectWithValue(errorMessage);
-        }
-      }
-      
-      const errorMessage =
-        error.response?.data?.error || error.message || "Failed to send message";
-      console.error("Send message failed:", errorMessage);
-      return rejectWithValue(errorMessage);
+      console.error("Send message error:", error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to send message');
     }
   }
 );
@@ -210,28 +136,16 @@ export const sendMessageThunk = createAsyncThunk<
 // Find or create chat by user IDs and listing ID
 export const findOrCreateChatByUsersThunk = createAsyncThunk(
   'chat/findOrCreateChatByUsers',
-  async ({ participant1Id, participant2Id, listingId }: { participant1Id?: string; participant2Id?: string; listingId?: string }, { rejectWithValue, getState, dispatch }) => {
+  async ({ participant1Id, participant2Id, listingId }: { participant1Id?: string; participant2Id?: string; listingId?: string }, { rejectWithValue }) => {
     try {
-      const state = getState() as any;
-      const token = state.auth.accessToken || state.auth.token;
-      
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       // Build query URL with both participant IDs and listing ID
-      let findChatUrl = `${API_BASE}/find-by-users?participant1_id=${participant1Id}&participant2_id=${participant2Id}`;
+      let findChatUrl = `/chat/find-by-users?participant1_id=${participant1Id}&participant2_id=${participant2Id}`;
       
       if (listingId) {
         findChatUrl += `&listing_id=${listingId}`;
       }
 
-      const response = await axios.get(findChatUrl, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiClient.get(findChatUrl);
 
       if (response.data) {
         return response.data;
@@ -240,18 +154,13 @@ export const findOrCreateChatByUsersThunk = createAsyncThunk(
       }
       
     } catch (error: any) {
-      console.error('=== FIND OR CREATE CHAT ERROR ===');
-      console.error('Error:', error);
+      console.error('Find or create chat error:', error);
       
       if (error.response) {
-        console.error('Error Status:', error.response.status);
-        console.error('Error Data:', error.response.data);
         return rejectWithValue(error.response.data);
       } else if (error.request) {
-        console.error('No response received:', error.request);
         return rejectWithValue({ error: 'No response from server' });
       } else {
-        console.error('Error Message:', error.message);
         return rejectWithValue({ error: error.message });
       }
     }
@@ -284,6 +193,9 @@ export const sendMessageOrCreateChatThunk = createAsyncThunk<
         
         if (messageResult.payload && (messageResult.payload.data || messageResult.payload.id)) {
           const message = messageResult.payload.data || messageResult.payload;
+          if (messageResult.meta.requestStatus === 'rejected') {
+            return rejectWithValue('Failed to send message');
+          }
           return message;
         } else {
           console.error("Failed to send message:", messageResult.payload);

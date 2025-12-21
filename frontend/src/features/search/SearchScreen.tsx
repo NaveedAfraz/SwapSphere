@@ -135,7 +135,7 @@ export default function SearchScreen() {
               {...listing}
               liked={liked[listing.id] || false}
               onLike={() => toggleLike(listing.id)}
-              onPress={() => console.log("Listing pressed:", listing.id)}
+              onPress={() => {}}
             />
           ))}
         </View>

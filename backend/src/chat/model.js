@@ -54,14 +54,10 @@ const createChat = async (userId, chatData) => {
 };
 
 const getChatsByUser = async (userId, options = {}) => {
-  console.log("=== GET CHATS BY USER MODEL ===");
-  console.log("userId:", userId);
-  console.log("options:", options);
 
   const { page = 1, limit = 20 } = options;
   const offset = (page - 1) * limit;
 
-  console.log("page:", page, "limit:", limit, "offset:", offset);
 
   const countQuery = `
     SELECT COUNT(*) as total
@@ -298,10 +294,6 @@ const findChatByUsers = async (
   participantId,
   listingId = null
 ) => {
-  console.log("=== FIND CHAT BY USERS MODEL ===");
-  console.log("currentUserId:", currentUserId);
-  console.log("participantId:", participantId);
-  console.log("listingId:", listingId);
 
   // First, let's check what chats exist for these users without listing constraint
   const debugQuery = `
@@ -312,15 +304,10 @@ const findChatByUsers = async (
        OR (cp.participant1_id = $2 AND cp.participant2_id = $1)
   `;
 
-  console.log("Debug query to check existing chats:", debugQuery);
   const debugResult = await pool.query(debugQuery, [
     currentUserId,
     participantId,
   ]);
-  console.log(
-    "Debug result - all chats between these users:",
-    debugResult.rows
-  );
 
   // Now the main query with listing constraint
   let query = `

@@ -50,16 +50,12 @@ const waitForAuth = (timeout = 5000): Promise<boolean> => {
 // Connect to Socket.IO server
 export const connectSocket = async (): Promise<Socket> => {
   try {
-    console.log("=== SOCKET: WAITING FOR AUTH TO BE READY ===");
-    
     // Wait for auth to be ready before connecting
     const authReady = await waitForAuth(5000);
     
     if (!authReady) {
       throw new Error("Auth not ready after timeout");
     }
-    
-    console.log("=== SOCKET: AUTH READY, PROCEEDING WITH CONNECTION ===");
     
     const token = await AsyncStorage.getItem("authToken");
 

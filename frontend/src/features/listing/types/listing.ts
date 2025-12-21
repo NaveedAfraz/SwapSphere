@@ -59,6 +59,9 @@ export interface Listing {
   metadata?: any;
   quantity: number;
   currency: string;
+  allow_offers: boolean;
+  intent_eligible: boolean;
+  accept_swaps: boolean;
 }
 
 export interface ListingState {
@@ -97,6 +100,9 @@ export interface CreateListingPayload {
   condition: Condition;
   location: Location;
   images: ListingImage[];
+  allow_offers?: boolean;
+  intent_eligible?: boolean;
+  accept_swaps?: boolean;
 }
 
 export interface UpdateListingPayload {
@@ -107,6 +113,9 @@ export interface UpdateListingPayload {
   condition?: Condition;
   location?: Location;
   status?: "active" | "sold" | "pending" | "removed";
+  allow_offers?: boolean;
+  intent_eligible?: boolean;
+  accept_swaps?: boolean;
 }
 
 export interface SearchParams {

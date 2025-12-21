@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { apiClient } from "@/src/services/api";
 import type { 
   CreateOfferPayload, 
   UpdateOfferPayload, 
@@ -10,26 +9,6 @@ import type {
   OffersResponse 
 } from "./types/offer";
 
-const API_BASE = "http://192.168.0.104:5000/api/offer";
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000,
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export const fetchOffersThunk = createAsyncThunk<
   OffersResponse,
   OfferSearchParams,
@@ -38,7 +17,7 @@ export const fetchOffersThunk = createAsyncThunk<
   "offer/fetchOffers",
   async (searchParams: OfferSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>("/", { params: searchParams });
+      const response = await apiClient.get<OffersResponse>("/offer", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -56,7 +35,7 @@ export const fetchOfferByIdThunk = createAsyncThunk<
   "offer/fetchOfferById",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OfferResponse>(`/${offerId}`);
+      const response = await apiClient.get<OfferResponse>(`/offer/${offerId}`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -80,9 +59,12 @@ export const createOfferThunk = createAsyncThunk<
         offered_price: offerData.amount,
         offered_quantity: 1, // Default quantity
         expires_at: offerData.expires_at,
+        buyer_id: offerData.buyer_id, // Explicitly pass buyer_id
+        // Include intent_id if present (for seller counter-offers to intents)
+        ...(offerData.intent_id && { intent_id: offerData.intent_id }),
       };
       
-      const response = await apiClient.post<OfferResponse>("/", backendPayload);
+      const response = await apiClient.post<OfferResponse>("/offer", backendPayload);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -100,7 +82,7 @@ export const updateOfferThunk = createAsyncThunk<
   "offer/updateOffer",
   async ({ id, data }: { id: string; data: UpdateOfferPayload }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put<OfferResponse>(`/${id}`, data);
+      const response = await apiClient.put<OfferResponse>(`/offer/${id}`, data);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -118,7 +100,7 @@ export const acceptOfferThunk = createAsyncThunk<
   "offer/acceptOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${offerId}/accept`);
+      const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/accept`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -136,7 +118,7 @@ export const rejectOfferThunk = createAsyncThunk<
   "offer/rejectOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${offerId}/decline`);
+      const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/decline`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -161,7 +143,7 @@ export const counterOfferThunk = createAsyncThunk<
         expires_at: counterData.expires_at,
       };
       
-      const response = await apiClient.post<OfferResponse>(`/${counterData.offer_id}/counter`, backendPayload);
+      const response = await apiClient.post<OfferResponse>(`/offer/${counterData.offer_id}/counter`, backendPayload);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -179,7 +161,7 @@ export const withdrawOfferThunk = createAsyncThunk<
   "offer/withdrawOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<OfferResponse>(`/${offerId}/cancel`);
+      const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/cancel`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -197,7 +179,7 @@ export const fetchSentOffersThunk = createAsyncThunk<
   "offer/fetchSentOffers",
   async (searchParams: OfferSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>("/buyer", { params: searchParams });
+      const response = await apiClient.get<OffersResponse>("/offer/buyer", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -215,7 +197,7 @@ export const fetchReceivedOffersThunk = createAsyncThunk<
   "offer/fetchReceivedOffers",
   async (searchParams: OfferSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>("/seller", { params: searchParams });
+      const response = await apiClient.get<OffersResponse>("/offer/seller", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -233,7 +215,7 @@ export const fetchOffersByListingThunk = createAsyncThunk<
   "offer/fetchOffersByListing",
   async ({ listingId, params = {} }: { listingId: string; params?: OfferSearchParams }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OffersResponse>(`/listing/${listingId}`, { params });
+      const response = await apiClient.get<OffersResponse>(`/offer/listing/${listingId}`, { params });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -251,7 +233,7 @@ export const fetchOfferStatsThunk = createAsyncThunk<
   "offer/fetchOfferStats",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<any>("/stats");
+      const response = await apiClient.get<any>("/offer/stats");
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -269,7 +251,7 @@ export const deleteOfferThunk = createAsyncThunk<
   "offer/deleteOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
-      await apiClient.delete(`/${offerId}`);
+      await apiClient.delete(`/offer/${offerId}`);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to delete offer";

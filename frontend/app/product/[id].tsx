@@ -2,16 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Alert,
-  Modal,
-  TextInput,
   TouchableOpacity,
   Text,
   StyleSheet,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchListingByIdThunk } from "@/src/features/listing/listingThunks";
@@ -19,7 +15,9 @@ import { selectCurrentListing, selectListingStatus, selectListingError } from "@
 import { createOfferThunk } from "@/src/features/offer/offerThunks";
 import { selectCreateStatus, selectCreateError } from "@/src/features/offer/offerSelectors";
 import { resetCreateStatus } from "@/src/features/offer/offerSlice";
+import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
 import SingleProduct from "@/src/features/SingleProduct";
+import OfferModal from "@/src/components/OfferModal";
 
 // Theme colors from saved context
 const COLORS = {
@@ -40,9 +38,6 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<any>(null);
-  const [offerPrice, setOfferPrice] = useState("");
-  const [offerMessage, setOfferMessage] = useState("");
   const [similarListings, setSimilarListings] = useState<any[]>([]);
   const insets = useSafeAreaInsets();
 
@@ -56,6 +51,7 @@ export default function ProductDetailScreen() {
   const offerCreateStatus = useSelector(selectCreateStatus);
   const offerCreateError = useSelector(selectCreateError);
   const isCreatingOffer = offerCreateStatus === 'loading';
+  const currentUser = useSelector(selectAuthUser);
   console.log(`ID: ${id}, CurrentListing: ${JSON.stringify(currentListing)}, Loading: ${isLoading}, Error: ${error}`);
   // Fetch product details and similar products
   useEffect(() => {
@@ -82,7 +78,7 @@ export default function ProductDetailScreen() {
       // image:  (apiListing.images?.find((img: any) => img.is_primary)?.url),
       images: apiListing.images?.map((img: any) => img.url) || [],
       price: `$${apiListing.price}`,
-      location: `${apiListing.location?.city || 'Unknown'}, ${apiListing.location?.state || ''}`,
+      location: apiListing.location || { city: 'Unknown', state: '' },
       rating: parseFloat(apiListing.seller_rating) || 0,
       reviews: parseInt(apiListing.favorites_count) || 0,
       seller: apiListing.seller_name || 'Unknown',
@@ -97,6 +93,19 @@ export default function ProductDetailScreen() {
       seller_avatar: apiListing.seller_avatar,
       quantity: apiListing.quantity,
       currency: apiListing.currency,
+      is_published: apiListing.is_published || true,
+      visibility: apiListing.visibility || 'public',
+      view_count: apiListing.view_count || '0',
+      favorites_count: apiListing.favorites_count || '0',
+      metadata: apiListing.metadata || {},
+      primary_image_url: apiListing.primary_image_url,
+      seller_name: apiListing.seller_name,
+      seller_rating: apiListing.seller_rating,
+      seller_verified: apiListing.seller_verified,
+      tags: apiListing.tags || [],
+      is_favorite: apiListing.is_favorite || false,
+      created_at: apiListing.created_at || new Date().toISOString(),
+      updated_at: apiListing.updated_at || new Date().toISOString(),
     };
   };
 
@@ -125,9 +134,24 @@ export default function ProductDetailScreen() {
   };
 
   const handleMakeOffer = (listing: any) => {
-    setSelectedListing(listing);
-    setOfferPrice("");
-    setOfferMessage("");
+    // Debug logging to check the values
+    console.log("=== OFFER DEBUG ===");
+    console.log("currentListing?.seller_id:", currentListing?.seller_id);
+    console.log("currentUser?.id:", currentUser?.id);
+    console.log("Comparison result:", currentListing?.seller_id === currentUser?.id);
+    console.log("currentListing:", currentListing);
+    console.log("currentUser:", currentUser);
+    
+    // Check if current user is the seller of this listing
+    if (currentListing?.seller_id === currentUser?.id) {
+      Alert.alert(
+        "Cannot Make Offer",
+        "You cannot make an offer on your own listing.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
     setShowOfferModal(true);
     dispatch(resetCreateStatus());
   };
@@ -136,23 +160,23 @@ export default function ProductDetailScreen() {
     router.push(`/product/${item.id}` as any);
   };
 
-  const handleSubmitOffer = async () => {
-    if (!offerPrice || !offerMessage) {
+  const handleSubmitOffer = async (price: string, message: string) => {
+    if (!price || !message) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
     try {
       const result = await dispatch(createOfferThunk({
-        listing_id: selectedListing?.id,
-        amount: parseFloat(offerPrice.replace('$', '')),
-        message: offerMessage,
+        listing_id: currentListing?.id,
+        amount: parseFloat(price.replace('$', '')),
+        message: message,
       }) as any);
 
       if (result.meta.requestStatus === 'fulfilled') {
         Alert.alert(
           "Offer Sent!",
-          `Your offer of ${offerPrice} for ${selectedListing?.title} has been sent to ${selectedListing?.seller_name || 'the seller'}`,
+          `Your offer of ${price} for ${currentListing?.title} has been sent to ${currentListing?.seller_name || 'the seller'}`,
           [{ text: "OK", onPress: () => {
             setShowOfferModal(false);
             dispatch(resetCreateStatus());
@@ -175,7 +199,7 @@ export default function ProductDetailScreen() {
     // Use seller ID from the listing to create/open a conversation
     const sellerId = currentListing?.seller_id;
     if (sellerId) {
-      router.push(`/inbox/${sellerId}`);
+      router.push(`/deal-room/${sellerId}` as any);
     } else {
       Alert.alert("Error", "Unable to contact seller at this time.");
     }
@@ -217,87 +241,24 @@ export default function ProductDetailScreen() {
       />
 
       {/* Offer Modal */}
-      <Modal
+      <OfferModal
         visible={showOfferModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => {
+        onClose={() => {
           setShowOfferModal(false);
           dispatch(resetCreateStatus());
         }}
-      >
-        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-          {/* Modal Header */}
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => {
-              setShowOfferModal(false);
-              dispatch(resetCreateStatus());
-            }}>
-              <Ionicons name="close" size={24} color={COLORS.dark} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Make an Offer</Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          {/* Listing Info */}
-          <View style={styles.listingPreview}>
-            <Image
-              source={{ uri: selectedListing?.image }}
-              style={styles.previewImage}
-            />
-            <View style={styles.previewInfo}>
-              <Text style={styles.previewTitle} numberOfLines={2}>
-                {selectedListing?.title}
-              </Text>
-              <Text style={styles.previewPrice}>{selectedListing?.price}</Text>
-              <Text style={styles.previewSeller}>
-                Seller: {selectedListing?.seller}
-              </Text>
-            </View>
-          </View>
-
-          {/* Offer Form */}
-          <View style={styles.offerForm}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Your Offer Price</Text>
-              <TextInput
-                style={styles.priceInput}
-                placeholder="Enter your offer"
-                placeholderTextColor={COLORS.muted}
-                value={offerPrice}
-                onChangeText={setOfferPrice}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Message to Seller</Text>
-              <TextInput
-                style={styles.messageInput}
-                placeholder="Add a message to the seller..."
-                placeholderTextColor={COLORS.muted}
-                value={offerMessage}
-                onChangeText={setOfferMessage}
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-          </View>
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitButton, isCreatingOffer && styles.submitButtonDisabled]}
-            onPress={handleSubmitOffer}
-            disabled={isCreatingOffer}
-          >
-            {isCreatingOffer ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Text style={styles.submitButtonText}>Send Offer</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </Modal>
+        onSubmit={handleSubmitOffer}
+        listing={{
+          id: currentListing?.id || '',
+          title: currentListing?.title || '',
+          price: currentListing?.price || '',
+          image: currentListing?.primary_image_url || '',
+          seller: currentListing?.seller_name || currentListing?.seller || '',
+        }}
+        sellerOffer={currentListing?.price || ''}
+        isSeller={currentListing?.seller_id === currentUser?.id}
+        isSubmitting={isCreatingOffer}
+      />
     </View>
   );
 }
@@ -349,113 +310,5 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: "600",
-  },
-  // Modal Styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-
-    paddingBottom: 20,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.dark,
-    letterSpacing: -0.3,
-  },
-  listingPreview: {
-    flexDirection: "row",
-    backgroundColor: COLORS.white,
-    margin: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  previewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    resizeMode: "cover",
-  },
-  previewInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: "center",
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.dark,
-    marginBottom: 4,
-  },
-  previewPrice: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.accent,
-    marginBottom: 4,
-  },
-  previewSeller: {
-    fontSize: 14,
-    color: COLORS.muted,
-  },
-  offerForm: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.dark,
-    marginBottom: 8,
-  },
-  priceInput: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.dark,
-  },
-  messageInput: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.dark,
-    height: 100,
-    textAlignVertical: "top",
-  },
-  submitButton: {
-    backgroundColor: COLORS.accent,
-    margin: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  submitButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  submitButtonDisabled: {
-    backgroundColor: COLORS.muted,
   },
 });

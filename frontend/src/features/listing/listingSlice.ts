@@ -112,22 +112,22 @@ const listingSlice = createSlice({
         state.error = action.payload as string || 'Failed to fetch listings';
       });
 
-    // Handle fetch listing by ID thunk
+  
     builder
       .addCase('listing/fetchListingById/pending', (state: ListingState) => {
-        console.log('Redux: fetchListingById pending');
+     
         state.status = 'loading';
         state.error = null;
       })
       .addCase('listing/fetchListingById/fulfilled', (state: ListingState, action: PayloadAction<Listing>) => {
-        console.log('Redux: fetchListingById fulfilled with payload:', action.payload);
+        
         state.status = 'success';
-        state.currentListing = action.payload; // Direct assignment since API returns listing directly
-        console.log('Redux: currentListing set to:', state.currentListing);
+        state.currentListing = action.payload;  
+        
         state.error = null;
       })
       .addCase('listing/fetchListingById/rejected', (state: ListingState, action: any) => {
-        console.log('Redux: fetchListingById rejected with error:', action.payload);
+       
         state.status = 'error';
         state.error = action.payload as string || 'Failed to fetch listing';
       });

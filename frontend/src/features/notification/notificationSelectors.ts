@@ -146,6 +146,11 @@ export const getNotificationTitle = (notification: Notification): string => {
   const { type, payload } = notification;
   
   switch (type) {
+    case 'intent_match':
+      if (payload?.counter_offered || notification.status === 'offer_countered') {
+        return `Counter offer on ${payload?.listing_title || 'your listing'}`;
+      }
+      return `New buyer interested in ${payload?.listing_title || 'your listing'}`;
     case 'offer_received':
       return `New offer on ${payload?.listing_title || 'your listing'}`;
     case 'offer_countered':
@@ -175,6 +180,11 @@ export const getNotificationMessage = (notification: Notification): string => {
   const { type, payload } = notification;
   
   switch (type) {
+    case 'intent_match':
+      if (payload?.counter_offered || notification.status === 'offer_countered') {
+        return `Seller countered with offer`;
+      }
+      return `Buyer wants: ${payload?.intent_title || 'your item'} (Budget: $${payload?.buyer_max_price || 0})`;
     case 'offer_received':
       return `$${payload?.offered_price || 0} for ${payload?.offered_quantity || 1} item(s)`;
     case 'offer_countered':
@@ -202,6 +212,8 @@ export const getNotificationMessage = (notification: Notification): string => {
 
 export const getNotificationIcon = (type: NotificationType): keyof typeof Ionicons.glyphMap => {
   switch (type) {
+    case 'intent_match':
+      return 'search-outline';
     case 'offer_received':
       return 'cash-outline';
     case 'offer_countered':
@@ -229,6 +241,8 @@ export const getNotificationIcon = (type: NotificationType): keyof typeof Ionico
 
 export const getNotificationColor = (type: NotificationType): string => {
   switch (type) {
+    case 'intent_match':
+      return '#8B5CF6';
     case 'offer_received':
       return '#3B82F6';
     case 'offer_countered':

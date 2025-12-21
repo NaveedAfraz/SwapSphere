@@ -68,6 +68,9 @@ const createListing = async (req, res) => {
       tags,
       metadata,
       images,
+      allow_offers,
+      intent_eligible,
+      accept_swaps,
     } = req.body;
 
     // Get seller ID for this user
@@ -166,6 +169,9 @@ const createListing = async (req, res) => {
       tags,
       metadata,
       images: processedImages,
+      allow_offers: allow_offers !== undefined ? allow_offers : true,
+      intent_eligible: intent_eligible !== undefined ? intent_eligible : false,
+      accept_swaps: accept_swaps !== undefined ? accept_swaps : false,
     });
 
     res.status(201).json(listing);

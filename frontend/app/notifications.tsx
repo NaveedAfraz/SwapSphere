@@ -34,19 +34,39 @@ import {
 import {
   fetchNotificationsThunk,
   markAsReadThunk,
+  updateNotificationThunk,
 } from "@/src/features/notification/notificationThunks";
 import { updateNotificationLocal } from "@/src/features/notification/notificationSlice";
 import { acceptOfferThunk } from "@/src/features/offer/offerThunks";
+import { createOfferThunk } from "@/src/features/offer/offerThunks";
+import { findOrCreateDealRoomThunk } from "@/src/features/dealRooms/dealRoomThunks";
+import {
+  selectCreateStatus,
+  selectCreateError,
+} from "@/src/features/offer/offerSelectors";
+import { resetCreateStatus } from "@/src/features/offer/offerSlice";
 import { Notification } from "@/src/features/notification/types/notification";
- 
-import { selectUser as selectAuthUser } from "@/src/features/auth/authSelectors";
+import { apiClient } from "@/src/services/api";
+
+import {
+  selectUser as selectAuthUser,
+  selectUser,
+} from "@/src/features/auth/authSelectors";
 import { PullToRefresh } from "@/src/components/PullToRefresh";
+import OfferModal from "@/src/components/OfferModal";
+import { useAppSelector } from "@/src/hooks/redux";
+import {
+  getCurrentUser,
+  getAuthState,
+  isAuthenticated,
+} from "@/src/services/authService";
 
 interface NotificationItemProps {
   notification: Notification;
   onExpand: (notification: Notification) => void;
   onMarkAsRead: (notification: Notification) => void;
   onAcceptOffer: (notification: Notification) => void;
+  onMakeOffer: (notification: Notification) => void;
 }
 
 const NotificationItem: React.FC<NotificationItemProps> = ({
@@ -54,6 +74,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onExpand,
   onMarkAsRead,
   onAcceptOffer,
+  onMakeOffer,
 }) => {
   const theme = useTheme();
   const router = useRouter();
@@ -97,15 +118,115 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     const { type, payload } = notification;
 
     switch (type) {
+      case "intent_match":
+        // Check if an offer has already been made for this intent/listing pair
+        const hasOfferMade =
+          notification.payload?.offer_made ||
+          notification.status === "offer_created";
+
+        // Check if there's a counter offer
+        const hasCounterOffer =
+          notification.payload?.counter_offered ||
+          notification.status === "offer_countered" ||
+          notification.type === "offer_countered";
+
+        // Check if current user is the seller
+        const isSeller = notification.user_id === currentUser?.id;
+        const isBuyer = notification.actor_id === currentUser?.id;
+
+        return (
+          <View style={styles.actionButtons}>
+            {!hasOfferMade && !hasCounterOffer ? (
+              isSeller ? (
+                // Seller can respond to intent with counter offer
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    styles.acceptButton,
+                    { backgroundColor: theme.theme.colors.accent },
+                  ]}
+                  onPress={() => {
+                    // Open offer modal for seller to make counter offer
+                    onMakeOffer(notification);
+                  }}
+                  activeOpacity={Interactions.buttonOpacity}
+                >
+                  <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                    Respond to Intent
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                // Buyer can make offer
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    styles.acceptButton,
+                    { backgroundColor: theme.theme.colors.accent },
+                  ]}
+                  onPress={() => {
+                    // Open offer modal instead of navigating
+                    onMakeOffer(notification);
+                  }}
+                  activeOpacity={Interactions.buttonOpacity}
+                >
+                  <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                    Make Offer
+                  </Text>
+                </TouchableOpacity>
+              )
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.acceptedButton,
+                  { backgroundColor: theme.theme.colors.secondary },
+                ]}
+                onPress={() => {
+                  console.log('=== VIEW COUNTER OFFER BUTTON CLICKED ===');
+                  console.log('hasCounterOffer:', hasCounterOffer);
+                  console.log('notification.payload:', notification.payload);
+                  
+                  const actorId = notification.actor_id || notification.actor?.id;
+                  const listingId = notification.payload?.listing_id;
+                  const dealRoomId = notification.payload?.deal_room_id;
+                  
+                  if (dealRoomId) {
+                    console.log('Navigating to deal room:', dealRoomId);
+                    router.push(`/deal-room/${dealRoomId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                  } else {
+                    console.log('No dealRoomId, falling back to inbox');
+                    router.push("/(tabs)/inbox");
+                  }
+                }}
+                activeOpacity={Interactions.buttonOpacity}
+              >
+                <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                  {hasCounterOffer ? "View Counter Offer" : "Chat"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+
       case "message_received":
         return (
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.chatButton, { backgroundColor: theme.theme.colors.primary }]}
-              onPress={() => onExpand(notification)}
+              style={[
+                styles.actionButton,
+                styles.chatButton,
+                { backgroundColor: theme.theme.colors.primary },
+              ]}
+              onPress={() => {
+                  console.log('=== BUTTON CLICK DEBUG ===');
+                  console.log('View Counter Offer button clicked');
+                  onExpand(notification);
+                }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat Now</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                Chat Now
+              </Text>
             </TouchableOpacity>
           </View>
         );
@@ -118,15 +239,25 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           <View style={styles.actionButtons}>
             {!isOfferAccepted ? (
               <TouchableOpacity
-                style={[styles.actionButton, styles.acceptButton, { backgroundColor: theme.theme.colors.accent }]}
+                style={[
+                  styles.actionButton,
+                  styles.acceptButton,
+                  { backgroundColor: theme.theme.colors.accent },
+                ]}
                 onPress={() => onAcceptOffer(notification)}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Accept Offer</Text>
+                <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                  Accept Offer
+                </Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.actionButton, styles.acceptedButton, { backgroundColor: theme.theme.colors.secondary }]}
+                style={[
+                  styles.actionButton,
+                  styles.acceptedButton,
+                  { backgroundColor: theme.theme.colors.secondary },
+                ]}
                 onPress={() =>
                   router.push(
                     `/product/${
@@ -137,29 +268,54 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 }
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
+                <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                  View Details
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.actionButton, styles.chatButton, { backgroundColor: theme.theme.colors.primary }]}
+              style={[
+                styles.actionButton,
+                styles.chatButton,
+                { backgroundColor: theme.theme.colors.primary },
+              ]}
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
-                if (actorId) {
-                  // Pass both user ID and listing ID to conversation screen
+                const dealRoomId = notification.payload?.deal_room_id;
+                
+                console.log('=== NOTIFICATION NAVIGATION DEBUG ===');
+                console.log('notification.type:', notification.type);
+                console.log('notification.status:', notification.status);
+                console.log('notification.payload:', notification.payload);
+                console.log('actorId:', actorId);
+                console.log('dealRoomId:', dealRoomId);
+                
+                if (dealRoomId) {
+                  // Use actual deal room ID if available
+                  console.log('Navigating to deal room:', dealRoomId);
+                  router.push(`/deal-room/${dealRoomId}` as any);
+                } else if (actorId) {
+                  // Fallback: Pass both user ID and listing ID to conversation screen
                   const listingId = notification.payload?.listing_id;
+                  console.log('No deal_room_id found, using actorId fallback:', actorId);
                   if (listingId) {
                     // Navigate with listingId and both participant IDs - let conversation screen find the chat
-                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                    router.push(
+                      `/deal-room/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}` as any
+                    );
                   } else {
-                    router.push(`/inbox/${actorId}`);
+                    router.push(`/deal-room/${actorId}` as any);
                   }
                 } else {
+                  console.log('No actorId found, going to inbox');
                   router.push("/(tabs)/inbox");
                 }
               }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                Chat
+              </Text>
             </TouchableOpacity>
           </View>
         );
@@ -170,7 +326,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return (
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: theme.theme.colors.primary },
+              ]}
               onPress={() =>
                 router.push(
                   `/product/${
@@ -181,28 +340,52 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               }
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                View Details
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: theme.theme.colors.primary },
+              ]}
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
-                if (actorId) {
-                  // Pass both user ID and listing ID to conversation screen
+                const dealRoomId = notification.payload?.deal_room_id;
+                
+                console.log('=== NOTIFICATION NAVIGATION DEBUG ===');
+                console.log('notification.type:', notification.type);
+                console.log('notification.status:', notification.status);
+                console.log('notification.payload:', notification.payload);
+                console.log('actorId:', actorId);
+                console.log('dealRoomId:', dealRoomId);
+                
+                if (dealRoomId) {
+                  // Use actual deal room ID if available
+                  console.log('Navigating to deal room:', dealRoomId);
+                  router.push(`/deal-room/${dealRoomId}` as any);
+                } else if (actorId) {
+                  // Fallback: Pass both user ID and listing ID to conversation screen
                   const listingId = notification.payload?.listing_id;
+                  console.log('No deal_room_id found, using actorId fallback:', actorId);
                   if (listingId) {
                     // Navigate with listingId and both participant IDs - let conversation screen find the chat
-                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                    router.push(
+                      `/deal-room/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}` as any
+                    );
                   } else {
-                    router.push(`/inbox/${actorId}`);
+                    router.push(`/deal-room/${actorId}` as any);
                   }
                 } else {
+                  console.log('No actorId found, going to inbox');
                   router.push("/(tabs)/inbox");
                 }
               }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                Chat
+              </Text>
             </TouchableOpacity>
           </View>
         );
@@ -211,7 +394,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return (
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.acceptedButton, { backgroundColor: theme.theme.colors.secondary }]}
+              style={[
+                styles.actionButton,
+                styles.acceptedButton,
+                { backgroundColor: theme.theme.colors.secondary },
+              ]}
               onPress={() =>
                 router.push(
                   `/product/${
@@ -222,28 +409,52 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               }
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>View Details</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                View Details
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.theme.colors.primary }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: theme.theme.colors.primary },
+              ]}
               onPress={() => {
                 const actorId = notification.actor_id || notification.actor?.id;
-                if (actorId) {
-                  // Pass both user ID and listing ID to conversation screen
+                const dealRoomId = notification.payload?.deal_room_id;
+                
+                console.log('=== NOTIFICATION NAVIGATION DEBUG ===');
+                console.log('notification.type:', notification.type);
+                console.log('notification.status:', notification.status);
+                console.log('notification.payload:', notification.payload);
+                console.log('actorId:', actorId);
+                console.log('dealRoomId:', dealRoomId);
+                
+                if (dealRoomId) {
+                  // Use actual deal room ID if available
+                  console.log('Navigating to deal room:', dealRoomId);
+                  router.push(`/deal-room/${dealRoomId}` as any);
+                } else if (actorId) {
+                  // Fallback: Pass both user ID and listing ID to conversation screen
                   const listingId = notification.payload?.listing_id;
+                  console.log('No deal_room_id found, using actorId fallback:', actorId);
                   if (listingId) {
                     // Navigate with listingId and both participant IDs - let conversation screen find the chat
-                    router.push(`/inbox/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}`);
+                    router.push(
+                      `/deal-room/${actorId}?listingId=${listingId}&participant1Id=${currentUser?.id}&participant2Id=${actorId}` as any
+                    );
                   } else {
-                    router.push(`/inbox/${actorId}`);
+                    router.push(`/deal-room/${actorId}` as any);
                   }
                 } else {
+                  console.log('No actorId found, going to inbox');
                   router.push("/(tabs)/inbox");
                 }
               }}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Chat</Text>
+              <Text style={[styles.actionButtonText, { color: "#FFFFFF" }]}>
+                Chat
+              </Text>
             </TouchableOpacity>
           </View>
         );
@@ -345,11 +556,45 @@ export default function NotificationsScreen() {
   const status = useSelector(selectNotificationStatus);
   const error = useSelector(selectNotificationError);
   const unreadCount = useSelector(selectUnreadCount);
+  const isCreatingOffer = useSelector(selectCreateStatus) === "loading";
+  const currentUser = useAppSelector(selectUser);
+
+  // Use unified auth service for user data
+  // Prefer user with valid ID, fallback to JWT parsing
+  const parsedUser = getCurrentUser();
+  const activeUser = (currentUser && currentUser.id) ? currentUser : parsedUser;
+  
+  // Debug logging to understand the issue
+  console.log('=== NOTIFICATIONS AUTH DEBUG ===');
+  console.log('currentUser:', currentUser);
+  console.log('getCurrentUser():', getCurrentUser());
+  console.log('activeUser:', activeUser);
+  console.log('isAuthenticated():', isAuthenticated());
+
+  // Show loading state if user data is not available yet
+  if (!activeUser?.id) {
+    console.log('No active user found, showing loading...');
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={{ marginTop: 16, color: "#6B7280" }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  const currentUserId = activeUser.id;
 
   const [refreshing, setRefreshing] = useState(false);
-
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [selectedNotification, setSelectedNotification] =
+    useState<Notification | null>(null);
+  const [sellerName, setSellerName] = useState<string>("");
+  const [loadingSeller, setLoadingSeller] = useState<boolean>(false);
   useEffect(() => {
-    dispatch(fetchNotificationsThunk({}) as any);
+    // Only fetch notifications if user is authenticated
+    if (isAuthenticated()) {
+      dispatch(fetchNotificationsThunk({}) as any);
+    }
   }, []); // Empty dependency array to only fetch once on mount
 
   const handleRefresh = () => {
@@ -399,11 +644,47 @@ export default function NotificationsScreen() {
     if (!notification.is_read) {
       await dispatch(markAsReadThunk(notification.id) as any);
     }
-    
+
     // Then navigate based on notification type and payload
     const { type, payload } = notification;
 
     switch (type) {
+      case "intent_match":
+        console.log('=== NOTIFICATION NAVIGATION DEBUG ===');
+        console.log('notification.type:', type);
+        console.log('notification.status:', notification.status);
+        console.log('notification.payload:', payload);
+        console.log('payload?.counter_offered:', payload?.counter_offered);
+        console.log('payload?.deal_room_id:', payload?.deal_room_id);
+        
+        // For intent_match notifications with counter offers, navigate to deal room
+        if (payload?.counter_offered || notification.status === 'offer_countered') {
+          // Navigate to deal room using deal_room_id from notification payload
+          if (payload?.deal_room_id) {
+            console.log('Navigating to deal room:', payload.deal_room_id);
+            router.push(`/deal-room/${payload.deal_room_id}` as any);
+          } else {
+
+            // Try to find deal room using intent_id and listing_id
+            if (payload?.intent_id && payload?.listing_id) {
+              // Navigate to inbox for now, but we could implement deal room lookup here
+              console.log('Would look up deal room for intent:', payload.intent_id, 'listing:', payload.listing_id);
+              router.push("/inbox");
+            } else {
+              console.log('No intent_id or listing_id, falling back to inbox');
+              router.push("/inbox");
+            }
+          }
+        } else {
+          // For fresh intents, navigate to listing
+          if (payload?.listing_id) {
+            router.push(`/listing/${payload.listing_id}` as any);
+          } else {
+            router.push("/inbox");
+          }
+        }
+        break;
+
       case "offer_received":
       case "offer_countered":
       case "offer_accepted":
@@ -418,7 +699,7 @@ export default function NotificationsScreen() {
 
       case "message_received":
         if (payload?.conversation_id) {
-          router.push(`/inbox/${payload.conversation_id}` as any);
+          router.push(`/deal-room/${payload.conversation_id}` as any);
         } else {
           router.push("/inbox");
         }
@@ -489,12 +770,244 @@ export default function NotificationsScreen() {
     }
   };
 
+  const fetchSellerName = async (sellerId: string) => {
+    if (!sellerId || sellerId === currentUserId) {
+      setSellerName(activeUser?.profile?.name || "You");
+      return;
+    }
+
+    setLoadingSeller(true);
+    try {
+      // Fetch user details by ID
+      const response = await apiClient.get(`/user/${sellerId}`);
+      setSellerName(response.data.name || "Seller");
+    } catch (error) {
+      console.log("Failed to fetch seller name:", error);
+      setSellerName("Seller");
+    } finally {
+      setLoadingSeller(false);
+    }
+  };
+
+  const handleMakeOffer = (notification: Notification) => {
+    // Debug logging to check the values
+    console.log("=== OFFER DEBUG ===");
+    console.log("activeUser?.id:", activeUser?.id);
+    console.log("currentUserId:", currentUserId);
+    console.log("activeUser:", activeUser);
+    console.log("notification.type:", notification.type);
+    console.log("notification.user_id:", notification.user_id);
+    console.log("notification.actor_id:", notification.actor_id);
+    console.log("notification:", notification);
+    
+    // For intent_match notifications, check if current user is the seller
+    if (notification.type === "intent_match") {
+      const isSeller = notification.user_id === currentUserId;
+      const isBuyer = notification.actor_id === currentUserId;
+      console.log("isSeller comparison result:", isSeller);
+      console.log("isBuyer comparison result:", isBuyer);
+      console.log("notification.user_id === currentUserId:", notification.user_id, "===", currentUserId);
+
+      // Allow sellers to respond to intents (this is a counter-offer, not an offer on their own listing)
+      // Allow buyers to make offers on intents
+      // Both can proceed
+      if (isSeller) {
+        console.log("Seller responding to intent - allowing counter-offer");
+      } else if (isBuyer) {
+        console.log("Buyer making offer on intent - allowing");
+      } else {
+        // This shouldn't happen, but just in case
+        Alert.alert(
+          "Cannot Make Offer",
+          "You are not authorized to respond to this intent.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+    } else {
+      // For other notification types, check if user is trying to make offer on their own listing
+      if (notification.user_id === currentUserId) {
+        Alert.alert(
+          "Cannot Make Offer",
+          "You cannot make an offer on your own listing.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+    }
+    
+    setSelectedNotification(notification);
+    
+    // For other notification types, fetch seller name as before
+    if (notification.user_id) {
+      fetchSellerName(notification.user_id);
+    }
+    
+    setShowOfferModal(true);
+    dispatch(resetCreateStatus());
+
+    // Debug log to check notification data
+    console.log("handleMakeOffer notification:", {
+      type: notification.type,
+      listing_price: notification.payload?.listing_price,
+      buyer_max_price: notification.payload?.buyer_max_price,
+      listing_title: notification.payload?.listing_title,
+      actor_name: notification.actor_name,
+      actor_id: notification.actor_id,
+      user_id: notification.user_id,
+      current_user_id: activeUser?.id,
+      isSeller: notification.user_id === currentUserId,
+    });
+  };
+
+const handleSubmitOffer = async (price: string, message: string) => {
+    if (!price || !message || !selectedNotification) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    try {
+      // Check if this is a seller responding to intent
+      const isSellerRespondingToIntent = 
+        selectedNotification.type === "intent_match" && 
+        selectedNotification.user_id === currentUserId;
+
+      console.log('=== FRONTEND OFFER DEBUG ===');
+      console.log('selectedNotification.type:', selectedNotification.type);
+      console.log('selectedNotification.user_id:', selectedNotification.user_id);
+      console.log('currentUserId:', currentUserId);
+      console.log('isSellerRespondingToIntent:', isSellerRespondingToIntent);
+      console.log('selectedNotification.payload?.intent_id:', selectedNotification.payload?.intent_id);
+      console.log('selectedNotification.payload:', selectedNotification.payload); // Add full payload debug
+
+      const offerPayload = {
+        listing_id: selectedNotification.payload?.listing_id,
+        amount: parseFloat(price.replace("$", "")),
+        message: message,
+        // Explicitly set buyer_id based on who is making the offer
+        buyer_id: isSellerRespondingToIntent ? selectedNotification.user_id : currentUserId,
+        // Add intent_id if seller is responding to intent
+        ...(isSellerRespondingToIntent && { 
+          intent_id: selectedNotification.payload?.intent_id 
+        })
+      };
+
+      console.log('final offerPayload:', offerPayload);
+
+      const result = await dispatch(createOfferThunk(offerPayload) as any);
+      
+      console.log('=== OFFER CREATION RESULT DEBUG ===');
+      console.log('result.meta.requestStatus:', result.meta.requestStatus);
+      console.log('result.payload:', result.payload);
+      console.log('result.error:', result.error);
+      
+      if (result.meta.requestStatus === "fulfilled") {
+        console.log('OFFER CREATION SUCCESSFUL - proceeding with notification update');
+        const offerType = isSellerRespondingToIntent ? "Counter Offer" : "Offer";
+        Alert.alert(
+          `${offerType} Sent!`,
+          `Your ${offerType.toLowerCase()} of ${price} has been sent.`,
+          [
+            {
+              text: "Go to Chat",
+              onPress: async () => {
+                setShowOfferModal(false);
+                dispatch(resetCreateStatus());
+                // Navigate to deal room using the offer data
+                const dealRoomId = result.payload.deal_room_id;
+                if (dealRoomId) {
+                  const actorId =
+                    selectedNotification.actor_id ||
+                    selectedNotification.user_id;
+                  router.push(
+                    `/deal-room/${dealRoomId}?listingId=${selectedNotification.payload?.listing_id}&participant1Id=${currentUser?.id}&participant2Id=${actorId}` as any
+                  );
+                } else {
+                  Alert.alert("Info", "Deal room will be available shortly.");
+                }
+                // Update notification to show offer made (persist to backend)
+                console.log('=== NOTIFICATION UPDATE DEBUG ===');
+                console.log('Updating notification:', selectedNotification.id);
+                console.log('Update payload:', {
+                  status: isSellerRespondingToIntent ? "offer_countered" : "offer_created",
+                  payload: {
+                    ...selectedNotification.payload,
+                    ...(isSellerRespondingToIntent ? { counter_offered: true } : { offer_made: true }),
+                  },
+                });
+                
+                const updateResult = await dispatch(
+                  updateNotificationThunk({
+                    id: selectedNotification.id,
+                    data: {
+                      status: isSellerRespondingToIntent ? "offer_countered" : "offer_created",
+                      payload: {
+                        ...selectedNotification.payload,
+                        ...(isSellerRespondingToIntent ? { counter_offered: true } : { offer_made: true }),
+                        deal_room_id: result.payload.deal_room_id, // Add deal room ID to notification payload
+                      },
+                    },
+                  }) as any
+                );
+                
+                console.log('Notification update result:', updateResult);
+              },
+            },
+            {
+              text: "OK",
+              onPress: async () => {
+                setShowOfferModal(false);
+                dispatch(resetCreateStatus());
+                // Update notification to show offer made (persist to backend)
+                console.log('=== NOTIFICATION UPDATE DEBUG ===');
+                console.log('Updating notification:', selectedNotification.id);
+                console.log('Update payload:', {
+                  status: isSellerRespondingToIntent ? "offer_countered" : "offer_created",
+                  payload: {
+                    ...selectedNotification.payload,
+                    ...(isSellerRespondingToIntent ? { counter_offered: true } : { offer_made: true }),
+                  },
+                });
+                
+                const updateResult = await dispatch(
+                  updateNotificationThunk({
+                    id: selectedNotification.id,
+                    data: {
+                      status: isSellerRespondingToIntent ? "offer_countered" : "offer_created",
+                      payload: {
+                        ...selectedNotification.payload,
+                        ...(isSellerRespondingToIntent ? { counter_offered: true } : { offer_made: true }),
+                        deal_room_id: result.payload.deal_room_id, // Add deal room ID to notification payload
+                      },
+                    },
+                  }) as any
+                );
+                
+                console.log('Notification update result:', updateResult);
+              },
+            },
+          ]
+        );
+      } else {
+        // Handle backend error messages properly
+        const errorMessage = result.payload || "Failed to send offer";
+        Alert.alert("Error", errorMessage);
+      }
+    } catch (error: any) {
+      // Fallback error handling
+      const errorMessage =
+        error?.message || "Failed to send offer. Please try again.";
+      Alert.alert("Error", errorMessage);
+    }
+  };
+
   const renderNotification = ({ item }: { item: Notification }) => (
     <NotificationItem
       notification={item}
       onExpand={handleNotificationPress}
       onMarkAsRead={handleMarkAsRead}
       onAcceptOffer={handleAcceptOffer}
+      onMakeOffer={handleMakeOffer}
     />
   );
 
@@ -554,10 +1067,7 @@ export default function NotificationsScreen() {
             color={theme.theme.colors.primary}
           />
         </TouchableOpacity>
-        <ThemedText
-          type="heading"
-          style={styles.headerTitle}
-        >
+        <ThemedText type="heading" style={styles.headerTitle}>
           Notifications
         </ThemedText>
         <View style={styles.headerRight}>
@@ -580,10 +1090,7 @@ export default function NotificationsScreen() {
               style={styles.markAllButton}
               activeOpacity={Interactions.buttonOpacity}
             >
-              <ThemedText
-                type="caption"
-                style={styles.markAllButtonText}
-              >
+              <ThemedText type="caption" style={styles.markAllButtonText}>
                 Mark All Read
               </ThemedText>
             </TouchableOpacity>
@@ -595,7 +1102,9 @@ export default function NotificationsScreen() {
                 { backgroundColor: theme.theme.colors.error },
               ]}
             >
-              <Text style={[styles.unreadBadgeText, { color: '#FFFFFF' }]}>{unreadCount}</Text>
+              <Text style={[styles.unreadBadgeText, { color: "#FFFFFF" }]}>
+                {unreadCount}
+              </Text>
             </View>
           )}
         </View>
@@ -607,12 +1116,78 @@ export default function NotificationsScreen() {
           renderItem={renderNotification}
           keyExtractor={(item) => item.id}
           contentContainerStyle={
-            notifications.length === 0 ? styles.emptyContent : styles.listContent
+            notifications.length === 0
+              ? styles.emptyContent
+              : styles.listContent
           }
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
         />
       </PullToRefresh>
+
+      {/* Offer Modal */}
+      <OfferModal
+        visible={showOfferModal}
+        onClose={() => {
+          setShowOfferModal(false);
+          dispatch(resetCreateStatus());
+        }}
+        onSubmit={handleSubmitOffer}
+        listing={{
+          id: selectedNotification?.payload?.listing_id || "",
+          title:
+            selectedNotification?.payload?.listing_title ||
+            "Item from notification",
+          price:
+            selectedNotification?.payload?.listing_price ||
+            "Price not specified",
+          image: selectedNotification?.actor_avatar || "",
+          seller: loadingSeller ? "Loading..." : sellerName || "Seller",
+        }}
+        sellerOffer={
+          selectedNotification?.type === "intent_match"
+            ? ""
+            : selectedNotification?.payload?.listing_price || ""
+        }
+        buyerOffer={
+          selectedNotification?.type === "intent_match"
+            ? selectedNotification?.payload?.buyer_max_price || ""
+            : ""
+        }
+        isSeller={
+          selectedNotification?.type === "intent_match"
+            ? selectedNotification?.user_id === currentUserId // For intent_match, user_id is the seller
+            : selectedNotification?.user_id === currentUserId
+        }
+        isSubmitting={isCreatingOffer}
+      />
+
+      {/* Debug info */}
+      {__DEV__ && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 10,
+            left: 10,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            padding: 8,
+            borderRadius: 4,
+          }}
+        >
+          <Text style={{ color: "white", fontSize: 10 }}>
+            Debug: actor_id={selectedNotification?.actor_id}
+          </Text>
+          <Text style={{ color: "white", fontSize: 10 }}>
+            Debug: user_id={selectedNotification?.user_id}
+          </Text>
+          <Text style={{ color: "white", fontSize: 10 }}>
+            Debug: current_user={activeUser?.id}
+          </Text>
+          <Text style={{ color: "white", fontSize: 10 }}>
+            Debug: isSeller={selectedNotification?.user_id === currentUserId}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -681,14 +1256,10 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: "center",
   },
-  chatButton: {
-  },
-  acceptButton: {
-  },
-  acceptedButton: {
-  },
-  declineButton: {
-  },
+  chatButton: {},
+  acceptButton: {},
+  acceptedButton: {},
+  declineButton: {},
   actionButtonText: {
     fontSize: 12,
     fontWeight: "600",
@@ -738,8 +1309,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  unreadTitle: {
-  },
+  unreadTitle: {},
   time: {
     fontSize: 12,
   },
@@ -747,8 +1317,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
   },
-  unreadBody: {
-  },
+  unreadBody: {},
   actorName: {
     fontSize: 12,
   },

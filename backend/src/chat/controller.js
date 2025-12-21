@@ -120,20 +120,13 @@ const getChat = async (req, res) => {
 
 const findChatByUsersController = async (req, res) => {
   try {
-    console.log("=== FIND CHAT BY USERS CONTROLLER ===");
-    console.log("Query params:", req.query);
-    console.log("User from auth middleware:", req.user);
-    
+  
     const { participant1_id, participant2_id, listing_id } = req.query;
     
     // Support both old format (participant_id) and new format (participant1_id & participant2_id)
     const participant1 = participant1_id || req.user.id;
     const participant2 = participant2_id || req.query.participant_id;
-    
-    console.log("Final participant1:", participant1);
-    console.log("Final participant2:", participant2);
-    console.log("Listing ID:", listing_id);
-    
+     
     if (!participant1 || !participant2) {
       console.log("Missing participant IDs");
       return res.status(400).json({ error: 'Both participant IDs are required' });
@@ -144,11 +137,9 @@ const findChatByUsersController = async (req, res) => {
       return res.status(400).json({ error: 'Participants must be different users' });
     }
     
-    console.log("Calling findChatByUsers model function...");
-    const chat = await findChatByUsers(participant1, participant2, listing_id);
+      const chat = await findChatByUsers(participant1, participant2, listing_id);
     
-    console.log("Find chat result:", chat);
-    
+     
     if (!chat) {
       console.log("No chat found");
       return res.status(404).json({ error: 'Chat not found' });
@@ -196,7 +187,7 @@ const findChatByUsersController = async (req, res) => {
       user_offer: userOffer
     };
     
-        res.json(enrichedChat);
+    res.json(enrichedChat);
   } catch (error) {
     console.error('Error finding chat by users:', error);
     res.status(500).json({ error: 'Internal server error' });

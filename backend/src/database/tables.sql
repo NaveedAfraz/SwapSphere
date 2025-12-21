@@ -444,3 +444,78 @@ DO $$ BEGIN
     
   END IF;
 END $$;
+
+
+CREATE TABLE IF NOT EXISTS intents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  buyer_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text,
+  category text,
+  max_price numeric(12,2),
+  location jsonb,
+  status text DEFAULT 'open', -- open | matched | closed
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_intents_buyer ON intents(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_intents_status ON intents(status);
+
+CREATE TABLE IF NOT EXISTS deal_rooms (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intent_id uuid REFERENCES intents(id) ON DELETE SET NULL,
+  listing_id uuid REFERENCES listings(id) ON DELETE SET NULL,
+  buyer_id uuid NOT NULL REFERENCES users(id),
+  seller_id uuid NOT NULL REFERENCES sellers(id),
+  current_state text NOT NULL DEFAULT 'negotiation',
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deal_rooms_buyer ON deal_rooms(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_deal_rooms_seller ON deal_rooms(seller_id);
+CREATE INDEX IF NOT EXISTS idx_deal_rooms_state ON deal_rooms(current_state);
+
+CREATE TABLE IF NOT EXISTS deal_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_room_id uuid NOT NULL REFERENCES deal_rooms(id) ON DELETE CASCADE,
+  actor_id uuid REFERENCES users(id),
+  event_type text NOT NULL,
+  payload jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deal_events_room ON deal_events(deal_room_id);
+CREATE INDEX IF NOT EXISTS idx_deal_events_type ON deal_events(event_type);
+
+ALTER TABLE offers
+ADD COLUMN IF NOT EXISTS deal_room_id uuid REFERENCES deal_rooms(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_offers_deal_room ON offers(deal_room_id);
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS deal_room_id uuid REFERENCES deal_rooms(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_orders_deal_room ON orders(deal_room_id);
+
+ALTER TABLE messages
+ADD COLUMN IF NOT EXISTS deal_room_id uuid REFERENCES deal_rooms(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_messages_deal_room ON messages(deal_room_id);
+
+ALTER TABLE listings
+ADD COLUMN IF NOT EXISTS allow_offers boolean DEFAULT true,
+ADD COLUMN IF NOT EXISTS intent_eligible boolean DEFAULT false,
+ADD COLUMN IF NOT EXISTS accept_swaps boolean DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_listings_intent_eligible ON listings(intent_eligible);
+ALTER TABLE notifications
+ADD COLUMN IF NOT EXISTS intent_id uuid REFERENCES intents(id),
+ADD COLUMN IF NOT EXISTS listing_id uuid REFERENCES listings(id);
+
+-- Unique constraint for dedupe: only one notification per (intent, listing, seller)
+-- Use a partial unique index so existing other notifications are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_intent_listing_seller
+ON notifications (intent_id, listing_id, user_id)
+WHERE intent_id IS NOT NULL AND listing_id IS NOT NULL;
