@@ -18,6 +18,11 @@ export const theme = {
     warning: '#F59E0B',
     info: '#3B82F6',
     
+    // Additional semantic colors
+    accent: '#3B82F6',
+    secondary: '#6B7280',
+    subtle: '#F3F4F6',
+    
     // White
     white: '#FFFFFF',
   },

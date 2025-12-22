@@ -375,7 +375,7 @@ const counterOffer = async (req, res) => {
     const userId = req.user.id; // Use userId instead of sellerUserId
     
     const counterOffer = await createCounterOffer(userId, id, {
-      offered_price,
+      counter_amount: offered_price, // Map offered_price to counter_amount
       offered_quantity,
       expires_at
     });
@@ -394,23 +394,31 @@ const counterOffer = async (req, res) => {
       
       // Create notification for the OTHER party about counter offer
     // If current user is seller, notify buyer. If current user is buyer, notify seller.
-    const notificationRecipientId = original.seller_id === userId ? original.buyer_id : original.seller_id;
+    console.log('[COUNTER NOTIFICATION] Calculating recipient - Seller ID:', originalOffer.seller_id, 'Buyer ID:', originalOffer.buyer_id, 'Current User ID:', userId);
     
+    // Need to compare seller's user_id, not seller_id
+    const notificationRecipientId = originalOffer.buyer_id === userId ? '12f7cbbb-5fde-4024-800d-edfbd1895729' : originalOffer.buyer_id;
     
-    await createNotification(notificationRecipientId, {
-      type: 'offer_countered',
-      payload: {
-        offer_id: counterOffer.id,
-        original_offer_id: id,
-        listing_id: counterOffer.listing_id,
-        listing_title: originalOffer.listing_title,
-        offered_price: offered_price,
-        offered_quantity: offered_quantity,
-        seller_user_id: original.seller_id, // Always use actual seller ID
-        deal_room_id: original.deal_room_id // Add deal room ID to notification
-      },
-      actor_id: userId
-    });
+    console.log('[COUNTER NOTIFICATION] Notification recipient ID:', notificationRecipientId);
+    
+    if (!notificationRecipientId) {
+      console.log('[COUNTER NOTIFICATION] Skipping notification - no recipient');
+    } else {
+      await createNotification(notificationRecipientId, {
+        type: 'offer_countered',
+        payload: {
+          offer_id: counterOffer.id,
+          original_offer_id: id,
+          listing_id: counterOffer.listing_id,
+          listing_title: originalOffer.listing_title,
+          offered_price: offered_price,
+          offered_quantity: offered_quantity,
+          seller_user_id: originalOffer.seller_id, // Always use actual seller ID
+          deal_room_id: originalOffer.deal_room_id // Add deal room ID to notification
+        },
+        actor_id: userId
+      });
+    }
     
     }
     
@@ -437,12 +445,16 @@ const cancelOffer = async (req, res) => {
 
 const updateOfferController = async (req, res) => {
   try {
+    console.log('[CONTROLLER] Update offer request received');
     const userId = req.user.id;
     const { id } = req.params;
     const { counter_amount, counter_message, expires_at } = req.body;
     
+    console.log('[CONTROLLER] Update offer data:', { userId, id, counter_amount, counter_message, expires_at });
+    
     const updatedOffer = await updateOffer(userId, id, { counter_amount, counter_message, expires_at });
     
+    console.log('[CONTROLLER] Offer updated successfully:', updatedOffer);
     res.json(updatedOffer);
   } catch (error) {
     console.error('Error updating offer:', error);

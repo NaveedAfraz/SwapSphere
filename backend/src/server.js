@@ -1,6 +1,5 @@
 const express = require("express");
 const { createServer } = require("http");
-const { Server } = require("socket.io");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -9,18 +8,18 @@ require("dotenv").config();
 const { testConnection } = require("./database/db");
 const { serve } = require("inngest/express");
 
+// Import deal room socket server
+const setupDealRoomSocketIO = require("./socket/dealRoomSocketServer");
+
 // Import Inngest client and workflows
 const { inngest } = require("./services/inngest");
 const { workflows } = require("./workflows");
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
-});
+
+// Set up deal room socket server with all event handlers
+const io = setupDealRoomSocketIO(server);
 
 // Middleware
 app.use(helmet());
@@ -67,10 +66,6 @@ console.log(
       "http://localhost:5000"
     }/api/inngest`
 );
-
-io.on("connection", (socket) => {
-  socket.on("disconnect", () => {});
-});
 
 app.use("/api/auth", require("./auth/routes"));
 app.use("/api/profile", require("./profile/routes"));

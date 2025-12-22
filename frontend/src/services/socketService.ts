@@ -47,7 +47,7 @@ const waitForAuth = (timeout = 5000): Promise<boolean> => {
   });
 };
 
-// Connect to Socket.IO server
+// Connect to Socket.IO server - ENHANCED LOGGING
 export const connectSocket = async (): Promise<Socket> => {
   try {
     // Wait for auth to be ready before connecting
@@ -70,11 +70,13 @@ export const connectSocket = async (): Promise<Socket> => {
       auth: {
         token,
       },
-      transports: ["websocket"],
-      timeout: 10000,
+      transports: ["websocket", "polling"], // Add polling as fallback
+      timeout: 20000, // Increase timeout
       reconnection: true,
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      forceNew: true, // Force new connection on reconnect
     });
 
     // Set up event listeners
@@ -83,14 +85,20 @@ export const connectSocket = async (): Promise<Socket> => {
     return new Promise((resolve, reject) => {
       if (socket) {
         socket.on("connect", () => {
-          console.log("Socket connected successfully");
+          console.log("Socket connected successfully, ID:", socket?.id);
           reconnectAttempts = 0;
           resolve(socket!);
         });
 
         socket.on("connect_error", (error: any) => {
-          console.error("Socket connection error:", error);
+          console.error("Socket connection error:", error.message, error.description);
+          console.error("Connection details - URL:", serverUrl, "Transports:", socket?.io.engine.transport.name);
           reject(error);
+        });
+
+        // Add reconnection attempt logging
+        socket.io.on("reconnect_attempt", (attemptNumber: any) => {
+          console.log("Socket reconnection attempt:", attemptNumber);
         });
       }
     });
@@ -116,33 +124,35 @@ export const isSocketConnected = (): boolean => {
   return socket?.connected || false;
 };
 
-// Join a chat room
+// Join a chat room (deal room)
 export const joinChatRoom = (chatId: string): void => {
+  console.log("[SOCKET] Joining deal room check - Socket exists:", !!socket, "Connected:", socket?.connected, "Already joined:", joinedRooms.has(chatId), "Room:", chatId); 
   if (socket && socket.connected && !joinedRooms.has(chatId)) {
-    socket.emit("join_chat", chatId);
+    socket.emit("join_deal_room", chatId);
     joinedRooms.add(chatId);
-    console.log(`Joining chat room: ${chatId}`);
+    console.log(`Joining deal room: ${chatId}`);
   }
 };
 
-// Leave a chat room
+// Leave a chat room (deal room)
 export const leaveChatRoom = (chatId: string): void => {
   if (socket && socket.connected && joinedRooms.has(chatId)) {
-    socket.emit("leave_chat", chatId);
+    socket.emit("leave_deal_room", chatId);
     joinedRooms.delete(chatId);
-    console.log(`Leaving chat room: ${chatId}`);
+    console.log(`Leaving deal room: ${chatId}`);
   }
 };
 
 // Send a message
 export const sendSocketMessage = (
-  chatId: string,
+  dealRoomId: string,
   body: string,
   attachments: any[] = []
 ): void => {
+  console.log("[SOCKET] Attempting to send message - Socket exists:", !!socket, "Connected:", socket?.connected, "Deal room ID:", dealRoomId); 
   if (socket && socket.connected) {
     socket.emit("send_message", {
-      chatId,
+      dealRoomId,
       body,
       attachments,
     });
@@ -150,24 +160,27 @@ export const sendSocketMessage = (
 };
 
 // Start typing indicator
-export const startTyping = (chatId: string): void => {
+export const startTyping = (dealRoomId: string): void => {
+  console.log("[SOCKET] Starting typing - Socket exists:", !!socket, "Connected:", socket?.connected, "Deal room ID:", dealRoomId); 
   if (socket && socket.connected) {
-    socket.emit("typing_start", chatId);
+    socket.emit("typing_start", dealRoomId);
   }
 };
 
 // Stop typing indicator
-export const stopTyping = (chatId: string): void => {
+export const stopTyping = (dealRoomId: string): void => {
+  console.log("[SOCKET] Stopping typing - Socket exists:", !!socket, "Connected:", socket?.connected, "Deal room ID:", dealRoomId); 
   if (socket && socket.connected) {
-    socket.emit("typing_stop", chatId);
+    socket.emit("typing_stop", dealRoomId);
   }
 };
 
 // Mark messages as read
-export const markAsRead = (chatId: string, messageIds: string[]): void => {
+export const markAsRead = (dealRoomId: string, messageIds: string[]): void => {
+  console.log("[SOCKET] Marking messages as read - Socket exists:", !!socket, "Connected:", socket?.connected, "Deal room ID:", dealRoomId); 
   if (socket && socket.connected) {
     socket.emit("mark_read", {
-      chatId,
+      dealRoomId,
       messageIds,
     });
   }
@@ -197,12 +210,12 @@ const setupEventListeners = (): void => {
   });
 
   // Chat events
-  socket.on("joined_chat", (data: any) => {
-    console.log("Joined chat:", data.chatId);
+  socket.on("joined_deal_room", (data: any) => {
+    console.log("Joined deal room:", data.dealRoomId);
   });
 
-  socket.on("left_chat", (data: any) => {
-    console.log("Left chat:", data.chatId);
+  socket.on("left_deal_room", (data: any) => {
+    console.log("Left deal room:", data.dealRoomId);
   });
 
   // Message events
@@ -248,6 +261,26 @@ export const reconnectSocketWithNewToken = async (): Promise<void> => {
 // Set up event callbacks
 export const onSocketMessage = (callback: (message: any) => void): void => {
   onMessageCallback = callback;
+};
+
+export const onOfferUpdate = (callback: (data: any) => void): void => {
+  if (!socket) {
+    console.warn('[SOCKET] Cannot listen to offer updates - socket not connected');
+    return;
+  }
+  
+  socket.on('offer_updated', (data) => {
+    console.log('[SOCKET] Received offer_updated event:', data);
+    callback(data);
+  });
+  console.log('[SOCKET] Listening for offer update events');
+};
+
+export const offOfferUpdate = (callback: (data: any) => void): void => {
+  if (!socket) return;
+  
+  socket.off('offer_updated', callback);
+  console.log('[SOCKET] Stopped listening for offer update events');
 };
 
 export const onSocketTyping = (callback: (data: any) => void): void => {

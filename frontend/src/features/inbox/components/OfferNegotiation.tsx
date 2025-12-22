@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux';
 import { Interactions } from '@/src/constants/theme';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemedText } from '@/src/components/GlobalThemeComponents';
+import { useAuth } from '@/src/hooks/useAuth';
 import { updateOfferThunk, counterOfferThunk } from '@/src/features/offer/offerThunks';
 import { fetchChatByIdThunk } from '@/src/features/inbox/chatThunks';
 
@@ -18,6 +19,8 @@ interface OfferNegotiationProps {
   offerId?: string;
   conversationId?: string;
   actualChatId?: string;
+  buyerId?: string; // Add buyer ID for proper ownership calculation
+  sellerId?: string; // Add seller ID for proper ownership calculation
   onOfferUpdate?: (newOffer: number) => void;
   onAcceptOffer?: () => void;
 }
@@ -32,11 +35,18 @@ export default function OfferNegotiation({
   offerId,
   conversationId,
   actualChatId,
+  buyerId,
+  sellerId,
   onOfferUpdate,
   onAcceptOffer,
 }: OfferNegotiationProps) {
   const dispatch = useDispatch();
   const { theme } = useTheme();
+  const { user } = useAuth();
+
+  // Calculate if this is the user's own offer based on who made the current offer
+  // The isOwnOffer prop should indicate who made the current offer, not just participation
+  const calculatedIsOwnOffer = isOwnOffer || false;
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempOffer, setTempOffer] = useState((currentOffer || 0).toString());
@@ -49,22 +59,31 @@ export default function OfferNegotiation({
   const handleSaveOffer = () => {
     const newOffer = parseFloat(tempOffer);
     
+    console.log('[OFFER] Save offer clicked - New offer:', newOffer, 'Current offer:', currentOffer, 'Offer ID:', offerId);
+    console.log('[OFFER] User ID:', user?.id, 'Buyer ID:', buyerId, 'Seller ID:', sellerId);
+    console.log('[OFFER] Is own offer:', calculatedIsOwnOffer, 'Has onOfferUpdate callback:', !!onOfferUpdate);
+    
     if (!isNaN(newOffer) && newOffer > 0) {
       // Always call parent handler if available
       if (onOfferUpdate) {
-        onOfferUpdate(newOffer);
+        console.log('[OFFER] Calling onOfferUpdate callback with new offer:', newOffer);
+        onOfferUpdate(newOffer); 
       } else {
+        console.log('[OFFER] No onOfferUpdate callback, using direct thunk dispatch');
         // Fallback to direct thunk dispatch only if no handler provided
         if (offerId) {
-          if (isOwnOffer) {
+          if (calculatedIsOwnOffer) {
             // User is updating their own offer
+            console.log('[OFFER] Updating own offer via updateOfferThunk');
             dispatch(updateOfferThunk({
               id: offerId,
               data: { counter_amount: newOffer }
             }) as any).then((result: any) => {
+              console.log('[OFFER] Update offer result:', result);
               // Refresh chat data to get updated offer information
               const chatIdToRefresh = actualChatId || conversationId;
               if (chatIdToRefresh) {
+                console.log('[OFFER] Refreshing chat data for ID:', chatIdToRefresh);
                 dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
               }
             }).catch((error: any) => {
@@ -72,22 +91,29 @@ export default function OfferNegotiation({
             });
           } else {
             // User is making a counter offer to someone else's offer
+            console.log('[OFFER] Making counter offer via counterOfferThunk');
             dispatch(counterOfferThunk({
               offer_id: offerId,
               counter_amount: newOffer,
             }) as any).then((result: any) => {
+              console.log('[OFFER] Counter offer result:', result);
               // Refresh chat data to get updated offer information
               const chatIdToRefresh = actualChatId || conversationId;
               if (chatIdToRefresh) {
+                console.log('[OFFER] Refreshing chat data for ID:', chatIdToRefresh);
                 dispatch(fetchChatByIdThunk(chatIdToRefresh) as any);
               }
             }).catch((error: any) => {
               console.error("COUNTER OFFER FAILED:", error);
             });
           }
+        } else {
+          console.error('[OFFER] No offer ID available for update');
         }
       }
       setIsEditing(false);
+    } else {
+      console.error('[OFFER] Invalid offer amount:', newOffer);
     }
   };
 
@@ -106,7 +132,7 @@ export default function OfferNegotiation({
       <View style={styles.offerSection}>
         <View style={styles.offerHeader}>
           <ThemedText type="body" style={styles.offerLabel}>
-            {isOwnOffer ? 'Your Offer' : 'Their Offer'}
+            {calculatedIsOwnOffer ? 'Your Offer' : 'Their Offer'}
           </ThemedText>
           {!isEditing && offerStatus !== 'accepted' && (
             <TouchableOpacity
@@ -145,7 +171,7 @@ export default function OfferNegotiation({
                 onPress={handleSaveOffer}
                 activeOpacity={Interactions.buttonOpacity}
               >
-                <ThemedText type="caption" style={[styles.saveText, { color: '#FFFFFF' }]}>Update</ThemedText>
+                <ThemedText type="caption" style={[styles.saveText, { color: theme.colors.background }]}>Update</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -168,7 +194,7 @@ export default function OfferNegotiation({
                 </ThemedText>
               )}
             </View>
-            {!isOwnOffer && onAcceptOffer && (
+            {!calculatedIsOwnOffer && onAcceptOffer && (
               <TouchableOpacity
                 style={[styles.acceptButton, { backgroundColor: theme.colors.accent }]}
                 onPress={onAcceptOffer}

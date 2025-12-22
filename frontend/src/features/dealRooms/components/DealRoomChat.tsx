@@ -39,6 +39,16 @@ import { updateOfferThunk, counterOfferThunk, acceptOfferThunk } from "../../../
 import OfferNegotiation from "../../../features/inbox/components/OfferNegotiation";
 import { Interactions } from "../../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { 
+  connectSocket, 
+  disconnectSocket, 
+  joinChatRoom, 
+  leaveChatRoom, 
+  sendSocketMessage,
+  onSocketMessage,
+  onOfferUpdate,
+  isSocketConnected
+} from "../../../services/socketService";
 
 interface DealRoomChatProps {
   dealRoomId: string;
@@ -81,7 +91,11 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   const [messageText, setMessageText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [lastOfferUpdatedBy, setLastOfferUpdatedBy] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Calculate if this is the user's own offer based on who last updated it
+  const calculatedIsOwnOffer = lastOfferUpdatedBy === activeUser?.id;
 
   const dealRoomMessages = messages[dealRoomId] || [];
   
@@ -109,8 +123,70 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   }, []);
 
   useEffect(() => {
-    dispatch(fetchDealRoom(dealRoomId));
+    console.log('[CHAT] Fetching deal room data for ID:', dealRoomId); dispatch(fetchDealRoom(dealRoomId));
     dispatch(fetchMessages({ dealRoomId }));
+  }, [dealRoomId, dispatch]);
+
+  // Initialize lastOfferUpdatedBy when deal room data loads (only if not already set by socket)
+  useEffect(() => {
+    if (currentDealRoom?.latest_offer && !lastOfferUpdatedBy) {
+      // Initially, assume the buyer made the offer
+      setLastOfferUpdatedBy(currentDealRoom.latest_offer.buyer_id);
+      console.log('[CHAT] Initialized last offer updated by to buyer:', currentDealRoom.latest_offer.buyer_id);
+    }
+  }, [currentDealRoom?.latest_offer, lastOfferUpdatedBy]);
+
+  // Socket connection and real-time messaging
+  useEffect(() => {
+    let socketConnected = false;
+
+    const initializeSocket = async () => {
+      try {
+        if (!isSocketConnected()) {
+          await connectSocket();
+        }
+        socketConnected = true;
+        
+        // Join the deal room as a chat room
+        joinChatRoom(dealRoomId);
+        
+        console.log('[CHAT] Socket initialized and joined room:', dealRoomId);
+      } catch (error) {
+        console.error('[CHAT] Failed to initialize socket:', error);
+      }
+    };
+
+    initializeSocket();
+
+    // Set up message listener
+    const handleNewMessage = (message: any) => {
+      console.log('[CHAT] Received new message via socket:', message);
+      dispatch(addMessage({ dealRoomId, message }));
+    };
+
+    const handleOfferUpdate = (data: any) => {
+      console.log('[CHAT] Received offer update via socket:', data);
+      console.log('[CHAT] Refreshing deal room data for ID:', dealRoomId);
+      
+      // Set who made the latest offer update
+      if (data.updatedBy) {
+        setLastOfferUpdatedBy(data.updatedBy);
+        console.log('[CHAT] Set last offer updated by:', data.updatedBy);
+      }
+      
+      // Refresh deal room data to get updated offer information
+      dispatch(fetchDealRoom(dealRoomId));
+    };
+
+    onSocketMessage(handleNewMessage);
+    onOfferUpdate(handleOfferUpdate);
+
+    return () => {
+      if (socketConnected) {
+        leaveChatRoom(dealRoomId);
+        console.log('[CHAT] Left room and cleaned up socket:', dealRoomId);
+      }
+    };
   }, [dealRoomId, dispatch]);
 
   
@@ -133,28 +209,27 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   }, [validMessages.length]);
 
   const handleOfferUpdate = (newOffer: number) => {
-    // Dispatch Redux action based on offer status and ownership
+    // console.log('[CHAT] Offer update - lastOfferUpdatedBy:', lastOfferUpdatedBy, 'currentUser:', activeUser?.id, 'calculatedIsOwnOffer:', calculatedIsOwnOffer);
+    
     if (offerId) {
-      if (isOwnOffer) {
+      if (calculatedIsOwnOffer) {
         // User is updating their own offer
+        console.log('[CHAT] User updating their own offer - using updateOfferThunk');
         dispatch(updateOfferThunk({
             id: offerId,
             data: { counter_amount: newOffer },
-          })).then(() => {
-          // Refresh deal room data to get updated offer information
-          dispatch(fetchDealRoom(dealRoomId));
-        });
+          }));
+        // No need to fetch deal room - socket events will update the UI in real-time
       } else {
         // User is making a counter offer to someone else's offer
+        console.log('[CHAT] User making counter offer - using counterOfferThunk');
         dispatch(
           counterOfferThunk({
             offer_id: offerId,
             counter_amount: newOffer,
           }) as any
-        ).then(() => {
-          // Refresh deal room data to get updated offer information
-          dispatch(fetchDealRoom(dealRoomId));
-        });
+        );
+        // No need to fetch deal room - socket events will update the UI in real-time
       }
     }
   };
@@ -168,7 +243,7 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     // Dispatch accept offer thunk
     dispatch(acceptOfferThunk(offerId) as any).then(() => {
       // Refresh deal room data to get updated offer information
-      dispatch(fetchDealRoom(dealRoomId));
+      console.log('[CHAT] Fetching deal room data for ID:', dealRoomId); dispatch(fetchDealRoom(dealRoomId));
     }).catch((error: any) => {
       console.error('OFFER ACCEPT FAILED:', error);
     });
@@ -178,16 +253,35 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     if (messageText.trim() === "") return;
 
     try {
-      await dispatch(
-        sendMessage({
-          dealRoomId,
-          payload: { body: messageText.trim() },
-        })
-      ).unwrap();
-
-      setMessageText("");
+      // Try to send via socket first for real-time delivery
+      if (isSocketConnected()) {
+        sendSocketMessage(dealRoomId, messageText.trim());
+        setMessageText("");
+      } else {
+        // Fallback to Redux dispatch if socket fails
+        await dispatch(
+          sendMessage({
+            dealRoomId,
+            payload: { body: messageText.trim() },
+          })
+        ).unwrap();
+        setMessageText("");
+        Alert.alert("Message Sent", "Message saved to database (real-time delivery unavailable)");
+      }
     } catch (error) {
-      Alert.alert("Error", "Failed to send message");
+      // Try Redux as final fallback
+      try {
+        await dispatch(
+          sendMessage({
+            dealRoomId,
+            payload: { body: messageText.trim() },
+          })
+        ).unwrap();
+        setMessageText("");
+        Alert.alert("Message Sent", "Message saved to database");
+      } catch (reduxError) {
+        Alert.alert("Error", "Failed to send message. Please try again.");
+      }
     }
   };
 
@@ -374,14 +468,16 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
           itemImage={itemImage}
           originalPrice={originalPrice}
           currentOffer={currentOffer}
-          isOwnOffer={isOwnOffer}
+          isOwnOffer={calculatedIsOwnOffer}
           offerStatus={offerStatus}
           offerId={offerId}
           conversationId={conversationId}
           actualChatId={actualChatId}
+          buyerId={currentDealRoom?.buyer_id}
+          sellerId={currentDealRoom?.seller_id}
           onOfferUpdate={handleOfferUpdate}
           onAcceptOffer={
-            !isOwnOffer && offerStatus !== "accepted"
+            !calculatedIsOwnOffer && offerStatus !== "accepted"
               ? handleAcceptOffer
               : undefined
           }

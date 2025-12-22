@@ -4,14 +4,20 @@ const pool = require('../database/db');
 const { createDealEvent, createMessageEvent } = require('../dealEvents/model');
 
 // Socket.IO server setup for deal rooms
+// Global IO instance for external access
+let globalIO = null;
+
 const setupDealRoomSocketIO = (server) => {
-  const io = new Server(server, {
+  // Create and store the global IO instance for external access
+  globalIO = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:3000",
+      origin: process.env.FRONTEND_URL || "*", // Allow all origins for development
       methods: ["GET", "POST"],
       credentials: true
     }
   });
+
+  const io = globalIO;
 
   // Authentication middleware
   io.use(async (socket, next) => {
@@ -251,4 +257,15 @@ const setupDealRoomSocketIO = (server) => {
   return io;
 };
 
+// Function to emit events to deal rooms from outside the socket handler
+const emitToDealRoom = (dealRoomId, event, data) => {
+  if (globalIO) {
+    console.log(`[SOCKET] Emitting ${event} to deal room: ${dealRoomId}`);
+    globalIO.to(`deal_room:${dealRoomId}`).emit(event, data);
+  } else {
+    console.warn('[SOCKET] Global IO instance not available for emitting to deal room');
+  }
+};
+
 module.exports = setupDealRoomSocketIO;
+module.exports.emitToDealRoom = emitToDealRoom;

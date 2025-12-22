@@ -214,14 +214,21 @@ const updateOfferStatus = async (userId, offerId, status) => {
 const createCounterOffer = async (userId, originalOfferId, counterData) => {
   const { counter_amount, expires_at } = counterData;
   
+  console.log('[COUNTER] Creating counter offer with data:', { userId, originalOfferId, counter_amount, expires_at });
+  
+  if (!counter_amount) {
+    throw new Error('Counter amount is required');
+  }
+  
   await pool.query('BEGIN');
   
   try {
     // Get the original offer details
     const originalQuery = `
-      SELECT o.*, l.title as listing_title, l.seller_user_id
+      SELECT o.*, l.title as listing_title, s.user_id as seller_user_id
       FROM offers o
       JOIN listings l ON o.listing_id = l.id
+      LEFT JOIN sellers s ON o.seller_id = s.id
       WHERE o.id = $1
     `;
     
@@ -234,7 +241,8 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
     const original = originalResult.rows[0];
     
     // Check if user is authorized to counter (either buyer or seller)
-    if (original.buyer_id !== userId && original.seller_id !== userId) {
+    if (original.buyer_id !== userId && original.seller_user_id !== userId) {
+      console.log('[COUNTER] Authorization failed - Buyer ID:', original.buyer_id, 'Seller User ID:', original.seller_user_id, 'Current User ID:', userId);
       throw new Error('You are not authorized to counter this offer');
     }
     
@@ -251,15 +259,47 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
     `;
     
     const result = await pool.query(updateQuery, [
-      offered_price,
-      offered_quantity || 1,
+      counter_amount,
+      1, // Default quantity since offered_quantity is not passed in counterData
       expires_at,
       originalOfferId
     ]);
     
+    const updatedOffer = result.rows[0];
+    
+    // Emit real-time counter offer update to both buyer and seller
+    try {
+      console.log('[COUNTER] Starting socket emission process...');
+      const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+      
+      // Get deal room ID to emit to the right room
+      const dealRoomId = updatedOffer.deal_room_id;
+      if (dealRoomId) {
+        console.log('[COUNTER] Emitting counter offer update to deal room:', dealRoomId);
+        console.log('[COUNTER] Emit data:', {
+          offerId: updatedOffer.id,
+          newAmount: updatedOffer.offered_price,
+          updatedBy: userId,
+          timestamp: updatedOffer.updated_at
+        });
+        emitToDealRoom(dealRoomId, 'offer_updated', {
+          offerId: updatedOffer.id,
+          newAmount: updatedOffer.offered_price,
+          updatedBy: userId,
+          timestamp: updatedOffer.updated_at
+        });
+        console.log('[COUNTER] Socket emission completed');
+      } else {
+        console.log('[COUNTER] No deal room ID found for socket emission');
+      }
+    } catch (error) {
+      console.error('[COUNTER] Failed to emit socket event:', error);
+      // Continue without socket emission - offer still updates in database
+    }
+    
     await pool.query('COMMIT');
     
-    return result.rows[0];
+    return updatedOffer;
   } catch (error) {
     await pool.query('ROLLBACK');
     throw error;
@@ -284,13 +324,31 @@ const updateOffer = async (userId, offerId, updateData) => {
   await pool.query("BEGIN");
   
   try {
-    // First verify the user owns this offer
+    // First verify the user is a participant in this deal (buyer or seller)
+    console.log('[OFFER DEBUG] Checking authorization - Offer ID:', offerId, 'User ID:', userId);
+    
+    // First check if offer exists at all
+    const offerExistsCheck = await pool.query(
+      'SELECT * FROM offers WHERE id = $1',
+      [offerId]
+    );
+    
+    console.log('[OFFER DEBUG] Offer exists check - Found rows:', offerExistsCheck.rows.length);
+    if (offerExistsCheck.rows.length > 0) {
+      console.log('[OFFER DEBUG] Found offer - Buyer ID:', offerExistsCheck.rows[0].buyer_id, 'Seller ID:', offerExistsCheck.rows[0].seller_id);
+    }
+    
+    // Check authorization: user is buyer OR user is seller (through sellers.user_id)
     const offerCheck = await pool.query(
-      'SELECT * FROM offers WHERE id = $1 AND buyer_id = $2',
+      'SELECT o.* FROM offers o LEFT JOIN sellers s ON o.seller_id = s.id WHERE o.id = $1 AND (o.buyer_id = $2 OR s.user_id = $2)',
       [offerId, userId]
     );
     
+    console.log('[OFFER DEBUG] Authorization query result rows:', offerCheck.rows.length);
+    console.log('[OFFER DEBUG] Query executed: SELECT o.* FROM offers o LEFT JOIN sellers s ON o.seller_id = s.id WHERE o.id =', offerId, 'AND (o.buyer_id =', userId, 'OR s.user_id =', userId, ')');
+    
     if (offerCheck.rows.length === 0) {
+      console.log('[OFFER DEBUG] Authorization failed - offer not found or user not authorized');
       throw new Error('Offer not found or not authorized');
     }
     
@@ -298,10 +356,11 @@ const updateOffer = async (userId, offerId, updateData) => {
     
     // Update the offer
     const updateQuery = `
-      UPDATE offers 
+      UPDATE offers o 
       SET offered_price = $1, expires_at = $2, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3 AND buyer_id = $4
-      RETURNING *
+      FROM sellers s 
+      WHERE o.id = $3 AND o.seller_id = s.id AND (o.buyer_id = $4 OR s.user_id = $4)
+      RETURNING o.*
     `;
     
     const result = await pool.query(updateQuery, [
@@ -312,6 +371,40 @@ const updateOffer = async (userId, offerId, updateData) => {
     ]);
     
     const updatedOffer = result.rows[0];
+    
+    // Emit real-time offer update to both buyer and seller
+    try {
+      console.log('[OFFER] Starting socket emission process...');
+      // Import the socket server module to get the IO instance
+      const setupSocketIO = require('../socket/socketServer');
+      // We need to get the IO instance from the server - this will be handled differently
+      // For now, let's emit through the deal room socket server
+      const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+      
+      // Get deal room ID to emit to the right room
+      const dealRoomId = updatedOffer.deal_room_id;
+      if (dealRoomId) {
+        console.log('[OFFER] Emitting offer update to deal room:', dealRoomId);
+        console.log('[OFFER] Emit data:', {
+          offerId: updatedOffer.id,
+          newAmount: updatedOffer.offered_price,
+          updatedBy: userId,
+          timestamp: updatedOffer.updated_at
+        });
+        emitToDealRoom(dealRoomId, 'offer_updated', {
+          offerId: updatedOffer.id,
+          newAmount: updatedOffer.offered_price,
+          updatedBy: userId,
+          timestamp: updatedOffer.updated_at
+        });
+        console.log('[OFFER] Socket emission completed');
+      } else {
+        console.log('[OFFER] No deal room ID found for socket emission');
+      }
+    } catch (error) {
+      console.error('[OFFER] Failed to emit socket event:', error);
+      // Continue without socket emission - offer still updates in database
+    }
     
     
     try {
