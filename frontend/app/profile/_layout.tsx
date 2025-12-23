@@ -43,6 +43,12 @@ export default function ProfileLayout() {
           ),
         }}
       />
+      <Stack.Screen
+        name="[orderId]"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

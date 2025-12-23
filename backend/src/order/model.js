@@ -1,4 +1,6 @@
 const { pool } = require("../database/db");
+const { inngest } = require("../services/inngest");
+const EventService = require("../services/eventService");
 
 const createOrder = async (buyerId, sellerId, orderData) => {
   const { total_amount, currency, shipping_address, billing_info, metadata } = orderData;
@@ -85,18 +87,36 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
   
   const dataQuery = `
     SELECT o.*, 
-           pb.name as buyer_name, pb.email as buyer_email,
-           ps.name as seller_name, s.store_name,
-           COUNT(oi.id) as item_count
+           ub.email as buyer_email,
+           us.email as seller_email, 
+           s.store_name,
+           COUNT(oi.id) as item_count,
+           COALESCE(
+             JSON_BUILD_OBJECT(
+               'id', (o.metadata->>'listing_id')::uuid,
+               'title', o.metadata->>'listing_title',
+               'price', l.price,
+               'condition', l.condition,
+               'description', l.description,
+               'images', COALESCE(
+                 JSON_AGG(
+                   JSON_BUILD_OBJECT('url', li.url) 
+                   ORDER BY li.id
+                 ) FILTER (WHERE li.url IS NOT NULL),
+                 '[]'::json
+               )
+             ),
+             '{}'::json
+           ) as listing
     FROM orders o
     LEFT JOIN users ub ON o.buyer_id = ub.id
-    LEFT JOIN profiles pb ON ub.id = pb.user_id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
-    LEFT JOIN profiles ps ON us.id = ps.user_id
     LEFT JOIN order_items oi ON o.id = oi.order_id
+    LEFT JOIN listings l ON l.id = (o.metadata->>'listing_id')::uuid
+    LEFT JOIN listing_images li ON l.id = li.listing_id
     WHERE ${whereConditions.join(' AND ')}
-    GROUP BY o.id, pb.name, pb.email, ps.name, s.store_name
+    GROUP BY o.id, ub.email, us.email, s.store_name, l.id, l.title, l.price, l.condition, l.description
     ORDER BY o.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}
   `;
@@ -111,8 +131,30 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
   const total = parseInt(countResult.rows[0].total);
   const totalPages = Math.ceil(total / limit);
   
+  // Parse JSON fields for each order
+  const orders = dataResult.rows.map(order => {
+    console.log('[ORDER MODEL] Processing order:', order.id, 'listing type:', typeof order.listing);
+    console.log('[ORDER MODEL] Raw listing data:', order.listing);
+    
+    try {
+      const parsedListing = typeof order.listing === 'string' ? JSON.parse(order.listing) : order.listing;
+      console.log('[ORDER MODEL] Parsed listing:', parsedListing);
+      return {
+        ...order,
+        listing: parsedListing
+      };
+    } catch (error) {
+      console.error('Error parsing listing JSON for order:', order.id, error);
+      console.error('[ORDER MODEL] Failed JSON string:', order.listing);
+      return {
+        ...order,
+        listing: {}
+      };
+    }
+  });
+  
   return {
-    orders: dataResult.rows,
+    orders,
     pagination: {
       page: parseInt(page),
       limit: parseInt(limit),
@@ -127,35 +169,104 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
 const getOrderById = async (userId, orderId) => {
   const query = `
     SELECT o.*, 
-           pb.name as buyer_name, pb.email as buyer_email,
-           ps.name as seller_name, s.store_name,
-           pb.avatar_key as buyer_avatar,
-           ps.avatar_key as seller_avatar
+           ub.email as buyer_email,
+           us.email as seller_email, 
+           s.store_name,
+           COALESCE(
+             JSON_BUILD_OBJECT(
+               'id', (o.metadata->>'listing_id')::uuid,
+               'title', o.metadata->>'listing_title',
+               'price', l.price,
+               'condition', l.condition,
+               'description', l.description,
+               'images', COALESCE(
+                 JSON_AGG(
+                   JSON_BUILD_OBJECT('url', li.url) 
+                   ORDER BY li.id
+                 ) FILTER (WHERE li.url IS NOT NULL),
+                 '[]'::json
+               )
+             ),
+             '{}'::json
+           ) as listing,
+           COALESCE(
+             JSON_BUILD_OBJECT(
+               'id', p.id,
+               'status', p.status,
+               'amount', p.amount,
+               'currency', p.currency,
+               'provider', p.provider,
+               'created_at', p.created_at,
+               'updated_at', p.updated_at,
+               'metadata', p.metadata
+             ),
+             NULL
+           ) as payment,
+           COALESCE(
+             JSON_BUILD_OBJECT(
+               'id', dr.id,
+               'current_state', dr.current_state,
+               'created_at', dr.created_at,
+               'updated_at', dr.updated_at
+             ),
+             NULL
+           ) as deal_room
     FROM orders o
     LEFT JOIN users ub ON o.buyer_id = ub.id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
-    LEFT JOIN profiles pb ON ub.id = pb.user_id
-    LEFT JOIN profiles ps ON us.id = ps.user_id
-    WHERE o.id = $1 AND (o.buyer_id = $2 OR o.seller_id = $2)
+    LEFT JOIN listings l ON (o.metadata->>'listing_id')::uuid = l.id
+    LEFT JOIN listing_images li ON l.id = li.listing_id
+    LEFT JOIN payments p ON o.id = p.order_id
+    LEFT JOIN deal_rooms dr ON (
+      o.buyer_id = dr.buyer_id AND 
+      o.seller_id = dr.seller_id AND 
+      (o.metadata->>'listing_id')::uuid = dr.listing_id
+    )
+    WHERE o.id = $1 AND (o.buyer_id = $2 OR s.user_id = $2)
+    GROUP BY o.id, ub.email, us.email, s.store_name, l.price, l.condition, l.description, p.id, p.status, p.amount, p.currency, p.provider, p.created_at, p.updated_at, p.metadata, dr.id, dr.current_state, dr.created_at, dr.updated_at
   `;
   
   const result = await pool.query(query, [orderId, userId]);
-  return result.rows[0] || null;
+  const order = result.rows[0];
+  
+  if (!order) return null;
+  
+  // Parse JSON fields with error handling
+  try {
+    return {
+      ...order,
+      listing: typeof order.listing === 'string' ? JSON.parse(order.listing) : order.listing,
+      payment: typeof order.payment === 'string' ? JSON.parse(order.payment) : order.payment,
+      deal_room: typeof order.deal_room === 'string' ? JSON.parse(order.deal_room) : order.deal_room
+    };
+  } catch (error) {
+    console.error('Error parsing JSON for order:', order.id, error);
+    return {
+      ...order,
+      listing: {},
+      payment: null,
+      deal_room: null
+    };
+  }
 };
 
 const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) => {
+  console.log('[ORDER MODEL] Updating order:', { userId, orderId, status, trackingInfo });
   await pool.query('BEGIN');
   
   try {
     // First verify user can modify this order
     const orderQuery = `
-      SELECT o.id, o.buyer_id, o.seller_id, o.status
+      SELECT o.id, o.buyer_id, o.seller_id, o.status, s.user_id as seller_user_id
       FROM orders o
+      LEFT JOIN sellers s ON o.seller_id = s.id
       WHERE o.id = $1
     `;
     
     const orderResult = await pool.query(orderQuery, [orderId]);
+    
+    console.log('[ORDER MODEL] Order query result:', { found: orderResult.rows.length, orderId });
     
     if (orderResult.rows.length === 0) {
       throw new Error('Order not found');
@@ -163,23 +274,42 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     
     const order = orderResult.rows[0];
     
+    console.log('[ORDER MODEL] Order details:', { 
+      orderId: order.id, 
+      buyer_id: order.buyer_id, 
+      seller_id: order.seller_id, 
+      seller_user_id: order.seller_user_id,
+      currentStatus: order.status 
+    });
+    
     // Check permissions based on status
     const buyerOnlyStatuses = ['cancelled'];
-    const sellerOnlyStatuses = ['reserved', 'shipped'];
+    const sellerOnlyStatuses = ['reserved', 'shipped', 'delivered'];
     const bothCanUpdate = ['disputed', 'completed'];
     
     if (buyerOnlyStatuses.includes(status) && order.buyer_id !== userId) {
       throw new Error('Only buyer can perform this action');
     }
     
-    if (sellerOnlyStatuses.includes(status) && order.seller_id !== userId) {
+    if (sellerOnlyStatuses.includes(status) && order.seller_user_id !== userId) {
+      console.log('[ORDER MODEL] Seller check failed:', { 
+        orderSellerId: order.seller_id, 
+        orderSellerUserId: order.seller_user_id,
+        requestUserId: userId, 
+        status 
+      });
       throw new Error('Only seller can perform this action');
     }
     
-    if (!bothCanUpdate.includes(status) && 
-        !buyerOnlyStatuses.includes(status) && 
-        !sellerOnlyStatuses.includes(status) &&
-        order.buyer_id !== userId && order.seller_id !== userId) {
+    if (bothCanUpdate.includes(status) && order.buyer_id !== userId && order.seller_user_id !== userId) {
+      throw new Error('Only buyer or seller can perform this action');
+    }
+    
+    // For other statuses, ensure user is either buyer or seller
+    if (!buyerOnlyStatuses.includes(status) && 
+        !sellerOnlyStatuses.includes(status) && 
+        !bothCanUpdate.includes(status) &&
+        order.buyer_id !== userId && order.seller_user_id !== userId) {
       throw new Error('Not authorized to update this order');
     }
     
@@ -200,6 +330,103 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     `;
     
     const result = await pool.query(updateQuery, queryParams);
+    
+    // Note: transactions table doesn't exist in current schema
+    // If needed in future, add payments table update logic here
+    
+    // Send Inngest event for order shipped
+    if (status === 'shipped') {
+      try {
+        // Get order details for the event
+        const orderDetails = await pool.query(`
+          SELECT o.*, dr.id as deal_room_id
+          FROM orders o
+          LEFT JOIN deal_rooms dr ON o.metadata->>'intent_id' = dr.intent_id
+          WHERE o.id = $1
+        `, [orderId]);
+        
+        const orderData = orderDetails.rows[0];
+        
+        // Send the order shipped event
+        await inngest.send({
+          name: 'deal.order.shipped',
+          data: {
+            dealRoomId: orderData.deal_room_id,
+            orderId: orderId
+          }
+        });
+        
+        console.log(`[ORDER SHIPPED] Event sent for order: ${orderId}`);
+      } catch (eventError) {
+        console.error('[ORDER SHIPPED] Failed to send event:', eventError);
+        // Don't fail the transaction if event fails
+      }
+    }
+    
+    // Send Inngest event for delivery notification if status is 'delivered'
+    if (status === 'delivered') {
+      try {
+        // Get order details for the event
+        const orderDetails = await pool.query(`
+          SELECT o.*, l.title as listing_title
+          FROM orders o
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN listings l ON oi.listing_id = l.id
+          WHERE o.id = $1
+        `, [orderId]);
+        
+        const orderData = orderDetails.rows[0];
+        
+        // Send the delivery notification event
+        await inngest.send({
+          name: 'order.delivered',
+          data: {
+            orderId: orderId,
+            buyerId: orderData.buyer_id,
+            sellerId: orderData.seller_id,
+            orderData: {
+              listingTitle: orderData.listing_title,
+              totalAmount: orderData.total_amount,
+              currency: orderData.currency
+            }
+          }
+        });
+        
+        console.log(`[DELIVERY NOTIFICATION] Event sent for order: ${orderId}`);
+      } catch (eventError) {
+        console.error('[DELIVERY NOTIFICATION] Failed to send event:', eventError);
+        // Don't fail the transaction if event fails
+      }
+    }
+
+    // Send deal.order.delivered event if status is 'completed' (buyer confirmed delivery)
+    if (status === 'completed') {
+      try {
+        // Get order details for the event
+        const orderDetails = await pool.query(`
+          SELECT o.*, dr.id as deal_room_id
+          FROM orders o
+          LEFT JOIN deal_rooms dr ON o.metadata->>'intent_id' = dr.intent_id
+          WHERE o.id = $1
+        `, [orderId]);
+        
+        const orderData = orderDetails.rows[0];
+        
+        // Send the order delivered event
+        await inngest.send({
+          name: 'deal.order.delivered',
+          data: {
+            dealRoomId: orderData.deal_room_id,
+            orderId: orderId
+          }
+        });
+        
+        console.log(`[ORDER DELIVERED] Event sent for order: ${orderId}`);
+      } catch (eventError) {
+        console.error('[ORDER DELIVERED] Failed to send event:', eventError);
+        // Don't fail the transaction if event fails
+      }
+    }
     
     await pool.query('COMMIT');
     

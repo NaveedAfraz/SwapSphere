@@ -82,6 +82,9 @@ export interface DealRoom {
   unread_count?: number;
   last_message?: string;
   last_message_at?: string;
+  latest_order_id?: string;
+  order_status?: string;
+  order_amount?: number;
   latest_offer?: {
     id: string;
     offered_price: number;

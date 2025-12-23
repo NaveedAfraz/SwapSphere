@@ -1,18 +1,38 @@
 /**
  * Workflows Registry
  * 
- * Central registration point for all Inngest workflows.
  * Import and export all workflow functions here.
  */
 
 const { intentMatchingWorkflow } = require("./intentMatchingWorkflow");
 const { pushNotificationWorker, cleanupRateLimits } = require("./pushNotificationWorker");
+const { deliveryNotificationWorkflow } = require("./deliveryNotificationWorkflow");
+const { autoCaptureAfterEscrow } = require("./autoCaptureAfterEscrow");
+const {
+  autoCapturePayment,
+  handlePaymentFailure,
+  handleOrderCompletion
+} = require('./paymentAutomation');
+
+const {
+  cleanupAbandonedDealRooms,
+  cleanupOldWebhookEvents,
+  cleanupExpiredPayments
+} = require('./cleanupJobs');
 
 // All workflows to be registered with Inngest
 const workflows = [
   intentMatchingWorkflow, 
   pushNotificationWorker, 
-  cleanupRateLimits
+  cleanupRateLimits,
+  deliveryNotificationWorkflow,
+  autoCaptureAfterEscrow,
+  autoCapturePayment,
+  handlePaymentFailure,
+  handleOrderCompletion,
+  cleanupAbandonedDealRooms,
+  cleanupOldWebhookEvents,
+  cleanupExpiredPayments
 ];
 
 // Debug: Log workflow details
@@ -26,5 +46,10 @@ module.exports = {
   workflows,
   intentMatchingWorkflow,
   pushNotificationWorker,
-  cleanupRateLimits
+  cleanupRateLimits,
+  deliveryNotificationWorkflow,
+  autoCaptureAfterEscrow,
+  autoCapturePayment,
+  handlePaymentFailure,
+  handleOrderCompletion
 };

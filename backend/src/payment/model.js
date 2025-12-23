@@ -1,16 +1,16 @@
 const { pool } = require("../database/db");
 
-const createPayment = async (orderId, paymentData) => {
-  const { provider, amount, currency, capture_method } = paymentData;
+const createPayment = async (order_id, paymentData) => {
+  const { provider, provider_payment_id, status, amount, currency, capture_method, metadata = {} } = paymentData;
   
   const query = `
-    INSERT INTO payments (order_id, provider, amount, currency, capture_method, status)
-    VALUES ($1, $2, $3, $4, $5, 'created')
+    INSERT INTO payments (order_id, provider, provider_payment_id, status, amount, currency, capture_method, metadata)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `;
   
   const result = await pool.query(query, [
-    orderId, provider, amount, currency || 'USD', capture_method
+    order_id, provider, provider_payment_id, status, amount, currency || 'USD', capture_method, metadata
   ]);
   
   return result.rows[0];
@@ -57,6 +57,15 @@ const updatePaymentStatus = async (paymentId, updateData) => {
   if (status) {
     updateFields.push(`status = $${paramIndex++}`);
     queryParams.push(status);
+    
+    // Update status timestamps for timeline
+    if (status === 'created') {
+      updateFields.push(`created_at = NOW()`);
+    } else if (status === 'escrowed') {
+      updateFields.push(`escrowed_at = NOW()`);
+    } else if (status === 'released') {
+      updateFields.push(`released_at = NOW()`);
+    }
   }
   
   if (provider_payment_id) {
@@ -75,6 +84,102 @@ const updatePaymentStatus = async (paymentId, updateData) => {
     UPDATE payments 
     SET ${updateFields.join(', ')}
     WHERE id = $${paramIndex}
+    RETURNING *
+  `;
+  
+  const result = await pool.query(query, queryParams);
+  return result.rows[0];
+};
+
+const updatePaymentTimeline = async (paymentId, status, metadata = {}) => {
+  const updateFields = ['updated_at = NOW()'];
+  const queryParams = [];
+  let paramIndex = 1;
+  
+  // Update status and corresponding timestamp
+  updateFields.push(`status = $${paramIndex++}`);
+  queryParams.push(status);
+  
+  const statusTimestamps = {
+    'created': 'created_at',
+    'requires_action': 'requires_action_at',
+    'succeeded': 'succeeded_at',
+    'failed': 'failed_at',
+    'refunded': 'refunded_at',
+    'canceled': 'canceled_at',
+    'escrowed': 'escrowed_at',
+    'released': 'released_at',
+  };
+  
+  if (statusTimestamps[status]) {
+    updateFields.push(`${statusTimestamps[status]} = NOW()`);
+  }
+  
+  if (Object.keys(metadata).length > 0) {
+    updateFields.push(`metadata = COALESCE(metadata, '{}')::jsonb || $${paramIndex++}::jsonb`);
+    queryParams.push(JSON.stringify(metadata));
+  }
+  
+  queryParams.push(paymentId);
+  
+  const query = `
+    UPDATE payments 
+    SET ${updateFields.join(', ')}
+    WHERE id = $${paramIndex}
+    RETURNING *
+  `;
+  
+  const result = await pool.query(query, queryParams);
+  return result.rows[0];
+};
+
+const movePaymentToEscrow = async (paymentId, escrowData = {}) => {
+  const updateFields = [
+    'status = $1',
+    'escrowed_at = NOW()',
+    'updated_at = NOW()'
+  ];
+  
+  const queryParams = ['escrowed'];
+  
+  if (Object.keys(escrowData).length > 0) {
+    updateFields.push(`escrow_info = $${queryParams.length + 1}`);
+    queryParams.push(JSON.stringify(escrowData));
+  }
+  
+  queryParams.push(paymentId);
+  
+  const query = `
+    UPDATE payments 
+    SET ${updateFields.join(', ')}
+    WHERE id = $${queryParams.length}
+    RETURNING *
+  `;
+  
+  const result = await pool.query(query, queryParams);
+  return result.rows[0];
+};
+
+const releaseEscrowFunds = async (paymentId, releaseData = {}) => {
+  const updateFields = [
+    'status = $1',
+    'released_at = NOW()',
+    'updated_at = NOW()'
+  ];
+  
+  const queryParams = ['released'];
+  
+  if (Object.keys(releaseData).length > 0) {
+    updateFields.push(`release_info = $${queryParams.length + 1}`);
+    queryParams.push(JSON.stringify(releaseData));
+  }
+  
+  queryParams.push(paymentId);
+  
+  const query = `
+    UPDATE payments 
+    SET ${updateFields.join(', ')}
+    WHERE id = $${queryParams.length}
     RETURNING *
   `;
   
@@ -155,5 +260,8 @@ module.exports = {
   getPaymentsByOrder,
   getPaymentById,
   updatePaymentStatus,
-  getPaymentsByUser
+  getPaymentsByUser,
+  updatePaymentTimeline,
+  movePaymentToEscrow,
+  releaseEscrowFunds
 };

@@ -31,7 +31,15 @@ export interface TrackingInfo {
 export interface Order {
   id: string;
   order_number: string;
-  listing_id: string;
+  listing_id?: string;
+  listing?: {
+    id: string;
+    title: string;
+    price: number;
+    condition: string;
+    description?: string;
+    images: Array<{ url: string }>;
+  };
   listing_title?: string;
   listing_image?: string;
   buyer_id: string;
@@ -40,8 +48,13 @@ export interface Order {
   seller_id: string;
   seller_name?: string;
   seller_avatar?: string;
+  seller?: {
+    store_name?: string;
+  };
+  store_name?: string;
   offer_id?: string;
-  final_price: number;
+  final_price?: number;
+  total_amount?: number;
   quantity: number;
   status: OrderState;
   payment_status: "pending" | "paid" | "refunded" | "failed";

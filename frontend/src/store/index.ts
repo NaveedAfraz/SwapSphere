@@ -12,6 +12,7 @@ import notificationSlice from "../features/notification/notificationSlice";
 import profileSlice from "../features/profile/profileSlice";
 import supportSlice from "../features/support/supportSlice";
 import intentSlice from "../features/intents/intentSlice";
+import salesReducer from "../features/profile/sales/salesSlice";
 
 export const store = configureStore({
   reducer: {
@@ -28,6 +29,7 @@ export const store = configureStore({
     profile: profileSlice,
     support: supportSlice,
     intents: intentSlice,
+    sales: salesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -49,18 +49,15 @@ const createOrder = async (req, res) => {
 
 const getBuyerOrders = async (req, res) => {
   try {
-    const buyerId = req.user.id;
-    const { status, page = 1, limit = 20 } = req.query;
+    const userId = req.user.id;
+    const { page = 1, limit = 20, status } = req.query;
     
-    const filters = {};
-    if (status) filters.status = status;
+    console.log('[ORDER] Getting buyer orders for user:', userId, 'status:', status, 'page:', page, 'limit:', limit);
     
-    const options = {
-      page: parseInt(page),
-      limit: parseInt(limit)
-    };
+    const result = await getOrdersByUser(userId, 'buyer', status, page, limit);
     
-    const result = await getOrdersByUser(buyerId, 'buyer', filters, options);
+    console.log('[ORDER] Successfully got buyer orders:', result.orders.length);
+    console.log('[ORDER] Sample order data:', JSON.stringify(result.orders[0], null, 2));
     
     res.json(result);
   } catch (error) {
@@ -106,11 +103,23 @@ const getOrder = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
     
+    console.log('[ORDER] Getting individual order:', id, 'for user:', userId);
+    
     const order = await getOrderById(userId, id);
+    
+    console.log('[ORDER] Individual order result:', order ? 'found' : 'not found');
+    if (order) {
+      console.log('[ORDER] Sample individual order data:', JSON.stringify(order, null, 2));
+    }
     
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
+    
+    // Add cache-busting headers
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     
     res.json(order);
   } catch (error) {
@@ -124,6 +133,8 @@ const updateStatus = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
     const { status, tracking_info } = req.body;
+    
+    console.log('[ORDER UPDATE] Request:', { userId, orderId: id, status, tracking_info });
     
     // Validate status transitions
     const validStatuses = ['pending', 'reserved', 'paid', 'shipped', 'delivered', 'cancelled', 'refunded', 'disputed', 'completed'];

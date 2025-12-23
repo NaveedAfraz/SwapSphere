@@ -124,10 +124,12 @@ const orderSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase('order/fetchOrderById/fulfilled', (state: OrderStateType, action: PayloadAction<{ order: Order }>) => {
+      .addCase('order/fetchOrderById/fulfilled', (state: OrderStateType, action: PayloadAction<Order>) => {
         state.status = 'success';
-        state.currentOrder = action.payload.order;
+        console.log('[ORDER SLICE] fetchOrderById received:', JSON.stringify(action.payload, null, 2));
+        state.currentOrder = action.payload;
         state.error = null;
+        console.log('[ORDER SLICE] currentOrder set to:', state.currentOrder);
       })
       .addCase('order/fetchOrderById/rejected', (state: OrderStateType, action: any) => {
         state.status = 'error';
@@ -286,9 +288,13 @@ const orderSlice = createSlice({
       })
       .addCase('order/fetchMyOrders/fulfilled', (state: OrderStateType, action: PayloadAction<{ orders: Order[]; pagination: any }>) => {
         state.status = 'success';
+        console.log('[ORDER SLICE] Received orders from thunk:', action.payload.orders.length);
+        console.log('[ORDER SLICE] Sample received order:', JSON.stringify(action.payload.orders[0], null, 2));
         state.myOrders = action.payload.orders;
         state.pagination = action.payload.pagination;
         state.error = null;
+        console.log('[ORDER SLICE] State updated, myOrders length:', state.myOrders.length);
+        console.log('[ORDER SLICE] Sample stored order:', JSON.stringify(state.myOrders[0], null, 2));
       })
       .addCase('order/fetchMyOrders/rejected', (state: OrderStateType, action: any) => {
         state.status = 'error';

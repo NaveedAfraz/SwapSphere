@@ -10,120 +10,201 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
-import { Interactions } from "@/src/constants/theme";
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { useRouter } from 'expo-router';
+import { PullToRefresh } from "@/src/components/PullToRefresh";
+import { useAuth } from '@/src/hooks/useAuth';
 import { fetchTransactionsThunk } from "../../payment/paymentThunks";
 import {
   selectTransactions,
   selectPaymentStatus,
 } from "../../payment/paymentSelectors";
+import { 
+  fetchMyOrdersThunk, 
+  fetchOrderByIdThunk
+} from "../../order/orderThunks";
+import { updateOrderStatus } from "../sales/salesThunks";
+import { 
+  selectMyOrders, 
+  selectCurrentOrder,
+  selectOrderStatus,
+  selectMyOrderById
+} from "../../order/orderSelectors";
+import { useAppDispatch } from "@/src/hooks/redux";
 
-const COLORS = {
-  dark: "#111827",
-  accent: "#3B82F6",
-  muted: "#6B7280",
-  surface: "#D1D5DB",
-  bg: "#F9FAFB",
-  white: "#FFFFFF",
-  success: "#22C55E",
-  error: "#DC2626",
-  gold: "#FACC15",
-  chipBg: "#F3F4F6",
-};
+export default function MyPurchases() {
+  const [selectedFilter, setSelectedFilter] = useState<
+    "all" | "pending" | "processing" | "completed" | "cancelled"
+  >("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
 
-interface Purchase {
-  id: string;
-  item: {
-    title: string;
-    image: string;
-    price: number;
-    condition: string;
+  // Auth check
+  const { user } = useAuth();
+  console.log('[MyPurchases] User auth state:', user ? 'authenticated' : 'not authenticated', user?.id);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "delivered":
+        return theme.colors.success;
+      case "shipping":
+        return theme.colors.accent;
+      case "processing":
+        return theme.colors.warning;
+      case "cancelled":
+        return theme.colors.error;
+      default:
+        return theme.colors.secondary;
+    }
   };
-  seller: {
-    name: string;
-    avatar: string;
-    rating: number;
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return theme.colors.success;
+      case "pending":
+        return theme.colors.warning;
+      case "refunded":
+        return theme.colors.error;
+      default:
+        return theme.colors.secondary;
+    }
   };
-  purchaseDate: string;
-  status: "delivered" | "shipping" | "processing" | "cancelled";
-  paymentStatus: "paid" | "pending" | "refunded";
-  trackingNumber?: string;
-  estimatedDelivery?: string;
-}
 
-const getStatusColor = (status: Purchase["status"]) => {
-  switch (status) {
-    case "delivered":
-      return COLORS.success;
-    case "shipping":
-      return COLORS.accent;
-    case "processing":
-      return COLORS.gold;
-    case "cancelled":
-      return COLORS.error;
-    default:
-      return COLORS.muted;
-  }
-};
-
-const getPaymentStatusColor = (status: Purchase["paymentStatus"]) => {
-  switch (status) {
-    case "paid":
-      return COLORS.success;
-    case "pending":
-      return COLORS.gold;
-    case "refunded":
-      return COLORS.error;
-    default:
-      return COLORS.muted;
-  }
-};
-
-const renderStars = (rating: number, size = 14) => (
+  const renderStars = (rating: number, size = 14) => (
   <View style={styles.starContainer}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Ionicons
         key={star}
         name={star <= rating ? "star" : "star-outline"}
         size={size}
-        color={star <= rating ? COLORS.gold : COLORS.surface}
+        color={star <= rating ? theme.colors.warning : theme.colors.border}
       />
     ))}
   </View>
 );
-
-export default function MyPurchases() {
-  const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "pending" | "processing" | "completed" | "cancelled"
-  >("all");
-
-  // Redux integration using payment thunks/selectors
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
+  const router = useRouter();
   const transactions = useSelector(selectTransactions);
   const paymentStatus = useSelector(selectPaymentStatus);
+  const myOrders = useSelector(selectMyOrders);
+  const currentOrder = useSelector(selectCurrentOrder);
+  const orderStatus = useSelector(selectOrderStatus);
+  const orderError = useSelector((state: any) => state.order?.error);
+  const paymentError = useSelector((state: any) => state.payment?.error);
 
-  // Fetch transactions on component mount
+  // Handle refresh
+  const handleRefresh = async () => {
+    console.log('[MyPurchases] Refreshing data...');
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        dispatch(fetchTransactionsThunk({ page: 1, limit: 20 }) as any),
+        dispatch(fetchMyOrdersThunk({ page: 1, limit: 20 }) as any) // Remove invalid status parameter
+      ]);
+      console.log('[MyPurchases] Refresh completed');
+    } catch (error) {
+      console.error('[MyPurchases] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleConfirmDelivery = (order: { id: string; [key: string]: any }) => {
+    Alert.alert(
+      "Confirm Delivery",
+      "Have you received this item? This will mark the order as completed.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Confirm Received",
+          onPress: async () => {
+            try {
+              // Update order status to 'completed'
+              await dispatch(updateOrderStatus({ 
+                orderId: order.id, 
+                status: 'completed' 
+              })).unwrap();
+              
+              Alert.alert("Success", "Delivery confirmed! Order marked as completed.");
+              // Refresh orders data
+              dispatch(fetchMyOrdersThunk({ page: 1, limit: 20 }));
+            } catch (error: any) {
+              console.error('Failed to confirm delivery:', error);
+              Alert.alert("Error", error || "Failed to confirm delivery");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Fetch both transactions and orders on component mount
   useEffect(() => {
+    console.log('[MyPurchases] Component mounted, fetching data...');
     dispatch(fetchTransactionsThunk({ page: 1, limit: 20 }) as any);
+    dispatch(fetchMyOrdersThunk({ page: 1, limit: 20 }) as any); // Remove invalid status parameter
   }, [dispatch]);
 
-  // Filter transactions to show only purchases (buyer transactions)
-  const purchaseTransactions = (transactions || []).filter(
-    (transaction: any) =>
-      transaction.type === "purchase" || transaction.buyer_id === "current_user" // Adjust based on actual Transaction type
+  // Log data changes
+  useEffect(() => {
+    console.log('[MyPurchases] Transactions updated:', transactions?.length || 0, 'items');
+    console.log('[MyPurchases] MyOrders updated:', myOrders?.length || 0, 'items');
+    console.log('[MyPurchases] Order status:', orderStatus);
+    console.log('[MyPurchases] Order error:', orderError);
+    console.log('[MyPurchases] Payment error:', paymentError);
+    
+    if (myOrders && myOrders.length > 0) {
+      console.log('[MyPurchases] Sample order data:', JSON.stringify(myOrders[0], null, 2));
+    }
+    
+    if (orderError) {
+      console.error('[MyPurchases] Full order error:', orderError);
+    }
+    if (paymentError) {
+      console.error('[MyPurchases] Full payment error:', paymentError);
+    }
+  }, [transactions, myOrders, orderStatus, orderError, paymentError]);
+
+  // Combine transactions and orders for comprehensive view
+  const purchaseData = (myOrders || []).map(order => {
+    console.log('[MyPurchases] Processing order:', order.id, 'status:', order.status);
+    console.log('[MyPurchases] Order listing data:', order.listing);
+    console.log('[MyPurchases] Order listing type:', typeof order.listing);
+    console.log('[MyPurchases] Order listing keys:', order.listing ? Object.keys(order.listing) : 'null');
+    
+    return {
+      ...order,
+      // Find corresponding transaction if available
+      transaction: (transactions || []).find((t: any) => t.order_id === order.id),
+      // Use order data as primary source, fallback to transaction data
+      listing: order.listing || {},
+      seller: order.seller || {},
+      amount: order.total_amount || 0,
+      payment_status: order.payment_status || 'pending',
+      status: order.status || 'processing',
+    };
+  });
+
+  const filteredPurchases = purchaseData.filter(
+    (item: any) => {
+      const matches = selectedFilter === "all" || item.status === selectedFilter;
+      console.log('[MyPurchases] Item filter:', item.id, 'status:', item.status, 'filter:', selectedFilter, 'matches:', matches);
+      return matches;
+    }
   );
 
-  const filteredPurchases = purchaseTransactions.filter(
-    (transaction: any) =>
-      selectedFilter === "all" || transaction.status === selectedFilter
-  );
-
-  const [showDetails, setShowDetails] = useState<string | null>(null);
+  console.log('[MyPurchases] Final filtered data:', filteredPurchases.length, 'items');
 
   const renderPurchase = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.purchaseCard}
-      onPress={() => setShowDetails(showDetails === item.id ? null : item.id)}
-      activeOpacity={Interactions.activeOpacity}
+      onPress={() => router.push(`/profile/${item.id}` as any)}
+      activeOpacity={0.9}
     >
       <View style={styles.purchaseHeader}>
         <Image
@@ -139,7 +220,7 @@ export default function MyPurchases() {
             {item.listing?.title || "Unknown Item"}
           </Text>
           <Text style={styles.itemPrice}>
-            ${item.amount || item.listing?.price || 0}
+            ${item.amount || 0}
           </Text>
           <Text style={styles.itemCondition}>
             {item.listing?.condition || "N/A"} Condition
@@ -179,7 +260,7 @@ export default function MyPurchases() {
         />
         <View style={styles.sellerDetails}>
           <Text style={styles.sellerName}>
-            {item.seller?.display_name || "Unknown Seller"}
+            {item.store_name || "Unknown Seller"}
           </Text>
           {renderStars(item.seller?.rating || 0)}
         </View>
@@ -188,62 +269,71 @@ export default function MyPurchases() {
         </Text>
       </View>
 
-      {showDetails === item.id && (
-        <View style={styles.expandedDetails}>
-          {item.tracking_number && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tracking</Text>
-              <Text style={styles.trackingNumber}>{item.tracking_number}</Text>
-            </View>
-          )}
+      {/* Action Buttons */}
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={styles.viewDetailsButton}
+          onPress={() => router.push(`/profile/${item.id}` as any)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="document-text-outline"
+            size={16}
+            color={theme.colors.accent}
+          />
+          <Text style={styles.viewDetailsButtonText}>View Order Details</Text>
+        </TouchableOpacity>
 
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              activeOpacity={Interactions.buttonOpacity}
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={16}
-                color={COLORS.accent}
-              />
-              <Text style={styles.actionButtonText}>Contact Seller</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+        {/* Confirm Delivery Button - Show when order is marked as delivered */}
+        {item.status === 'delivered' && (
+          <TouchableOpacity
+            style={[styles.confirmDeliveryButton]}
+            onPress={() => handleConfirmDelivery(item)}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.confirmDeliveryButtonText}>Confirm Delivery</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={filteredPurchases}
-        renderItem={renderPurchase}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 20 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="bag-outline" size={48} color={COLORS.muted} />
-            <Text style={styles.emptyText}>No purchases found</Text>
-            <Text style={styles.emptySubtext}>Start browsing and making purchases to see them here</Text>
-          </View>
-        }
-      />
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <FlatList
+          data={filteredPurchases}
+          renderItem={renderPurchase}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 20 }}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="bag-outline" size={48} color={theme.colors.secondary} />
+              <Text style={styles.emptyText}>No purchases found</Text>
+              <Text style={styles.emptySubtext}>Start browsing and making purchases to see them here</Text>
+            </View>
+          }
+        />
+      </PullToRefresh>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+const createStyles = (theme: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.background },
 
   purchaseCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: COLORS.dark,
+    shadowColor: theme.colors.primary,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
@@ -255,46 +345,91 @@ const styles = StyleSheet.create({
 
   itemInfo: { flex: 1 },
 
-  itemTitle: { fontSize: 16, fontWeight: "600", color: COLORS.dark },
+  itemTitle: { fontSize: 16, fontWeight: "600", color: theme.colors.primary },
 
   itemPrice: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.accent,
+    color: theme.colors.accent,
     marginTop: 4,
   },
 
-  itemCondition: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+  itemCondition: { fontSize: 12, color: theme.colors.secondary, marginTop: 2 },
 
   statusRow: { flexDirection: "row", gap: 8, marginTop: 8 },
 
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
 
-  statusText: { fontSize: 10, fontWeight: "700", color: COLORS.white },
+  statusText: { fontSize: 10, fontWeight: "700", color: theme.colors.surface },
 
   sellerInfo: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.surface,
+    borderTopColor: theme.colors.border,
   },
 
   sellerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
 
   sellerDetails: { flex: 1 },
 
-  sellerName: { fontSize: 14, fontWeight: "600", color: COLORS.dark },
+  sellerName: { fontSize: 14, fontWeight: "600", color: theme.colors.primary },
 
-  purchaseDate: { fontSize: 12, color: COLORS.muted },
+  purchaseDate: { fontSize: 12, color: theme.colors.secondary },
 
   starContainer: { flexDirection: "row" },
+
+  // View Details Button styles
+  actionButtonsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+
+  viewDetailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+  },
+
+  viewDetailsButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: theme.colors.accent,
+    marginLeft: 8,
+  },
+
+  confirmDeliveryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: "#10B981",
+    marginTop: 8,
+  },
+
+  confirmDeliveryButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
 
   expandedDetails: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.surface,
+    borderTopColor: theme.colors.border,
   },
 
   detailRow: {
@@ -303,9 +438,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  detailLabel: { fontSize: 13, fontWeight: "600", color: COLORS.dark },
+  detailLabel: { fontSize: 13, fontWeight: "600", color: theme.colors.primary },
 
-  trackingNumber: { fontSize: 13, color: COLORS.accent },
+  trackingNumber: { fontSize: 13, color: theme.colors.accent },
 
   actionButtons: { flexDirection: "row", marginTop: 8 },
 
@@ -316,13 +451,71 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 24,
-    backgroundColor: COLORS.bg,
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
-    borderColor: COLORS.surface,
+    borderColor: theme.colors.border,
     flex: 1,
   },
 
-  actionButtonText: { fontSize: 12, fontWeight: "600", color: COLORS.accent },
+  actionButtonText: { fontSize: 12, fontWeight: "600", color: theme.colors.accent },
+
+  secondaryActionButton: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.warning,
+    borderWidth: 1,
+  },
+
+  // Enhanced details styles
+  detailSection: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+
+  detailSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: theme.colors.primary,
+    marginBottom: 8,
+  },
+
+  detailValue: { 
+    fontSize: 13, 
+    color: theme.colors.primary,
+    flex: 1,
+    textAlign: 'right'
+  },
+
+  // Timeline styles
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+
+  timelineContent: {
+    flex: 1,
+  },
+
+  timelineTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+
+  timelineDate: {
+    fontSize: 12,
+    color: theme.colors.secondary,
+    marginTop: 2,
+  },
 
   // Empty state styles
   emptyState: {
@@ -335,14 +528,14 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.muted,
+    color: theme.colors.secondary,
     marginTop: 16,
     textAlign: "center",
   },
 
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: theme.colors.secondary,
     marginTop: 4,
     textAlign: "center",
     lineHeight: 20,

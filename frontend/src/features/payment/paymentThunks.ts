@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { apiClient } from "../../services/api";
 import type { 
   CreatePaymentIntentPayload,
   ProcessPaymentPayload,
@@ -16,26 +15,6 @@ import type {
   EscrowAccountResponse
 } from "./types/payment";
 
-const API_BASE = "http://192.168.0.104:5000/api/payment";
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 10000,
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("authToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export const fetchTransactionsThunk = createAsyncThunk<
   TransactionsResponse,
   TransactionSearchParams,
@@ -44,7 +23,7 @@ export const fetchTransactionsThunk = createAsyncThunk<
   "payment/fetchTransactions",
   async (searchParams: TransactionSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<TransactionsResponse>("/transactions", { params: searchParams });
+      const response = await apiClient.get<TransactionsResponse>("/payment/transactions", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -62,7 +41,7 @@ export const fetchTransactionByIdThunk = createAsyncThunk<
   "payment/fetchTransactionById",
   async (transactionId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<TransactionResponse>(`/transactions/${transactionId}`);
+      const response = await apiClient.get<TransactionResponse>(`/payment/transactions/${transactionId}`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -80,7 +59,7 @@ export const createPaymentIntentThunk = createAsyncThunk<
   "payment/createPaymentIntent",
   async (paymentData: CreatePaymentIntentPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<PaymentIntentResponse>("/create-intent", paymentData);
+      const response = await apiClient.post<PaymentIntentResponse>("/payment/create-intent", paymentData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -98,7 +77,7 @@ export const processPaymentThunk = createAsyncThunk<
   "payment/processPayment",
   async (paymentData: ProcessPaymentPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<TransactionResponse>("/process", paymentData);
+      const response = await apiClient.post<TransactionResponse>("/payment/process", paymentData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -113,10 +92,10 @@ export const refundTransactionThunk = createAsyncThunk<
   RefundPayload,
   { rejectValue: string }
 >(
-  "payment/refundTransaction",
+  "payment/payment/refundTransaction",
   async (refundData: RefundPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<TransactionResponse>("/refund", refundData);
+      const response = await apiClient.post<TransactionResponse>("/payment/refund", refundData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -134,7 +113,7 @@ export const fetchPaymentMethodsThunk = createAsyncThunk<
   "payment/fetchPaymentMethods",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<PaymentMethodsResponse>("/payment-methods");
+      const response = await apiClient.get<PaymentMethodsResponse>("/payment/payment-methods");
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -152,7 +131,7 @@ export const addPaymentMethodThunk = createAsyncThunk<
   "payment/addPaymentMethod",
   async (paymentMethodData: AddPaymentMethodPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<PaymentMethodsResponse>("/payment-methods", paymentMethodData);
+      const response = await apiClient.post<PaymentMethodsResponse>("/payment/payment-methods", paymentMethodData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -170,7 +149,7 @@ export const updatePaymentMethodThunk = createAsyncThunk<
   "payment/updatePaymentMethod",
   async ({ id, data }: { id: string; data: UpdatePaymentMethodPayload }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.put<PaymentMethodsResponse>(`/payment-methods/${id}`, data);
+      const response = await apiClient.put<PaymentMethodsResponse>(`/payment/payment-methods/${id}`, data);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -188,7 +167,7 @@ export const deletePaymentMethodThunk = createAsyncThunk<
   "payment/deletePaymentMethod",
   async (paymentMethodId: string, { rejectWithValue }) => {
     try {
-      await apiClient.delete(`/payment-methods/${paymentMethodId}`);
+      await apiClient.delete(`/payment/payment-methods/${paymentMethodId}`);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to delete payment method";
@@ -205,7 +184,7 @@ export const setDefaultPaymentMethodThunk = createAsyncThunk<
   "payment/setDefaultPaymentMethod",
   async (paymentMethodId: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<PaymentMethodsResponse>(`/payment-methods/${paymentMethodId}/set-default`);
+      const response = await apiClient.post<PaymentMethodsResponse>(`/payment/payment-methods/${paymentMethodId}/set-default`);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -223,7 +202,7 @@ export const fetchEscrowAccountThunk = createAsyncThunk<
   "payment/fetchEscrowAccount",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<EscrowAccountResponse>("/escrow");
+      const response = await apiClient.get<EscrowAccountResponse>("/payment/escrow");
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -241,7 +220,7 @@ export const createEscrowAccountThunk = createAsyncThunk<
   "payment/createEscrowAccount",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<EscrowAccountResponse>("/escrow");
+      const response = await apiClient.post<EscrowAccountResponse>("/payment/escrow");
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -259,7 +238,7 @@ export const withdrawFromEscrowThunk = createAsyncThunk<
   "payment/withdrawFromEscrow",
   async (withdrawalData: WithdrawalPayload, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<TransactionResponse>("/escrow/withdraw", withdrawalData);
+      const response = await apiClient.post<TransactionResponse>("/payment/escrow/withdraw", withdrawalData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
@@ -277,7 +256,7 @@ export const fetchTransactionStatsThunk = createAsyncThunk<
   "payment/fetchTransactionStats",
   async ({ startDate, endDate }: { startDate?: string; endDate?: string }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<any>("/stats", {
+      const response = await apiClient.get<any>("/payment/stats", {
         params: { startDate, endDate }
       });
       return response.data;
@@ -297,11 +276,83 @@ export const verifyPaymentMethodThunk = createAsyncThunk<
   "payment/verifyPaymentMethod",
   async ({ paymentMethodId, verificationData }: { paymentMethodId: string; verificationData: any }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post<PaymentMethodsResponse>(`/payment-methods/${paymentMethodId}/verify`, verificationData);
+      const response = await apiClient.post<PaymentMethodsResponse>(`/payment/payment-methods/${paymentMethodId}/verify`, verificationData);
       return response.data;
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to verify payment method";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const createPaymentOrderThunk = createAsyncThunk(
+  "payment/createPaymentOrder",
+  async ({ orderId, amount }: { orderId: string; amount: number }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/payment/paypal/order", {
+        order_id: orderId,
+        amount: amount,
+      });
+      return response.data;
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to create PayPal payment order";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const capturePayPalPaymentThunk = createAsyncThunk(
+  "payment/capturePayPalPayment",
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post("/payment/paypal/capture", { token });
+      return response.data;
+    } catch (error: any) {
+      // Handle INSTRUMENT_DECLINED error for funding source issues
+      if (
+        error.response?.status === 409 &&
+        error.response?.data?.error === "INSTRUMENT_DECLINED"
+      ) {
+        // Return special error with redirect URL for handling in UI
+        return rejectWithValue({
+          isInstrumentDeclined: true,
+          redirectUrl: error.response.data.redirect_url,
+          message: error.response.data.message
+        });
+      }
+      
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to capture PayPal payment";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const getOrderPaymentsThunk = createAsyncThunk(
+  "payment/getOrderPayments",
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/payment/order/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to get order payments";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const getPaymentStatusThunk = createAsyncThunk(
+  "payment/getPaymentStatus",
+  async (paymentId: string, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get(`/payment/${paymentId}`);
+      return response.data;
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to get payment status";
       return rejectWithValue(errorMessage);
     }
   }

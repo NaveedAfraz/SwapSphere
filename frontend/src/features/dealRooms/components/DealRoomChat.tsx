@@ -22,7 +22,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
 import { useAuth } from '../../../hooks/useAuth';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { getCurrentUser } from '@/src/services/authService';
-import { ThemedText } from '@/src/components/GlobalThemeComponents';
+import { ThemedText } from '@/src/components/ThemedView';
 import {
   fetchDealRoom,
   fetchMessages,
@@ -37,7 +37,7 @@ import { theme } from "../../../theme";
 import DefaultAvatar from "./DefaultAvatar";
 import { updateOfferThunk, counterOfferThunk, acceptOfferThunk } from "../../../features/offer/offerThunks";
 import OfferNegotiation from "../../../features/inbox/components/OfferNegotiation";
-import { Interactions } from "../../../constants/theme";
+import PayNowButton from "../../../features/payment/components/PayNowButton";
 import { Ionicons } from "@expo/vector-icons";
 import { 
   connectSocket, 
@@ -49,6 +49,7 @@ import {
   onOfferUpdate,
   isSocketConnected
 } from "../../../services/socketService";
+import { useRouter } from 'expo-router';
 
 interface DealRoomChatProps {
   dealRoomId: string;
@@ -79,6 +80,7 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
+  const router = useRouter();
   
   // Use unified auth service for user data
   const activeUser = (user && user.id) ? user : getCurrentUser();
@@ -92,6 +94,8 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [lastOfferUpdatedBy, setLastOfferUpdatedBy] = useState<string | null>(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [paymentStatusChecked, setPaymentStatusChecked] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Calculate if this is the user's own offer based on who last updated it
@@ -126,6 +130,43 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     console.log('[CHAT] Fetching deal room data for ID:', dealRoomId); dispatch(fetchDealRoom(dealRoomId));
     dispatch(fetchMessages({ dealRoomId }));
   }, [dealRoomId, dispatch]);
+
+  // Check payment status when deal room data loads
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      if (currentDealRoom?.latest_order_id) {
+        try {
+          const { getOrderPayments } = require('../../../features/payment/api/paymentApi');
+          const payments = await getOrderPayments(currentDealRoom.latest_order_id);
+          
+          if (payments && payments.length > 0) {
+            const latestPayment = payments[0];
+            const isCompleted = latestPayment.status === 'escrowed' || 
+                              latestPayment.status === 'completed' || 
+                              latestPayment.status === 'captured';
+            setPaymentCompleted(isCompleted);
+          } else {
+            setPaymentCompleted(false);
+          }
+        } catch (error) {
+          console.log('[DealRoomChat] Error checking payment status:', error);
+          setPaymentCompleted(false);
+        } finally {
+          // Fallback: Check deal room order_status if payment API didn't detect completion
+          if (!paymentCompleted && currentDealRoom?.order_status === 'paid') {
+            setPaymentCompleted(true);
+          }
+          
+          setPaymentStatusChecked(true); // Mark as checked regardless of outcome
+        }
+      } else {
+        // No order ID to check, mark as checked
+        setPaymentStatusChecked(true);
+      }
+    };
+
+    checkPaymentStatus();
+  }, [currentDealRoom?.latest_order_id]);
 
   // Initialize lastOfferUpdatedBy when deal room data loads (only if not already set by socket)
   useEffect(() => {
@@ -461,8 +502,8 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     <View style={[getStyles(theme).safeArea, { paddingTop: insets.top }]}>
       {renderHeader()}
 
-      {/* Offer Negotiation */}
-      {itemName && (
+      {/* Offer Negotiation - Hide when payment is completed or still checking status */}
+      {itemName && !paymentCompleted && paymentStatusChecked && (
         <OfferNegotiation
           itemName={itemName}
           itemImage={itemImage}
@@ -482,6 +523,77 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
               : undefined
           }
         />
+      )}
+
+     
+      {paymentCompleted && (
+        <View style={{ padding: 16, backgroundColor: theme.colors.background, borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <ThemedText style={{ fontSize: 16, fontWeight: '600', color: theme.colors.primary }}>
+              ✓ {currentDealRoom?.buyer_id === activeUser?.id ? 'Purchase Completed' : 'Payment Received'}
+            </ThemedText>
+            <TouchableOpacity
+              style={{
+                backgroundColor: theme.colors.accent,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 6,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}
+              onPress={() => router.push(currentDealRoom?.buyer_id === activeUser?.id ? '/profile/my-purchases' : '/profile/sales')}
+              activeOpacity={0.8}
+            >
+              <Ionicons 
+                name={currentDealRoom?.buyer_id === activeUser?.id ? "bag-outline" : "storefront-outline"} 
+                size={16} 
+                color={theme.colors.surface} 
+                style={{ marginRight: 6 }} 
+              />
+              <ThemedText style={{ color: theme.colors.surface, fontWeight: '600', fontSize: 14 }}>
+                {currentDealRoom?.buyer_id === activeUser?.id ? 'My Purchases' : 'My Sales'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+          <ThemedText style={{ fontSize: 14, color: theme.colors.secondary, textAlign: 'center' }}>
+            {currentDealRoom?.buyer_id === activeUser?.id 
+              ? 'Your payment has been completed. Track your purchase in My Purchases.'
+              : 'Payment has been received and is being held in escrow until delivery is confirmed.'
+            }
+          </ThemedText>
+        </View>
+      )}
+
+      {/* Pay Now Button - Show if offer is accepted and user is buyer and payment not completed and status checked */}
+      {offerStatus === "accepted" && currentDealRoom?.buyer_id === activeUser?.id && currentDealRoom?.latest_offer && !paymentCompleted && paymentStatusChecked && (
+        <View style={{ padding: 16, backgroundColor: theme.colors.background }}>
+          <ThemedText style={{ marginBottom: 12, textAlign: 'center' }}>
+            Offer accepted! Complete payment to proceed with the transaction.
+          </ThemedText>
+          {/* {console.log('[DealRoomChat] PayNowButton props:', {
+            orderId: currentDealRoom.latest_order_id || currentDealRoom.latest_offer?.id || '',
+            amount: currentDealRoom.latest_offer?.offered_price || 0,
+            offerData: currentDealRoom.latest_offer,
+            orderData: {
+              id: currentDealRoom.latest_order_id,
+              status: currentDealRoom.order_status,
+              amount: currentDealRoom.order_amount
+            }
+          })} */}
+          <PayNowButton
+            orderId={currentDealRoom.latest_order_id || currentDealRoom.latest_offer?.id || ''} // Use actual order ID, fallback to offer ID
+            amount={parseFloat(String(currentDealRoom.latest_offer?.offered_price || '0'))}
+            onPaymentSuccess={() => {
+              console.log('[CHAT] Payment successful');
+              setPaymentCompleted(true); // Update local state
+              // Refresh deal room to get updated payment status
+              dispatch(fetchDealRoom(dealRoomId));
+            }}
+            onPaymentError={(error) => {
+              console.error('[CHAT] Payment failed:', error);
+            }}
+          />
+        </View>
       )}
 
       <View style={getStyles(theme).contentContainer}>

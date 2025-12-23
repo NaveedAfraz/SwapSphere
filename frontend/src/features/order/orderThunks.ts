@@ -56,9 +56,13 @@ export const fetchOrderByIdThunk = createAsyncThunk<
   "order/fetchOrderById",
   async (orderId: string, { rejectWithValue }) => {
     try {
+      console.log('[ORDER THUNK] Fetching order by ID:', orderId);
       const response = await apiClient.get<OrderResponse>(`/${orderId}`);
+      console.log('[ORDER THUNK] Received order response:', response.data);
+      console.log('[ORDER THUNK] Order data in response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
+      console.error('[ORDER THUNK] Error fetching order:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to fetch order";
       return rejectWithValue(errorMessage);
@@ -200,7 +204,7 @@ export const fetchMyOrdersThunk = createAsyncThunk<
   "order/fetchMyOrders",
   async (searchParams: OrderSearchParams, { rejectWithValue }) => {
     try {
-      const response = await apiClient.get<OrdersResponse>("/my", { params: searchParams });
+      const response = await apiClient.get<OrdersResponse>("/buyer", { params: searchParams });
       return response.data;
     } catch (error: any) {
       const errorMessage =

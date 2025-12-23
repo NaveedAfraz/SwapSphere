@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from "axios";
 import { getValidToken, handleAuthError } from "./authService";
 
 // API base configuration
-const API_BASE_URL = "http://192.168.0.104:5000/api";
+export const API_BASE_URL = "http://192.168.0.104:5000/api";
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({

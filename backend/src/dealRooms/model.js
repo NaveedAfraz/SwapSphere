@@ -115,7 +115,11 @@ const getDealRoomById = async (dealRoomId) => {
            li.url as listing_image,
            buyer_profile.name as buyer_name, buyer_profile.profile_picture_url as buyer_avatar,
            seller_profile.name as seller_name, seller_profile.profile_picture_url as seller_avatar,
-           s.user_id as seller_user_id
+           s.user_id as seller_user_id,
+           latest_order.id as latest_order_id,
+           latest_order.total_amount as order_amount,
+           latest_order.status as order_status,
+           latest_order.created_at as order_created_at
     FROM deal_rooms dr
     LEFT JOIN listings l ON dr.listing_id = l.id
     LEFT JOIN listing_images li ON l.id = li.listing_id AND li.is_primary = true
@@ -124,6 +128,15 @@ const getDealRoomById = async (dealRoomId) => {
     LEFT JOIN sellers s ON dr.seller_id = s.id
     LEFT JOIN users su ON s.user_id = su.id
     LEFT JOIN profiles seller_profile ON su.id = seller_profile.user_id
+    LEFT JOIN LATERAL (
+      SELECT o.id, o.total_amount, o.status, o.created_at
+      FROM orders o
+      WHERE o.metadata->>'offer_id'::text IN (
+        SELECT of.id::text FROM offers of WHERE of.deal_room_id = dr.id
+      )
+      ORDER BY o.created_at DESC
+      LIMIT 1
+    ) latest_order ON true
     WHERE dr.id = $1
   `;
 

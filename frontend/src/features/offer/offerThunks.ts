@@ -53,6 +53,7 @@ export const createOfferThunk = createAsyncThunk<
   "offer/createOffer",
   async (offerData: CreateOfferPayload, { rejectWithValue }) => {
     try {
+      console.log('[OFFER] Creating new offer:', offerData);
       // Map frontend payload to backend expected format
       const backendPayload = {
         listing_id: offerData.listing_id,
@@ -65,8 +66,10 @@ export const createOfferThunk = createAsyncThunk<
       };
       
       const response = await apiClient.post<OfferResponse>("/offer", backendPayload);
+      console.log('[OFFER] Offer created successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[OFFER] Failed to create offer:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to create offer";
       return rejectWithValue(errorMessage);
@@ -100,9 +103,14 @@ export const acceptOfferThunk = createAsyncThunk<
   "offer/acceptOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
+      console.log('[OFFER] Accepting offer:', offerId);
       const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/accept`);
+      console.log('[OFFER] Offer accepted successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[OFFER] Failed to accept offer:', error);
+      console.error('[OFFER] Error response:', error.response?.data);
+      console.error('[OFFER] Error status:', error.response?.status);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to accept offer";
       return rejectWithValue(errorMessage);
@@ -118,9 +126,12 @@ export const rejectOfferThunk = createAsyncThunk<
   "offer/rejectOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
+      console.log('[OFFER] Rejecting offer:', offerId);
       const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/decline`);
+      console.log('[OFFER] Offer rejected successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[OFFER] Failed to reject offer:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to reject offer";
       return rejectWithValue(errorMessage);
@@ -136,6 +147,7 @@ export const counterOfferThunk = createAsyncThunk<
   "offer/counterOffer",
   async (counterData: CounterOfferPayload, { rejectWithValue }) => {
     try {
+      console.log('[OFFER] Creating counter offer:', counterData);
       // Map frontend payload to backend expected format
       const backendPayload = {
         offered_price: counterData.counter_amount,
@@ -144,8 +156,10 @@ export const counterOfferThunk = createAsyncThunk<
       };
       
       const response = await apiClient.post<OfferResponse>(`/offer/${counterData.offer_id}/counter`, backendPayload);
+      console.log('[OFFER] Counter offer created successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[OFFER] Failed to create counter offer:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to counter offer";
       return rejectWithValue(errorMessage);
@@ -161,9 +175,12 @@ export const withdrawOfferThunk = createAsyncThunk<
   "offer/withdrawOffer",
   async (offerId: string, { rejectWithValue }) => {
     try {
+      console.log('[OFFER] Withdrawing offer:', offerId);
       const response = await apiClient.post<OfferResponse>(`/offer/${offerId}/cancel`);
+      console.log('[OFFER] Offer withdrawn successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('[OFFER] Failed to withdraw offer:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to withdraw offer";
       return rejectWithValue(errorMessage);

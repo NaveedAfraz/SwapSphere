@@ -11,6 +11,8 @@ const {
   toggleSellerMode,
   deactivateProfile,
   checkUsernameAvailability,
+  getMySales,
+  getSaleDetails,
 } = require("./controller");
 const { authenticate } = require("../common/middleware/auth");
 
@@ -43,5 +45,11 @@ router.post("/deactivate", authenticate, deactivateProfile);
 
 // Check username availability
 router.get("/check-username/:username", checkUsernameAvailability);
+
+// Get seller's sales
+router.get("/sales", authenticate, getMySales);
+
+// Get sale details
+router.get("/sales/:orderId", authenticate, getSaleDetails);
 
 module.exports = router;

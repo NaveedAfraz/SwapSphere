@@ -349,6 +349,231 @@ const getProfileStats = async (userId) => {
   }
 };
 
+// Get seller's sales
+const getMySales = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 20, status } = req.query;
+    const offset = (page - 1) * limit;
+
+    const pool = require("../auth/model").pool;
+
+    // Build WHERE clause for status filtering
+    let statusClause = "";
+    let queryParams = [userId, limit, offset];
+    
+    if (status && status !== 'all') {
+      statusClause = "AND o.status = $4";
+      queryParams.splice(2, 0, status); // Insert status at position 3 (before limit and offset)
+    }
+
+    // Get seller's sales with order and payment information
+    const salesQuery = `
+      SELECT 
+        o.id as order_id,
+        o.total_amount,
+        o.currency,
+        o.status as order_status,
+        o.created_at as order_created_at,
+        o.updated_at as order_updated_at,
+        l.title as listing_title,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'url', m.url,
+              'id', m.id
+            ) ORDER BY m.created_at ASC
+          ) FILTER (WHERE m.id IS NOT NULL), 
+          '[]'::json
+        ) as listing_images,
+        l.price as listing_price,
+        l.category as listing_category,
+        bp.name as buyer_username,
+        bp.avatar_key as buyer_avatar,
+        p.status as payment_status,
+        p.provider_payment_id,
+        dr.id as deal_room_id,
+        dr.current_state as deal_room_state
+      FROM orders o
+      JOIN sellers s ON o.seller_id = s.id
+      JOIN listings l ON o.metadata->>'listing_id'::text = l.id::text
+      JOIN users b ON o.buyer_id = b.id
+      LEFT JOIN profiles bp ON b.id = bp.user_id
+      LEFT JOIN payments p ON o.id = p.order_id
+      LEFT JOIN deal_rooms dr ON o.metadata->>'offer_id'::text IN (
+        SELECT id::text FROM offers WHERE deal_room_id = dr.id
+      )
+      LEFT JOIN LATERAL (
+        SELECT id, url, created_at 
+        FROM media 
+        WHERE listing_id = l.id 
+        ORDER BY created_at ASC 
+        LIMIT 5
+      ) m ON true
+      WHERE s.user_id = $1
+        ${statusClause}
+      GROUP BY o.id, o.total_amount, o.currency, o.status, o.created_at, o.updated_at,
+               l.title, l.price, l.category, bp.name, bp.avatar_key,
+               p.status, p.provider_payment_id, dr.id, dr.current_state
+      ORDER BY o.created_at DESC
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `;
+
+    const salesResult = await pool.query(salesQuery, queryParams);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM orders o
+      JOIN sellers s ON o.seller_id = s.id
+      WHERE s.user_id = $1
+        ${statusClause.replace('o.status = $4', 'o.status = $2')}
+    `;
+    
+    const countParams = status ? [userId, status] : [userId];
+    const countResult = await pool.query(countQuery, countParams);
+
+    const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      sales: salesResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+      stats: {
+        total_sales: total,
+        total_revenue: salesResult.rows.reduce((sum, sale) => sum + parseFloat(sale.total_amount || 0), 0),
+        pending_orders: salesResult.rows.filter(sale => sale.order_status === 'pending').length,
+        completed_orders: salesResult.rows.filter(sale => sale.order_status === 'completed').length,
+      }
+    });
+  } catch (error) {
+    console.error("Get my sales error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+};
+
+// Get sales details
+const getSaleDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { orderId } = req.params;
+
+    const pool = require("../auth/model").pool;
+
+    // Get sale details with full information
+    const saleQuery = `
+      SELECT 
+        o.id as order_id,
+        o.total_amount,
+        o.currency,
+        o.status as order_status,
+        o.metadata as order_metadata,
+        o.created_at as order_created_at,
+        o.updated_at as order_updated_at,
+        l.id as listing_id,
+        l.title as listing_title,
+        l.description as listing_description,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'url', m.url,
+              'id', m.id
+            ) ORDER BY m.created_at ASC
+          ) FILTER (WHERE m.id IS NOT NULL), 
+          '[]'::json
+        ) as listing_images,
+        l.price as listing_price,
+        l.category as listing_category,
+        l.condition as listing_condition,
+        b.id as buyer_id,
+        bp.name as buyer_username,
+        b.email as buyer_email,
+        bp.avatar_key as buyer_avatar,
+        p.id as payment_id,
+        p.status as payment_status,
+        p.amount as payment_amount,
+        p.provider,
+        p.provider_payment_id,
+        p.metadata as payment_metadata,
+        p.created_at as payment_created_at,
+        dr.id as deal_room_id,
+        dr.current_state as deal_room_state,
+        dr.metadata as deal_room_metadata,
+        off.offered_price,
+        off.status as offer_status,
+        off.created_at as offer_created_at
+      FROM orders o
+      JOIN sellers s ON o.seller_id = s.id
+      JOIN listings l ON o.metadata->>'listing_id'::text = l.id::text
+      JOIN users b ON o.buyer_id = b.id
+      LEFT JOIN profiles bp ON b.id = bp.user_id
+      LEFT JOIN payments p ON o.id = p.order_id
+      LEFT JOIN deal_rooms dr ON o.metadata->>'offer_id'::text IN (
+        SELECT id::text FROM offers WHERE deal_room_id = dr.id
+      )
+      LEFT JOIN offers off ON o.metadata->>'offer_id'::text = off.id::text
+      LEFT JOIN LATERAL (
+        SELECT id, url, created_at 
+        FROM media 
+        WHERE listing_id = l.id 
+        ORDER BY created_at ASC 
+        LIMIT 5
+      ) m ON true
+      WHERE o.id = $1 AND s.user_id = $2
+      GROUP BY o.id, o.total_amount, o.currency, o.status, o.metadata, o.created_at, o.updated_at,
+               l.id, l.title, l.description, l.price, l.category, l.condition,
+               b.id, bp.name, b.email, bp.avatar_key,
+               p.id, p.status, p.amount, p.provider, p.provider_payment_id, p.metadata, p.created_at,
+               dr.id, dr.current_state, dr.metadata,
+               off.offered_price, off.status, off.created_at
+    `;
+
+    const saleResult = await pool.query(saleQuery, [orderId, userId]);
+
+    if (saleResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "Sale not found",
+      });
+    }
+
+    const sale = saleResult.rows[0];
+
+    // Get deal events for this order
+    const eventsQuery = `
+      SELECT de.event_type, de.payload, de.created_at, 
+             u.username as actor_name, p.profile_picture_url as actor_avatar
+      FROM deal_events de
+      LEFT JOIN users u ON de.actor_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE de.deal_room_id = $1
+      ORDER BY de.created_at DESC
+    `;
+
+    const eventsResult = await pool.query(eventsQuery, [sale.deal_room_id]);
+
+    res.status(200).json({
+      sale: {
+        ...sale,
+        events: eventsResult.rows,
+      },
+    });
+  } catch (error) {
+    console.error("Get sale details error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+};
+
 // Toggle seller mode
 const toggleSellerMode = async (req, res) => {
   try {
@@ -441,6 +666,8 @@ module.exports = {
   uploadCoverImage,
   submitVerification,
   getProfileStats,
+  getMySales,
+  getSaleDetails,
   toggleSellerMode,
   deactivateProfile,
   checkUsernameAvailability,
