@@ -19,10 +19,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
-import { useAuth } from '../../../hooks/useAuth';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { getCurrentUser } from '@/src/services/authService';
-import { ThemedText } from '@/src/components/ThemedView';
+import { useAuth } from "../../../hooks/useAuth";
+import { useTheme } from "@/src/contexts/ThemeContext";
+import { getCurrentUser } from "@/src/services/authService";
+import { ThemedText } from "@/src/components/ThemedView";
 import {
   fetchDealRoom,
   fetchMessages,
@@ -35,21 +35,28 @@ import { DealRoom, Message } from "../types/dealRoom";
 import { dealRoomHelpers } from "../dealRoomThunks";
 import { theme } from "../../../theme";
 import DefaultAvatar from "./DefaultAvatar";
-import { updateOfferThunk, counterOfferThunk, acceptOfferThunk } from "../../../features/offer/offerThunks";
+import {
+  updateOfferThunk,
+  counterOfferThunk,
+  acceptOfferThunk,
+} from "../../../features/offer/offerThunks";
 import OfferNegotiation from "../../../features/inbox/components/OfferNegotiation";
+import OfferHistory from "./OfferHistory";
 import PayNowButton from "../../../features/payment/components/PayNowButton";
+import { getOrderPaymentsThunk } from "../../../features/payment/paymentThunks";
 import { Ionicons } from "@expo/vector-icons";
-import { 
-  connectSocket, 
-  disconnectSocket, 
-  joinChatRoom, 
-  leaveChatRoom, 
+import {
+  connectSocket,
+  disconnectSocket,
+  joinChatRoom,
+  leaveChatRoom,
   sendSocketMessage,
   onSocketMessage,
   onOfferUpdate,
-  isSocketConnected
+  isSocketConnected,
 } from "../../../services/socketService";
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
+import { SwapOfferPayload } from "../types/swapOffer";
 
 interface DealRoomChatProps {
   dealRoomId: string;
@@ -65,8 +72,8 @@ interface DealRoomChatProps {
   actualChatId?: string;
 }
 
-const DealRoomChat: React.FC<DealRoomChatProps> = ({ 
-  dealRoomId, 
+const DealRoomChat: React.FC<DealRoomChatProps> = ({
+  dealRoomId,
   onBack,
   itemName,
   itemImage,
@@ -81,28 +88,34 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const router = useRouter();
-  
+
   // Use unified auth service for user data
-  const activeUser = (user && user.id) ? user : getCurrentUser();
-  
+  const activeUser = user && user.id ? user : getCurrentUser();
+
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { currentDealRoom, dealRooms, messages, sendMessageStatus, typing } =
     useAppSelector((state) => state.dealRooms);
-
   const [messageText, setMessageText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [lastOfferUpdatedBy, setLastOfferUpdatedBy] = useState<string | null>(null);
+  const [lastOfferUpdatedBy, setLastOfferUpdatedBy] = useState<string | null>(
+    null
+  );
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [paymentStatusChecked, setPaymentStatusChecked] = useState(false);
+  const [showOfferHistory, setShowOfferHistory] = useState(false);
+  const [orderType, setOrderType] = useState<string>("cash");
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Calculate if this is the user's own offer based on who last updated it
   const calculatedIsOwnOffer = lastOfferUpdatedBy === activeUser?.id;
 
+  // Determine current status - prioritize deal room state over order status
+  const currentStatus = currentDealRoom?.current_state || offerStatus;
+
   const dealRoomMessages = messages[dealRoomId] || [];
-  
+
   // Filter out any undefined or invalid messages
   const validMessages = dealRoomMessages.filter((m: Message) => m && m.id);
 
@@ -127,36 +140,67 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   }, []);
 
   useEffect(() => {
-    console.log('[CHAT] Fetching deal room data for ID:', dealRoomId); dispatch(fetchDealRoom(dealRoomId));
+    dispatch(fetchDealRoom(dealRoomId));
     dispatch(fetchMessages({ dealRoomId }));
   }, [dealRoomId, dispatch]);
+
+  // Fetch order data to get order type
+  useEffect(() => {
+    const fetchOrderType = async () => {
+      if (currentDealRoom?.latest_order_id) {
+        try {
+          // Try to get order type from offer history first
+          if (currentDealRoom.offer_history && currentDealRoom.offer_history.length > 0) {
+            const acceptedOffer = currentDealRoom.offer_history.find(offer => offer.status === "accepted");
+            if (acceptedOffer && acceptedOffer.offer_type) {
+              setOrderType(acceptedOffer.offer_type);
+              return;
+            }
+          }
+          
+          // Fallback: Fetch order data to get order_type
+          const response = await fetch(`/api/orders/${currentDealRoom.latest_order_id}`);
+          if (response.ok) {
+            const order = await response.json();
+            if (order.order_type) {
+              setOrderType(order.order_type);
+            }
+          }
+        } catch (error) {
+        }
+      }
+    };
+
+    fetchOrderType();
+  }, [currentDealRoom?.latest_order_id, currentDealRoom?.offer_history]);
 
   // Check payment status when deal room data loads
   useEffect(() => {
     const checkPaymentStatus = async () => {
       if (currentDealRoom?.latest_order_id) {
         try {
-          const { getOrderPayments } = require('../../../features/payment/api/paymentApi');
-          const payments = await getOrderPayments(currentDealRoom.latest_order_id);
-          
-          if (payments && payments.length > 0) {
-            const latestPayment = payments[0];
-            const isCompleted = latestPayment.status === 'escrowed' || 
-                              latestPayment.status === 'completed' || 
-                              latestPayment.status === 'captured';
-            setPaymentCompleted(isCompleted);
-          } else {
-            setPaymentCompleted(false);
+          const result = await dispatch(getOrderPaymentsThunk(currentDealRoom.latest_order_id));
+          if (getOrderPaymentsThunk.fulfilled.match(result)) {
+            const payments = result.payload;
+            if (payments && payments.length > 0) {
+              const latestPayment = payments[0];
+              const isCompleted =
+                latestPayment.status === "escrowed" ||
+                latestPayment.status === "completed" ||
+                latestPayment.status === "captured";
+              setPaymentCompleted(isCompleted);
+            } else {
+              setPaymentCompleted(false);
+            }
           }
         } catch (error) {
-          console.log('[DealRoomChat] Error checking payment status:', error);
           setPaymentCompleted(false);
         } finally {
           // Fallback: Check deal room order_status if payment API didn't detect completion
-          if (!paymentCompleted && currentDealRoom?.order_status === 'paid') {
+          if (!paymentCompleted && (currentDealRoom?.order_status === "paid" || currentDealRoom?.order_status === "completed")) {
             setPaymentCompleted(true);
           }
-          
+
           setPaymentStatusChecked(true); // Mark as checked regardless of outcome
         }
       } else {
@@ -173,7 +217,6 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     if (currentDealRoom?.latest_offer && !lastOfferUpdatedBy) {
       // Initially, assume the buyer made the offer
       setLastOfferUpdatedBy(currentDealRoom.latest_offer.buyer_id);
-      console.log('[CHAT] Initialized last offer updated by to buyer:', currentDealRoom.latest_offer.buyer_id);
     }
   }, [currentDealRoom?.latest_offer, lastOfferUpdatedBy]);
 
@@ -185,15 +228,12 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
       try {
         if (!isSocketConnected()) {
           await connectSocket();
+          socketConnected = true;
+          // Join the deal room as a chat room
+          joinChatRoom(dealRoomId);
         }
-        socketConnected = true;
-        
-        // Join the deal room as a chat room
-        joinChatRoom(dealRoomId);
-        
-        console.log('[CHAT] Socket initialized and joined room:', dealRoomId);
       } catch (error) {
-        console.error('[CHAT] Failed to initialize socket:', error);
+        console.error("[CHAT] Failed to initialize socket:", error);
       }
     };
 
@@ -201,20 +241,15 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
 
     // Set up message listener
     const handleNewMessage = (message: any) => {
-      console.log('[CHAT] Received new message via socket:', message);
       dispatch(addMessage({ dealRoomId, message }));
     };
 
     const handleOfferUpdate = (data: any) => {
-      console.log('[CHAT] Received offer update via socket:', data);
-      console.log('[CHAT] Refreshing deal room data for ID:', dealRoomId);
-      
       // Set who made the latest offer update
       if (data.updatedBy) {
         setLastOfferUpdatedBy(data.updatedBy);
-        console.log('[CHAT] Set last offer updated by:', data.updatedBy);
       }
-      
+
       // Refresh deal room data to get updated offer information
       dispatch(fetchDealRoom(dealRoomId));
     };
@@ -225,12 +260,10 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     return () => {
       if (socketConnected) {
         leaveChatRoom(dealRoomId);
-        console.log('[CHAT] Left room and cleaned up socket:', dealRoomId);
       }
     };
   }, [dealRoomId, dispatch]);
 
-  
   useEffect(() => {
     // Mark unread messages as read
     const unreadMessages = validMessages.filter((m: Message) => !m.is_read);
@@ -250,20 +283,23 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   }, [validMessages.length]);
 
   const handleOfferUpdate = (newOffer: number) => {
-    // console.log('[CHAT] Offer update - lastOfferUpdatedBy:', lastOfferUpdatedBy, 'currentUser:', activeUser?.id, 'calculatedIsOwnOffer:', calculatedIsOwnOffer);
-    
     if (offerId) {
       if (calculatedIsOwnOffer) {
         // User is updating their own offer
-        console.log('[CHAT] User updating their own offer - using updateOfferThunk');
-        dispatch(updateOfferThunk({
+        dispatch(
+          updateOfferThunk({
             id: offerId,
-            data: { counter_amount: newOffer },
-          }));
+            data: {
+              counter_amount: newOffer,
+              offer_type: "cash",
+              cash_amount: newOffer,
+              swap_items: [],
+            },
+          })
+        );
         // No need to fetch deal room - socket events will update the UI in real-time
       } else {
         // User is making a counter offer to someone else's offer
-        console.log('[CHAT] User making counter offer - using counterOfferThunk');
         dispatch(
           counterOfferThunk({
             offer_id: offerId,
@@ -277,17 +313,19 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
 
   const handleAcceptOffer = () => {
     if (!offerId) {
-      console.error('No offer ID available for acceptance');
+      console.error("No offer ID available for acceptance");
       return;
     }
 
     // Dispatch accept offer thunk
-    dispatch(acceptOfferThunk(offerId) as any).then(() => {
-      // Refresh deal room data to get updated offer information
-      console.log('[CHAT] Fetching deal room data for ID:', dealRoomId); dispatch(fetchDealRoom(dealRoomId));
-    }).catch((error: any) => {
-      console.error('OFFER ACCEPT FAILED:', error);
-    });
+    dispatch(acceptOfferThunk(offerId) as any)
+      .then(() => {
+        // Refresh deal room data to get updated offer information
+        dispatch(fetchDealRoom(dealRoomId));
+      })
+      .catch((error: any) => {
+        console.error("OFFER ACCEPT FAILED:", error);
+      });
   };
 
   const handleSendMessage = async () => {
@@ -307,7 +345,10 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
           })
         ).unwrap();
         setMessageText("");
-        Alert.alert("Message Sent", "Message saved to database (real-time delivery unavailable)");
+        Alert.alert(
+          "Message Sent",
+          "Message saved to database (real-time delivery unavailable)"
+        );
       }
     } catch (error) {
       // Try Redux as final fallback
@@ -341,13 +382,13 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     // Use the actual logged-in user ID
     const currentUserId = activeUser?.id;
-    
+
     // Defensive coding to handle undefined message data
     if (!item || !item.id) {
-      console.warn('Invalid message item:', item);
+      console.warn("Invalid message item:", item);
       return null;
     }
-    
+
     const isOwnMessage = item.sender_id === currentUserId;
     const isSystemMessage = item.is_system;
 
@@ -502,35 +543,179 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
     <View style={[getStyles(theme).safeArea, { paddingTop: insets.top }]}>
       {renderHeader()}
 
-      {/* Offer Negotiation - Hide when payment is completed or still checking status */}
-      {itemName && !paymentCompleted && paymentStatusChecked && (
-        <OfferNegotiation
-          itemName={itemName}
-          itemImage={itemImage}
-          originalPrice={originalPrice}
-          currentOffer={currentOffer}
-          isOwnOffer={calculatedIsOwnOffer}
-          offerStatus={offerStatus}
-          offerId={offerId}
-          conversationId={conversationId}
-          actualChatId={actualChatId}
-          buyerId={currentDealRoom?.buyer_id}
-          sellerId={currentDealRoom?.seller_id}
-          onOfferUpdate={handleOfferUpdate}
-          onAcceptOffer={
-            !calculatedIsOwnOffer && offerStatus !== "accepted"
-              ? handleAcceptOffer
-              : undefined
-          }
-        />
-      )}
+      {/* Offer Negotiation - Hide when payment is completed, still checking status, or order is in advanced status */}
+      {itemName &&
+        !paymentCompleted &&
+        paymentStatusChecked &&
+        currentStatus !== "accepted" &&
+        currentStatus !== "offer_accepted" && (
+          <OfferNegotiation
+            itemName={itemName}
+            itemImage={itemImage}
+            originalPrice={originalPrice}
+            currentOffer={currentOffer}
+            isOwnOffer={calculatedIsOwnOffer}
+            offerStatus={currentStatus}
+            offerId={offerId}
+            conversationId={conversationId}
+            actualChatId={actualChatId}
+            buyerId={currentDealRoom?.buyer_id}
+            sellerId={currentDealRoom?.seller_id}
+            lastOfferUpdatedBy={lastOfferUpdatedBy || undefined}
+            onOfferUpdate={handleOfferUpdate}
+            onAcceptOffer={handleAcceptOffer}
+            listingId={currentDealRoom?.listing_id}
+            currentDealOffer={
+              currentDealRoom?.latest_offer
+                ? {
+                    id: currentDealRoom.latest_offer.id,
+                    dealRoomId: currentDealRoom.id,
+                    type:
+                      (currentDealRoom.latest_offer as any).offer_type ||
+                      "cash",
+                    cashAmount: parseFloat(
+                      (currentDealRoom.latest_offer as any).cash_amount ||
+                        currentDealRoom.latest_offer.offered_price ||
+                        "0"
+                    ),
+                    swapItems:
+                      (currentDealRoom.latest_offer as any).swap_items || [],
+                    status: currentDealRoom.latest_offer.status as
+                      | "pending"
+                      | "accepted"
+                      | "countered",
+                    createdAt: currentDealRoom.latest_offer.created_at,
+                    updatedAt: (currentDealRoom.latest_offer as any).updated_at,
+                    buyerId: currentDealRoom.latest_offer.buyer_id,
+                    sellerId: currentDealRoom.latest_offer.seller_id,
+                    metadata:
+                      (currentDealRoom.latest_offer as any).metadata || {},
+                  }
+                : undefined
+            }
+          />
+        )}
 
-     
+      {/* Current Order Status Display */}
+      {currentStatus &&
+        currentStatus !== "accepted" &&
+        currentStatus !== "pending" &&
+        currentStatus !== "paid" &&
+        currentStatus !== "shipped" &&
+        currentStatus !== "delivered" &&
+        currentStatus !== "completed" &&
+        currentStatus != "countered" && (
+          <View
+            style={{
+              padding: 16,
+              backgroundColor: theme.colors.background,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.border,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <ThemedText
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.colors.primary,
+                }}
+              >
+                Order Status
+              </ThemedText>
+              <View
+                style={{
+                  backgroundColor:
+                    currentStatus === "delivered"
+                      ? "#3B82F6"
+                      : currentStatus === "completed"
+                      ? "#10B981"
+                      : currentStatus === "shipped"
+                      ? "#F59E0B"
+                      : currentStatus === "paid"
+                      ? "#10B981"
+                      : "#6B7280",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                }}
+              >
+                <ThemedText
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: "#FFFFFF",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {currentStatus === "delivered"
+                    ? "Delivered"
+                    : currentStatus === "completed"
+                    ? "Completed"
+                    : currentStatus === "shipped"
+                    ? "Shipped"
+                    : currentStatus === "paid"
+                    ? "Paid"
+                    : currentStatus.charAt(0).toUpperCase() +
+                      currentStatus.slice(1)}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText
+              style={{
+                fontSize: 14,
+                color: theme.colors.secondary,
+                textAlign: "center",
+              }}
+            >
+              {currentStatus === "delivered"
+                ? "You marked this order as delivered. Waiting for buyer confirmation."
+                : currentStatus === "completed"
+                ? "Order completed! Payment has been released to your account."
+                : currentStatus === "shipped"
+                ? "You have shipped this order. Track delivery in My Sales."
+                : currentStatus === "paid"
+                ? "Payment received and held in escrow until delivery."
+                : `Order status: ${currentStatus}`}
+            </ThemedText>
+          </View>
+        )}
+
       {paymentCompleted && (
-        <View style={{ padding: 16, backgroundColor: theme.colors.background, borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <ThemedText style={{ fontSize: 16, fontWeight: '600', color: theme.colors.primary }}>
-              ✓ {currentDealRoom?.buyer_id === activeUser?.id ? 'Purchase Completed' : 'Payment Received'}
+        <View
+          style={{
+            padding: 16,
+            backgroundColor: theme.colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <ThemedText
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: theme.colors.primary,
+              }}
+            >
+              ✓{" "}
+              {currentDealRoom?.buyer_id === activeUser?.id
+                ? "Purchase Completed"
+                : "Payment Received"}
             </ThemedText>
             <TouchableOpacity
               style={{
@@ -538,63 +723,117 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 6,
-                flexDirection: 'row',
-                alignItems: 'center'
+                flexDirection: "row",
+                alignItems: "center",
               }}
-              onPress={() => router.push(currentDealRoom?.buyer_id === activeUser?.id ? '/profile/my-purchases' : '/profile/sales')}
+              onPress={() =>
+                router.push(
+                  currentDealRoom?.buyer_id === activeUser?.id
+                    ? "/profile/my-purchases"
+                    : "/profile/sales"
+                )
+              }
               activeOpacity={0.8}
             >
-              <Ionicons 
-                name={currentDealRoom?.buyer_id === activeUser?.id ? "bag-outline" : "storefront-outline"} 
-                size={16} 
-                color={theme.colors.surface} 
-                style={{ marginRight: 6 }} 
+              <Ionicons
+                name={
+                  currentDealRoom?.buyer_id === activeUser?.id
+                    ? "bag-outline"
+                    : "storefront-outline"
+                }
+                size={16}
+                color={theme.colors.surface}
+                style={{ marginRight: 6 }}
               />
-              <ThemedText style={{ color: theme.colors.surface, fontWeight: '600', fontSize: 14 }}>
-                {currentDealRoom?.buyer_id === activeUser?.id ? 'My Purchases' : 'My Sales'}
+              <ThemedText
+                style={{
+                  color: theme.colors.surface,
+                  fontWeight: "600",
+                  fontSize: 14,
+                }}
+              >
+                {currentDealRoom?.buyer_id === activeUser?.id
+                  ? "My Purchases"
+                  : "My Sales"}
               </ThemedText>
             </TouchableOpacity>
           </View>
-          <ThemedText style={{ fontSize: 14, color: theme.colors.secondary, textAlign: 'center' }}>
-            {currentDealRoom?.buyer_id === activeUser?.id 
-              ? 'Your payment has been completed. Track your purchase in My Purchases.'
-              : 'Payment has been received and is being held in escrow until delivery is confirmed.'
-            }
+          <ThemedText
+            style={{
+              fontSize: 14,
+              color: theme.colors.secondary,
+              textAlign: "center",
+            }}
+          >
+            {currentDealRoom?.buyer_id === activeUser?.id
+              ? "Your payment has been completed. Track your purchase in My Purchases."
+              : "Payment has been received and is being held in escrow until delivery is confirmed."}
           </ThemedText>
         </View>
       )}
 
-      {/* Pay Now Button - Show if offer is accepted and user is buyer and payment not completed and status checked */}
-      {offerStatus === "accepted" && currentDealRoom?.buyer_id === activeUser?.id && currentDealRoom?.latest_offer && !paymentCompleted && paymentStatusChecked && (
-        <View style={{ padding: 16, backgroundColor: theme.colors.background }}>
-          <ThemedText style={{ marginBottom: 12, textAlign: 'center' }}>
-            Offer accepted! Complete payment to proceed with the transaction.
-          </ThemedText>
-          {/* {console.log('[DealRoomChat] PayNowButton props:', {
-            orderId: currentDealRoom.latest_order_id || currentDealRoom.latest_offer?.id || '',
-            amount: currentDealRoom.latest_offer?.offered_price || 0,
-            offerData: currentDealRoom.latest_offer,
-            orderData: {
-              id: currentDealRoom.latest_order_id,
-              status: currentDealRoom.order_status,
-              amount: currentDealRoom.order_amount
-            }
-          })} */}
-          <PayNowButton
-            orderId={currentDealRoom.latest_order_id || currentDealRoom.latest_offer?.id || ''} // Use actual order ID, fallback to offer ID
-            amount={parseFloat(String(currentDealRoom.latest_offer?.offered_price || '0'))}
-            onPaymentSuccess={() => {
-              console.log('[CHAT] Payment successful');
-              setPaymentCompleted(true); // Update local state
-              // Refresh deal room to get updated payment status
-              dispatch(fetchDealRoom(dealRoomId));
-            }}
-            onPaymentError={(error) => {
-              console.error('[CHAT] Payment failed:', error);
-            }}
-          />
-        </View>
-      )}
+      {/* Pay Now Button - Show if offer is accepted and user is buyer and payment not completed and status checked and it's a cash offer */}
+      {(currentStatus === "accepted" || currentStatus === "offer_accepted") &&
+        currentDealRoom?.buyer_id === activeUser?.id &&
+        currentDealRoom?.latest_order_id &&
+        !paymentCompleted &&
+        paymentStatusChecked &&
+        orderType === "cash" && (
+          <View
+            style={{ padding: 16, backgroundColor: theme.colors.background }}
+          >
+            <ThemedText style={{ marginBottom: 12, textAlign: "center" }}>
+              Offer accepted! Complete payment to proceed with the transaction.
+            </ThemedText>
+            <PayNowButton
+              orderId={currentDealRoom.latest_order_id || ""}
+              amount={parseFloat(
+                String(
+                  currentDealRoom.order_amount ||
+                    currentDealRoom.latest_offer?.offered_price ||
+                    "0"
+                )
+              )}
+              onPaymentSuccess={() => {
+                setPaymentCompleted(true); // Update local state
+                // Refresh deal room to get updated payment status
+                dispatch(fetchDealRoom(dealRoomId));
+              }}
+              onPaymentError={(error) => {
+                console.error("[CHAT] Payment failed:", error);
+              }}
+            />
+          </View>
+        )}
+
+      {/* Terms & Conditions Button - Show for swap offers that are accepted */}
+      {(currentStatus === "accepted" || currentStatus === "offer_accepted") &&
+        currentDealRoom?.latest_order_id &&
+        !paymentCompleted &&
+        paymentStatusChecked &&
+        orderType === "hybrid" && (
+          <View
+            style={{ padding: 16, backgroundColor: theme.colors.background }}
+          >
+            <ThemedText style={{ marginBottom: 12, textAlign: "center" }}>
+              Offer accepted! Please review the terms and conditions for in-person exchange.
+            </ThemedText>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#3B82F6",
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 8,
+                alignItems: "center",
+              }}
+              onPress={() => router.push("/support/terms")}
+            >
+              <ThemedText style={{ color: "white", fontWeight: "600" }}>
+                View Terms & Conditions
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
 
       <View style={getStyles(theme).contentContainer}>
         <ScrollView
@@ -631,6 +870,26 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
               selectTextOnFocus={false}
             />
 
+            {/* Offer History Button */}
+            {currentDealRoom?.offer_history &&
+              currentDealRoom.offer_history.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowOfferHistory(!showOfferHistory)}
+                  style={{
+                    padding: 8,
+                    marginRight: 8,
+                    backgroundColor: showOfferHistory ? "#3B82F6" : "#F3F4F6",
+                    borderRadius: 6,
+                  }}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={20}
+                    color={showOfferHistory ? "#FFFFFF" : "#6B7280"}
+                  />
+                </TouchableOpacity>
+              )}
+
             <TouchableOpacity
               style={[
                 getStyles(theme).sendButton,
@@ -659,6 +918,63 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Offer History Modal */}
+      {showOfferHistory && currentDealRoom?.offer_history && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              borderWidth: 1,
+              borderRadius: 12,
+              width: "90%",
+              height: "75%",
+              maxHeight: "80%",
+              margin: 20,
+            }}
+          >
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.colors.border,
+              }}
+            >
+              <Text
+                style={{ fontSize: 18, fontWeight: "600", color: theme.colors.primary }}
+              >
+                Offer History ({currentDealRoom.offer_history.length})
+              </Text>
+              <TouchableOpacity onPress={() => setShowOfferHistory(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <OfferHistory
+              offerHistory={currentDealRoom.offer_history}
+              currentUserId={activeUser?.id || ""}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 };

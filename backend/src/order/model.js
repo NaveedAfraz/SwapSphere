@@ -3,20 +3,25 @@ const { inngest } = require("../services/inngest");
 const EventService = require("../services/eventService");
 
 const createOrder = async (buyerId, sellerId, orderData) => {
-  const { total_amount, currency, shipping_address, billing_info, metadata } = orderData;
+  const { total_amount, currency, shipping_address, billing_info, metadata, order_type, swap_items } = orderData;
   
   await pool.query('BEGIN');
   
   try {
     // Create order
     const orderQuery = `
-      INSERT INTO orders (buyer_id, seller_id, total_amount, currency, shipping_address, billing_info, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO orders (buyer_id, seller_id, total_amount, currency, shipping_address, billing_info, metadata, order_type, swap_items)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
+    // Default to cash order for backward compatibility
+    const finalOrderType = order_type || 'cash';
+    const finalSwapItems = swap_items || [];
+    
     const orderResult = await pool.query(orderQuery, [
-      buyerId, sellerId, total_amount, currency || 'USD', shipping_address, billing_info, metadata
+      buyerId, sellerId, total_amount, currency || 'USD', shipping_address, billing_info, metadata,
+      finalOrderType, JSON.stringify(finalSwapItems)
     ]);
     
     const order = orderResult.rows[0];
@@ -24,7 +29,7 @@ const createOrder = async (buyerId, sellerId, orderData) => {
     // Create order items from metadata
     if (metadata && metadata.offer_id) {
       const offerQuery = `
-        SELECT o.listing_id, o.offered_price, o.offered_quantity, l.title
+        SELECT o.listing_id, o.offered_price, o.offered_quantity, o.offer_type, o.cash_amount, o.swap_items, l.title
         FROM offers o
         JOIN listings l ON o.listing_id = l.id
         WHERE o.id = $1
@@ -35,15 +40,47 @@ const createOrder = async (buyerId, sellerId, orderData) => {
       if (offerResult.rows.length > 0) {
         const offer = offerResult.rows[0];
         
-        const itemQuery = `
-          INSERT INTO order_items (order_id, listing_id, price, quantity, metadata)
-          VALUES ($1, $2, $3, $4, $5)
-        `;
+        // For swap/hybrid orders, create items for both the main listing and swap items
+        const itemsToCreate = [];
         
-        await pool.query(itemQuery, [
-          order.id, offer.listing_id, offer.offered_price, offer.offered_quantity,
-          { listing_title: offer.title }
-        ]);
+        // Main listing item
+        itemsToCreate.push({
+          listing_id: offer.listing_id,
+          price: offer.offer_type === 'cash' ? offer.offered_price : offer.cash_amount,
+          quantity: offer.offered_quantity,
+          metadata: { 
+            listing_title: offer.title,
+            is_main_item: true
+          }
+        });
+        
+        // Swap items (if any)
+        if (offer.swap_items && Array.isArray(offer.swap_items)) {
+          for (const swapItem of offer.swap_items) {
+            itemsToCreate.push({
+              listing_id: swapItem.listing_id,
+              price: 0, // Swap items have no cash value
+              quantity: 1,
+              metadata: {
+                listing_title: swapItem.title,
+                is_swap_item: true,
+                swap_item_data: swapItem
+              }
+            });
+          }
+        }
+        
+        // Insert all items
+        for (const item of itemsToCreate) {
+          const itemQuery = `
+            INSERT INTO order_items (order_id, listing_id, price, quantity, metadata)
+            VALUES ($1, $2, $3, $4, $5)
+          `;
+          
+          await pool.query(itemQuery, [
+            order.id, item.listing_id, item.price, item.quantity, item.metadata
+          ]);
+        }
       }
     }
     
@@ -133,12 +170,9 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
   
   // Parse JSON fields for each order
   const orders = dataResult.rows.map(order => {
-    console.log('[ORDER MODEL] Processing order:', order.id, 'listing type:', typeof order.listing);
-    console.log('[ORDER MODEL] Raw listing data:', order.listing);
     
     try {
       const parsedListing = typeof order.listing === 'string' ? JSON.parse(order.listing) : order.listing;
-      console.log('[ORDER MODEL] Parsed listing:', parsedListing);
       return {
         ...order,
         listing: parsedListing
@@ -252,7 +286,6 @@ const getOrderById = async (userId, orderId) => {
 };
 
 const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) => {
-  console.log('[ORDER MODEL] Updating order:', { userId, orderId, status, trackingInfo });
   await pool.query('BEGIN');
   
   try {
@@ -266,7 +299,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     
     const orderResult = await pool.query(orderQuery, [orderId]);
     
-    console.log('[ORDER MODEL] Order query result:', { found: orderResult.rows.length, orderId });
     
     if (orderResult.rows.length === 0) {
       throw new Error('Order not found');
@@ -274,7 +306,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     
     const order = orderResult.rows[0];
     
-    console.log('[ORDER MODEL] Order details:', { 
       orderId: order.id, 
       buyer_id: order.buyer_id, 
       seller_id: order.seller_id, 
@@ -292,7 +323,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     }
     
     if (sellerOnlyStatuses.includes(status) && order.seller_user_id !== userId) {
-      console.log('[ORDER MODEL] Seller check failed:', { 
         orderSellerId: order.seller_id, 
         orderSellerUserId: order.seller_user_id,
         requestUserId: userId, 
@@ -331,8 +361,16 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     
     const result = await pool.query(updateQuery, queryParams);
     
-    // Note: transactions table doesn't exist in current schema
-    // If needed in future, add payments table update logic here
+    // Update payment status when order is completed
+    if (status === 'completed') {
+      const paymentUpdateQuery = `
+        UPDATE payments 
+        SET status = 'captured', updated_at = NOW()
+        WHERE order_id = $1 AND status = 'escrowed'
+      `;
+      
+      await pool.query(paymentUpdateQuery, [orderId]);
+    }
     
     // Send Inngest event for order shipped
     if (status === 'shipped') {
@@ -356,7 +394,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
           }
         });
         
-        console.log(`[ORDER SHIPPED] Event sent for order: ${orderId}`);
       } catch (eventError) {
         console.error('[ORDER SHIPPED] Failed to send event:', eventError);
         // Don't fail the transaction if event fails
@@ -392,7 +429,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
           }
         });
         
-        console.log(`[DELIVERY NOTIFICATION] Event sent for order: ${orderId}`);
       } catch (eventError) {
         console.error('[DELIVERY NOTIFICATION] Failed to send event:', eventError);
         // Don't fail the transaction if event fails
@@ -406,7 +442,7 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
         const orderDetails = await pool.query(`
           SELECT o.*, dr.id as deal_room_id
           FROM orders o
-          LEFT JOIN deal_rooms dr ON o.metadata->>'intent_id' = dr.intent_id
+          LEFT JOIN deal_rooms dr ON dr.intent_id::text = o.metadata->>'intent_id'
           WHERE o.id = $1
         `, [orderId]);
         
@@ -421,7 +457,6 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
           }
         });
         
-        console.log(`[ORDER DELIVERED] Event sent for order: ${orderId}`);
       } catch (eventError) {
         console.error('[ORDER DELIVERED] Failed to send event:', eventError);
         // Don't fail the transaction if event fails

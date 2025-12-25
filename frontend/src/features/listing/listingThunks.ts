@@ -10,6 +10,7 @@ import type {
   ListingImage,
   Listing,
 } from "./types/listing";
+import { UserListingForSwap } from "../dealRooms/types/swapOffer";
 
 const API_BASE = "http://192.168.0.104:5000/api/listing";
 
@@ -255,6 +256,44 @@ export const incrementViewCountThunk = createAsyncThunk<
       await apiClient.post(`/${listingId}/view`);
     } catch (error: any) {
       // Failed to increment view count
+    }
+  }
+);
+
+export const fetchUserListingsForSwapThunk = createAsyncThunk<
+  UserListingForSwap[],
+  { excludeListingId?: string },
+  { rejectValue: string }
+>(
+  "listing/fetchUserListingsForSwap",
+  async ({ excludeListingId }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get<ListingResponse>("/my", {
+        params: {
+          page: 1,
+          limit: 50, // Get all user listings
+        },
+      });
+
+      // Transform listings to swap format and exclude current listing
+      const swapListings: UserListingForSwap[] = response.data.listings
+        .filter(listing => listing.id !== excludeListingId)
+        .map(listing => ({
+          id: listing.id,
+          title: listing.title,
+          primary_image_url: listing.primary_image_url,
+          price: listing.price,
+          condition: listing.condition,
+          category: listing.category,
+        }));
+
+      return swapListings;
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to fetch user listings for swap";
+      return rejectWithValue(errorMessage);
     }
   }
 );

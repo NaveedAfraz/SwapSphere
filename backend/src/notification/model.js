@@ -16,7 +16,6 @@ const createNotification = async (userId, notificationData) => {
   const duplicateResult = await pool.query(duplicateCheckQuery, [userId, actor_id, type, JSON.stringify(payload)]);
   
   if (duplicateResult.rows.length > 0) {
-    console.log('Duplicate notification detected, skipping creation');
     return duplicateResult.rows[0]; // Return existing notification
   }
   
@@ -62,11 +61,8 @@ const updateNotificationStatus = async (notificationId, userId, status, isRead =
     RETURNING *
   `;
   
-  console.log('updateNotificationStatus query:', query);
-  console.log('updateNotificationStatus params:', queryParams);
   
   const result = await pool.query(query, queryParams);
-  console.log('updateNotificationStatus result:', result.rows[0]);
   return result.rows[0];
 };
 

@@ -92,11 +92,29 @@ export interface DealRoom {
     created_at: string;
     buyer_id: string;
     seller_id: string;
+    offer_type?: string;
   };
 
   // Related data
   messages?: Message[];
   events?: DealEvent[];
+  offer_history?: OfferHistoryItem[];
+}
+
+export interface OfferHistoryItem {
+  id: string;
+  offered_price: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  buyer_id: string;
+  seller_id: string;
+  offer_type?: string;
+  cash_amount?: number;
+  swap_items?: any;
+  counter_for?: string;
+  buyer_name?: string;
+  buyer_avatar?: string;
 }
 
 export interface DealRoomStateType {

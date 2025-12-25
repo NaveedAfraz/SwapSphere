@@ -389,7 +389,6 @@ const googleAuth = async (req, res) => {
 // Logout user
 const logout = async (req, res) => {
   try {
-    console.log("Logout request received from user:", req.user?.userId);
     
     // For JWT-based auth, logout is mainly client-side (token removal)
     // But we can log the logout event or invalidate tokens if using a token blacklist
@@ -432,7 +431,6 @@ const updateProfilePicture = async (req, res) => {
         profile_picture_mime_type,
         profile_picture_size_bytes,
       });
-      console.log("Profile picture uploaded successfully:", profilePictureData.profile_picture_url);
     } catch (uploadError) {
       console.error("Profile picture upload failed:", uploadError);
       return res.status(500).json({

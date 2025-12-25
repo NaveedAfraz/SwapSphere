@@ -71,24 +71,16 @@ const getDealRoomsByUser = async (userId, options = {}) => {
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
 
-  console.log('Executing dataQuery with params:', [...queryParams, limit, offset]);
 
   queryParams.push(limit, offset);
 
-  console.log('final queryParams:', queryParams);
-  console.log('dataQuery:', dataQuery);
 
   const [countResult, dataResult] = await Promise.all([
     pool.query(countQuery, queryParams.slice(0, paramIndex - 1)),
     pool.query(dataQuery, queryParams)
   ]);
 
-  console.log('countResult:', countResult.rows);
-  console.log('dataResult rows count:', dataResult.rows.length);
-  console.log('dataResult rows:', dataResult.rows);
 
-  console.log('countResult.rows:', countResult.rows);
-  console.log('dataResult.rows:', dataResult.rows);
 
   const total = parseInt(countResult.rows[0].total);
   const totalPages = Math.ceil(total / limit);

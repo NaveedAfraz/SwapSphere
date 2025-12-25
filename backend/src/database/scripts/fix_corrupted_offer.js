@@ -6,7 +6,6 @@ const pool = new Pool({
 
 async function fixCorruptedOffer() {
   try {
-    console.log('Fixing corrupted offer buyer_id...');
     
     // Fix the corrupted offer record
     const updateResult = await pool.query(`
@@ -16,7 +15,6 @@ async function fixCorruptedOffer() {
       AND buyer_id = '12f7cbbb-5fde-4024-800d-edfbd1895729'
     `);
     
-    console.log('Updated rows:', updateResult.rowCount);
     
     // Verify the fix
     const verifyResult = await pool.query(`
@@ -32,7 +30,6 @@ async function fixCorruptedOffer() {
       WHERE o.id = '30b20dcc-2bde-4893-90e3-4c420bbac3f6'
     `);
     
-    console.log('Fixed offer data:', verifyResult.rows[0]);
     
   } catch (error) {
     console.error('Error fixing offer:', error);

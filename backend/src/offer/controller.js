@@ -18,9 +18,7 @@ const EventService = require('../services/eventService');
 const createOffer = async (req, res) => {
   try {
     const buyerId = req.user.id;
-    const { listing_id, offered_price, offered_quantity, expires_at, intent_id } = req.body;
-    
-    console.log('[OFFER] Creating new offer:', { buyerId, listing_id, offered_price, offered_quantity, expires_at, intent_id });
+    const { listing_id, offered_price, offered_quantity, expires_at, intent_id, offer_type, cash_amount, swap_items } = req.body;
     
     // Get listing details
     const listingQuery = `
@@ -32,27 +30,40 @@ const createOffer = async (req, res) => {
     const listingResult = await pool.query(listingQuery, [listing_id]);
     
     if (listingResult.rows.length === 0) {
-      console.log('[OFFER] Listing not found:', listing_id);
       return res.status(404).json({ error: 'Listing not found' });
     }
     
     const listing = listingResult.rows[0];
-    console.log('[OFFER] Found listing:', { listingId: listing_id, sellerUserId: listing.seller_user_id });
     
     // Check if this is a seller responding to an intent
     const isSellerRespondingToIntent = intent_id && listing.seller_user_id === buyerId;
-    console.log('[OFFER] Is seller responding to intent:', isSellerRespondingToIntent);
     
-    // Prevent buyer from making offer on their own listing, unless it's a seller responding to intent
-    if (!isSellerRespondingToIntent && listing.seller_user_id === buyerId) {
-      console.log('[OFFER] Cannot make offer on own listing');
+    // Check if this is a seller making a swap offer on their own listing
+    const isSellerMakingSwapOffer = !isSellerRespondingToIntent && 
+                                   listing.seller_user_id === buyerId && 
+                                   ['swap', 'hybrid'].includes(offer_type);
+    
+    // Prevent buyer from making offer on their own listing, unless:
+    // 1. It's a seller responding to an intent, OR
+    // 2. It's a seller making a swap offer on their own listing
+    if (!isSellerRespondingToIntent && !isSellerMakingSwapOffer && listing.seller_user_id === buyerId) {
       return res.status(400).json({ error: 'Cannot make offer on your own listing' });
+    }
+    
+    // Validate swap offer data
+    if (offer_type && ['swap', 'hybrid'].includes(offer_type)) {
+      if (!swap_items || !Array.isArray(swap_items) || swap_items.length === 0) {
+        return res.status(400).json({ error: 'Swap offers must include at least one swap item' });
+      }
+      
+      if (offer_type === 'hybrid' && (!cash_amount || cash_amount <= 0)) {
+        return res.status(400).json({ error: 'Hybrid offers must include a cash amount' });
+      }
     }
     
     // Create or find deal room first
     let dealRoom;
     if (isSellerRespondingToIntent && intent_id) {
-      console.log('[OFFER] Finding or creating deal room for intent');
       // For seller responding to intent, find existing deal room or create new one
       try {
         const findDealRoomQuery = `
@@ -63,31 +74,118 @@ const createOffer = async (req, res) => {
         
         if (existingDealRoom.rows.length > 0) {
           dealRoom = existingDealRoom.rows[0];
-          console.log('[OFFER] Found existing deal room:', dealRoom.id);
         } else {
           // Create new deal room
           const createDealRoomQuery = `
-            INSERT INTO deal_rooms (intent_id, listing_id, buyer_id, seller_id)
-            SELECT $1, $2, buyer_id, $3 FROM intents WHERE id = $1
+            INSERT INTO deal_rooms (intent_id, listing_id, seller_id, current_state)
+            VALUES ($1, $2, $3, 'pending')
             RETURNING *
           `;
           const newDealRoom = await pool.query(createDealRoomQuery, [intent_id, listing_id, listing.seller_id]);
           dealRoom = newDealRoom.rows[0];
-          console.log('[OFFER] Created new deal room:', dealRoom.id);
         }
       } catch (error) {
-        console.error('[OFFER] Error creating/deal room:', error);
         // Continue without deal room for now
+      }
+    } else if (isSellerMakingSwapOffer) {
+      // This is a seller making a swap offer on their own listing
+      // Find existing deal room for this listing, or create one if none exists
+      try {
+        const findExistingDealRoomQuery = `
+          SELECT id FROM deal_rooms 
+          WHERE listing_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        const existingDealRoom = await pool.query(findExistingDealRoomQuery, [listing_id]);
+        
+        if (existingDealRoom.rows.length > 0) {
+          dealRoom = existingDealRoom.rows[0];
+        } else {
+          // Don't create a new deal room for seller swap offers
+          return res.status(400).json({ error: 'Cannot create swap offer - no active negotiation found' });
+        }
+      } catch (error) {
+        console.error('[OFFER] Error finding deal room for seller swap:', error);
+        return res.status(500).json({ error: 'Error finding deal room' });
+      }
+    } else {
+      // Regular buyer offer - create new deal room if none exists
+      try {
+        const findExistingDealRoomQuery = `
+          SELECT id FROM deal_rooms 
+          WHERE listing_id = $1 AND buyer_id = $2
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        const existingDealRoom = await pool.query(findExistingDealRoomQuery, [listing_id, buyerId]);
+        
+        if (existingDealRoom.rows.length > 0) {
+          dealRoom = existingDealRoom.rows[0];
+        } else {
+          // Create new deal room for buyer offer
+          const createDealRoomQuery = `
+            INSERT INTO deal_rooms (listing_id, buyer_id, seller_id, current_state)
+            VALUES ($1, $2, $3, 'negotiation')
+            RETURNING *
+          `;
+          const newDealRoom = await pool.query(createDealRoomQuery, [listing_id, buyerId, listing.seller_id]);
+          dealRoom = newDealRoom.rows[0];
+        }
+      } catch (error) {
+        console.error('[OFFER] Error creating deal room for buyer:', error);
+        // Continue without deal room for now
+      }
+    }
+    
+    // Before creating new offer, mark any existing pending offers as countered
+    // This ensures only one offer per deal room has status = 'pending' at any time
+    if (dealRoom?.id) {
+      try {
+        const updatePendingOffersQuery = `
+          UPDATE offers 
+          SET status = 'countered', updated_at = NOW()
+          WHERE deal_room_id = $1 AND status = 'pending'
+        `;
+        const updateResult = await pool.query(updatePendingOffersQuery, [dealRoom.id]);
+      } catch (error) {
+        console.error('[OFFER] Error updating pending offers:', error);
+        // Continue with offer creation even if this fails
+      }
+    } else {
+      // If no deal room exists, check for other pending offers on the same listing
+      // This handles the case of multiple offers on the same listing before deal room creation
+      try {
+        const updateListingOffersQuery = `
+          UPDATE offers 
+          SET status = 'countered', updated_at = NOW()
+          WHERE listing_id = $1 AND status = 'pending' AND deal_room_id IS NULL
+        `;
+        const updateResult = await pool.query(updateListingOffersQuery, [listing_id]);
+      } catch (error) {
+        console.error('[OFFER] Error updating listing offers:', error);
+        // Continue with offer creation even if this fails
       }
     }
     
     // Create offer with deal room ID
     let offer;
     if (isSellerRespondingToIntent) {
-      console.log('[OFFER] Creating seller counter offer');
       // This is a seller responding to an intent, treat as counter-offer
-      // Use seller_user_id (the actual user) not seller_id (the seller record)
-      offer = await createOfferModel(listing.seller_user_id, listing.seller_id, {
+      // Get the original intent to find the buyer first
+      const intentQuery = `
+        SELECT buyer_id FROM intents WHERE id = $1
+      `;
+      const intentResult = await pool.query(intentQuery, [intent_id]);
+      
+      if (intentResult.rows.length === 0) {
+        throw new Error('Intent not found');
+      }
+      
+      const actualBuyerId = intentResult.rows[0].buyer_id;
+      
+      // Create offer with correct buyer_id (the actual buyer, not the seller)
+      offer = await createOfferModel(actualBuyerId, listing.seller_id, {
         listing_id,
         offered_price,
         offered_quantity,
@@ -95,37 +193,87 @@ const createOffer = async (req, res) => {
         intent_id, // Link to the original intent
         deal_room_id: dealRoom?.id, // Link to deal room
         is_counter_offer: true, // Flag this as a counter-offer
+        offer_type,
+        cash_amount,
+        swap_items,
+        metadata: {
+          made_by_user_id: listing.seller_user_id,
+          is_seller_counter_to_intent: true
+        }
       });
       
-      // Get the original intent to find the buyer
-      const intentQuery = `
-        SELECT buyer_id FROM intents WHERE id = $1
-      `;
-      const intentResult = await pool.query(intentQuery, [intent_id]);
       
-      if (intentResult.rows.length > 0) {
-        const buyerId = intentResult.rows[0].buyer_id;
-        console.log('[OFFER] Creating notification for buyer:', buyerId);
+      // TODO: Implement proper notification model/service
+      // await createNotification(actualBuyerId, {
+      //   type: 'offer_countered',
+      //   payload: {
+      //     offer_id: offer.id,
+      //     listing_id: listing_id,
+      //     listing_title: listing.title,
+      //     offered_price: offered_price,
+      //     offered_quantity: offered_quantity,
+      //     seller_user_id: listing.seller_user_id,
+      //     intent_id: intent_id,
+      //     deal_room_id: dealRoom?.id, // Add deal room ID to notification
+      //     offer_type: offer.offer_type,
+      //     cash_amount: offer.cash_amount,
+      //     swap_items: offer.swap_items
+      //   },
+      //   actor_id: listing.seller_user_id
+      // });
+    } else if (isSellerMakingSwapOffer) {
+      // This is a seller making a swap offer on their own listing
+      // Find existing deal room for this listing, or create one if none exists
+      try {
+        const findExistingDealRoomQuery = `
+          SELECT id FROM deal_rooms 
+          WHERE listing_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        const existingDealRoom = await pool.query(findExistingDealRoomQuery, [listing_id]);
         
-        // TODO: Implement proper notification model/service
-        // await createNotification(buyerId, {
-        //   type: 'offer_countered',
-        //   payload: {
-        //     offer_id: offer.id,
-        //     listing_id: listing_id,
-        //     listing_title: listing.title,
-        //     offered_price: offered_price,
-        //     offered_quantity: offered_quantity,
-        //     seller_user_id: listing.seller_user_id,
-        //     intent_id: intent_id,
-        //     deal_room_id: dealRoom?.id, // Add deal room ID to notification
-        //   },
-        //   actor_id: listing.seller_user_id
-        // });
-        console.log('[OFFER] Buyer notification skipped - notification service not implemented');
+        if (existingDealRoom.rows.length > 0) {
+          dealRoom = existingDealRoom.rows[0];
+          
+          // Get the actual buyer from the deal room
+          const dealRoomBuyerQuery = `
+            SELECT buyer_id FROM deal_rooms WHERE id = $1
+          `;
+          const dealRoomBuyerResult = await pool.query(dealRoomBuyerQuery, [dealRoom.id]);
+          
+          if (dealRoomBuyerResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Deal room not found' });
+          }
+          
+          const actualBuyerId = dealRoomBuyerResult.rows[0].buyer_id;
+          
+          // Create the swap offer with correct buyer_id (the actual buyer from deal room)
+          // The offer should always belong to the buyer, even if seller is countering
+          offer = await createOfferModel(actualBuyerId, listing.seller_id, {
+            listing_id,
+            offered_price,
+            offered_quantity,
+            expires_at,
+            deal_room_id: dealRoom?.id,
+            offer_type,
+            cash_amount,
+            swap_items,
+            metadata: {
+              made_by_user_id: listing.seller_user_id, // Track that seller made this offer
+              is_seller_swap_offer: true
+            }
+          });
+        } else {
+          // Don't create a new deal room for seller swap offers
+          return res.status(400).json({ error: 'Cannot create swap offer - no active negotiation found' });
+        }
+      } catch (error) {
+        console.error('[OFFER] Error finding deal room for seller swap:', error);
+        return res.status(500).json({ error: 'Error finding deal room' });
       }
+      
     } else {
-      console.log('[OFFER] Creating regular buyer offer');
       // Regular buyer offer
       offer = await createOfferModel(buyerId, listing.seller_id, {
         listing_id,
@@ -133,9 +281,15 @@ const createOffer = async (req, res) => {
         offered_quantity,
         expires_at,
         deal_room_id: dealRoom?.id, // Link to deal room if available
+        offer_type,
+        cash_amount,
+        swap_items,
+        metadata: {
+          made_by_user_id: buyerId,
+          is_buyer_offer: true
+        }
       });
       
-      console.log('[OFFER] Creating notification for seller:', listing.seller_user_id);
       // TODO: Implement proper notification model/service
       // await createNotification(listing.seller_user_id, {
       //   type: 'offer_received',
@@ -145,14 +299,21 @@ const createOffer = async (req, res) => {
       //     listing_title: listing.title,
       //     offered_price: offered_price,
       //     offered_quantity: offered_quantity,
-      //     buyer_id: buyerId
+      //     buyer_id: buyerId,
+      //     offer_type: offer.offer_type,
+      //     cash_amount: offer.cash_amount,
+      //     swap_items: offer.swap_items
       //   },
       //   actor_id: buyerId
       // });
-      console.log('[OFFER] Seller notification skipped - notification service not implemented');
     }
     
-    console.log('[OFFER] Offer created successfully:', { offerId: offer.id, dealRoomId: dealRoom?.id });
+    // Update deal room with latest offer information
+    if (dealRoom?.id) {
+      // Note: latest_offer_id column doesn't exist in deal_rooms table
+      // The frontend gets latest offer from the offers API endpoint
+    }
+    
     res.status(201).json({
       ...offer,
       deal_room_id: dealRoom?.id
@@ -264,7 +425,6 @@ const acceptOffer = async (req, res) => {
     const sellerUserId = req.user.id;
     const { id } = req.params;
     
-    console.log('[OFFER] Accepting offer:', { offerId: id, sellerUserId });
     
     // Get seller ID for this user
     const sellerQuery = 'SELECT id FROM sellers WHERE user_id = $1';
@@ -272,12 +432,10 @@ const acceptOffer = async (req, res) => {
     
     if (sellerResult.rows.length === 0) {
       await pool.query('ROLLBACK');
-      console.log('[OFFER] Seller profile not found for user:', sellerUserId);
       return res.status(404).json({ error: 'Seller profile not found' });
     }
     
     const sellerId = sellerResult.rows[0].id;
-    console.log('[OFFER] Found seller ID:', sellerId);
     
     // Get offer details before updating
     const offerDetailsQuery = `
@@ -291,12 +449,10 @@ const acceptOffer = async (req, res) => {
     
     if (offerDetailsResult.rows.length === 0) {
       await pool.query('ROLLBACK');
-      console.log('[OFFER] Offer not found:', id);
       return res.status(404).json({ error: 'Offer not found' });
     }
     
     const offerDetails = offerDetailsResult.rows[0];
-    console.log('[OFFER] Found offer details:', { id, status: offerDetails.status, buyer_id: offerDetails.buyer_id });
     
     // Check if order already exists for this offer
     const existingOrderQuery = 'SELECT id FROM orders WHERE metadata->>\'offer_id\' = $1';
@@ -304,28 +460,25 @@ const acceptOffer = async (req, res) => {
     
     if (existingOrderResult.rows.length > 0) {
       await pool.query('ROLLBACK');
-      console.log('[OFFER] Order already exists for offer:', id);
       return res.status(400).json({ error: 'Order already exists for this offer' });
     }
     
     // Update offer status to accepted
-    console.log('[OFFER] Updating offer status to accepted...');
     const offer = await updateOfferStatus(sellerId, id, 'accepted');
-    console.log('[OFFER] Offer status updated successfully:', { id, newStatus: 'accepted' });
     
     // Create order
-    console.log('[OFFER] Creating order...');
     const { createOrder } = require('../order/model');
     const order = await createOrder(offerDetails.buyer_id, sellerId, {
-      total_amount: offerDetails.offered_price * offerDetails.offered_quantity,
+      total_amount: offerDetails.offer_type === 'cash' ? offerDetails.offered_price * offerDetails.offered_quantity : (offerDetails.cash_amount || 0) * offerDetails.offered_quantity,
       currency: offerDetails.currency || 'USD',
       metadata: {
         offer_id: id,
         listing_id: offerDetails.listing_id,
         intent_id: offerDetails.intent_id
-      }
+      },
+      order_type: offerDetails.offer_type || 'cash',
+      swap_items: offerDetails.swap_items || []
     });
-    console.log('[OFFER] Order created successfully:', { orderId: order.id });
 
     // Emit deal.offer.accepted event
     await EventService.dealOfferAccepted({
@@ -337,7 +490,6 @@ const acceptOffer = async (req, res) => {
     });
 
     // Create deal event for order creation
-    console.log('[OFFER] Creating deal event...');
     const { createDealEvent } = require('../dealEvents/model');
     await createDealEvent(offerDetails.deal_room_id, sellerUserId, 'order.created', {
       order_id: order.id,
@@ -346,11 +498,9 @@ const acceptOffer = async (req, res) => {
       seller_id: sellerId,
       amount: order.total_amount
     });
-    console.log('[OFFER] Deal event created successfully');
     
     // Update deal room state
     await handleOfferAccepted(offerDetails.deal_room_id, sellerUserId);
-    console.log('[OFFER] Deal room state updated to offer_accepted');
     
     // Update existing notification status for seller
     const existingNotificationQuery = `
@@ -360,18 +510,14 @@ const acceptOffer = async (req, res) => {
     `;
     const existingNotificationResult = await pool.query(existingNotificationQuery, [sellerUserId, id]);
     
-    console.log('[OFFER] Found notifications to update:', existingNotificationResult.rows.length);
     
     if (existingNotificationResult.rows.length > 0) {
-      console.log('[OFFER] Updating notification status for seller');
       // TODO: Implement proper notification model/service
       // try {
       //   const updatedNotification = await updateNotificationStatus(existingNotificationResult.rows[0].id, sellerUserId, 'accepted', true);
-      //   console.log('[OFFER] Notification status updated successfully');
       // } catch (error) {
       //   console.warn('[OFFER] Failed to update notification status:', error.message);
       // }
-      console.log('[OFFER] Notification status update skipped - notification service not implemented');
     }
     
     // Get offer details to notify buyer
@@ -385,7 +531,6 @@ const acceptOffer = async (req, res) => {
     
     if (offerResult.rows.length > 0) {
       const offerDetails = offerResult.rows[0];
-      console.log('[OFFER] Creating notification for buyer:', offerDetails.buyer_id);
       
       // Create notification for buyer about offer acceptance
       // TODO: Implement proper notification model/service
@@ -402,11 +547,9 @@ const acceptOffer = async (req, res) => {
       //   },
       //   actor_id: sellerUserId
       // });
-      console.log('[OFFER] Buyer notification skipped - notification service not implemented');
     }
     
     await pool.query('COMMIT');
-    console.log('[OFFER] Transaction committed successfully');
     
     // Emit socket event for real-time update
     try {
@@ -419,12 +562,10 @@ const acceptOffer = async (req, res) => {
       //   deal_room_id: offerDetails.deal_room_id,
       //   order_id: order.id
       // });
-      console.log('[OFFER] Socket event emission skipped - socket handlers not implemented');
     } catch (socketError) {
       console.error('[OFFER] Failed to emit socket event:', socketError);
     }
     
-    console.log('[OFFER] Offer acceptance completed successfully:', { offerId: id, orderId: order.id });
     res.json({ offer, order });
   } catch (error) {
     await pool.query('ROLLBACK');
@@ -438,23 +579,18 @@ const declineOffer = async (req, res) => {
     const sellerUserId = req.user.id;
     const { id } = req.params;
     
-    console.log('[OFFER] Declining offer:', { offerId: id, sellerUserId });
     
     // Get seller ID for this user
     const sellerQuery = 'SELECT id FROM sellers WHERE user_id = $1';
     const sellerResult = await pool.query(sellerQuery, [sellerUserId]);
     
     if (sellerResult.rows.length === 0) {
-      console.log('[OFFER] Seller profile not found for user:', sellerUserId);
       return res.status(404).json({ error: 'Seller profile not found' });
     }
     
     const sellerId = sellerResult.rows[0].id;
-    console.log('[OFFER] Found seller ID:', sellerId);
     
-    console.log('[OFFER] Updating offer status to declined...');
     const offer = await updateOfferStatus(sellerId, id, 'declined');
-    console.log('[OFFER] Offer status updated successfully:', { id, newStatus: 'declined' });
     
     // Get offer details to notify buyer
     const offerDetailsQuery = `
@@ -467,7 +603,6 @@ const declineOffer = async (req, res) => {
     
     if (offerResult.rows.length > 0) {
       const offerDetails = offerResult.rows[0];
-      console.log('[OFFER] Creating notification for buyer:', offerDetails.buyer_id);
       
       // Create notification for buyer about offer decline
       // TODO: Implement proper notification model/service
@@ -483,10 +618,8 @@ const declineOffer = async (req, res) => {
       //   },
       //   actor_id: sellerUserId
       // });
-      console.log('[OFFER] Buyer notification skipped - notification service not implemented');
     }
     
-    console.log('[OFFER] Offer decline completed successfully:', { offerId: id });
     res.json(offer);
   } catch (error) {
     console.error('[OFFER] Error declining offer:', error);
@@ -500,14 +633,12 @@ const counterOffer = async (req, res) => {
     const { offered_price, offered_quantity, expires_at } = req.body;
     const userId = req.user.id; // Use userId instead of sellerUserId
     
-    console.log('[OFFER] Creating counter offer:', { originalOfferId: id, userId, offered_price, offered_quantity, expires_at });
     
     const counterOffer = await createCounterOffer(userId, id, {
       counter_amount: offered_price, // Map offered_price to counter_amount
       offered_quantity,
       expires_at
     });
-    console.log('[OFFER] Counter offer created successfully:', { counterOfferId: counterOffer.id });
     
     // Get original offer details to notify buyer
     const originalOfferQuery = `
@@ -520,19 +651,15 @@ const counterOffer = async (req, res) => {
     
     if (originalOfferResult.rows.length > 0) {
       const originalOffer = originalOfferResult.rows[0];
-      console.log('[OFFER] Creating notification for counter offer recipient');
       
       // Create notification for the OTHER party about counter offer
     // If current user is seller, notify buyer. If current user is buyer, notify seller.
-    console.log('[OFFER] Calculating notification recipient - Original offer buyer ID:', originalOffer.buyer_id, 'Current User ID:', userId);
     
     // Need to compare seller's user_id, not seller_id
     const notificationRecipientId = originalOffer.buyer_id === userId ? '12f7cbbb-5fde-4024-800d-edfbd1895729' : originalOffer.buyer_id;
     
-    console.log('[OFFER] Notification recipient ID:', notificationRecipientId);
     
     if (!notificationRecipientId) {
-      console.log('[OFFER] Skipping notification - no recipient');
     } else {
       // TODO: Implement proper notification model/service
       // await createNotification(notificationRecipientId, {
@@ -549,12 +676,10 @@ const counterOffer = async (req, res) => {
       //   },
       //   actor_id: userId
       // });
-      console.log('[OFFER] Counter offer notification skipped - notification service not implemented');
     }
     
     }
     
-    console.log('[OFFER] Counter offer process completed successfully:', { counterOfferId: counterOffer.id });
     res.status(201).json(counterOffer);
   } catch (error) {
     console.error('[OFFER] Error creating counter offer:', error);
@@ -567,12 +692,9 @@ const cancelOffer = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
     
-    console.log('[OFFER] Cancelling offer:', { offerId: id, userId });
     
     const offer = await updateOfferStatus(userId, id, 'cancelled');
-    console.log('[OFFER] Offer cancelled successfully:', { offerId: id });
     
-    console.log('[OFFER] Offer cancellation completed successfully:', { offerId: id });
     res.json(offer);
   } catch (error) {
     console.error('[OFFER] Error cancelling offer:', error);
@@ -582,16 +704,13 @@ const cancelOffer = async (req, res) => {
 
 const updateOfferController = async (req, res) => {
   try {
-    console.log('[CONTROLLER] Update offer request received');
     const userId = req.user.id;
     const { id } = req.params;
-    const { counter_amount, counter_message, expires_at } = req.body;
+    const { counter_amount, counter_message, expires_at, offer_type, cash_amount, swap_items } = req.body;
     
-    console.log('[CONTROLLER] Update offer data:', { userId, id, counter_amount, counter_message, expires_at });
     
-    const updatedOffer = await updateOffer(userId, id, { counter_amount, counter_message, expires_at });
+    const updatedOffer = await updateOffer(userId, id, { counter_amount, expires_at, offer_type, cash_amount, swap_items });
     
-    console.log('[CONTROLLER] Offer updated successfully:', updatedOffer);
     res.json(updatedOffer);
   } catch (error) {
     console.error('Error updating offer:', error);

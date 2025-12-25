@@ -24,19 +24,16 @@ const updateOrderStatusFromPayment = async (orderId, paymentStatus) => {
     `;
     await pool.query(updateQuery, [orderStatus, orderId]);
     
-    console.log('[PAYMENT] Updated order status:', orderId, '->', orderStatus, 'based on payment status:', paymentStatus);
   }
 };
 
 // Initialize PayPal
 let paypal;
-console.log("[PAYMENT] Starting PayPal initialization...");
 
 try {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
-  console.log("[PAYMENT] Environment variables check:", {
     hasClientId: !!clientId,
     hasClientSecret: !!clientSecret,
     clientIdLength: clientId?.length,
@@ -44,7 +41,6 @@ try {
   });
 
   if (clientId && clientSecret) {
-    console.log("[PAYMENT] PayPal credentials found, initializing real SDK...");
     const paypalSDK = require("@paypal/checkout-server-sdk");
 
     // Create PayPal environment and client
@@ -53,7 +49,6 @@ try {
       clientSecret
     );
     paypal = new paypalSDK.core.PayPalHttpClient(environment);
-    console.log("[PAYMENT] Real PayPal SDK initialized successfully");
   } else {
     console.warn("[PAYMENT] PayPal credentials not found");
     paypal = null;
@@ -63,7 +58,6 @@ try {
   paypal = null;
 }
 
-console.log("[PAYMENT] PayPal initialization completed. PayPal object:", !!paypal);
 
 const createPayPalPaymentIntent = async (req, res) => {
   await pool.query("BEGIN");
@@ -72,7 +66,6 @@ const createPayPalPaymentIntent = async (req, res) => {
     const userId = req.user.id;
     const { order_id } = req.body;
 
-    console.log("[PAYMENT] Creating PayPal payment intent:", {
       userId,
       order_id,
     });
@@ -86,7 +79,6 @@ const createPayPalPaymentIntent = async (req, res) => {
     }
 
     const order = orderResult.rows[0];
-    console.log("[PAYMENT] Found order:", {
       orderId: order.id,
       status: order.status,
       buyerId: order.buyer_id,
@@ -114,7 +106,6 @@ const createPayPalPaymentIntent = async (req, res) => {
     }
 
     // Create PayPal order
-    console.log("[PAYMENT] Creating PayPal order:", {
       amount: order.total_amount,
       currency: "USD", // Hardcoded for PayPal sandbox
       orderId: order_id,
@@ -150,7 +141,6 @@ const createPayPalPaymentIntent = async (req, res) => {
       try {
         const response = await paypal.execute(request);
         paypalOrder = response.result;
-        console.log("[PAYMENT] Real PayPal order created:", {
           paypalOrderId: paypalOrder.id,
         });
       } catch (paypalError) {
@@ -188,7 +178,6 @@ const createPayPalPaymentIntent = async (req, res) => {
     // Update order status based on payment status
     await updateOrderStatusFromPayment(order_id, 'created');
 
-    console.log("[PAYMENT] Payment record created with PayPal ID:", {
       paymentId: updatedPayment.id,
       paypalOrderId: paypalOrder.id,
     });
@@ -278,7 +267,6 @@ const capturePayPalPayment = async (req, res) => {
     const userId = req.user.id;
     const { token } = req.body;
     
-    console.log('[PAYMENT] Capturing PayPal payment:', { userId, token });
     
     if (!token) {
       throw new Error('PayPal token is required');
@@ -305,7 +293,6 @@ const capturePayPalPayment = async (req, res) => {
     }
     
     // Capture the PayPal order
-    console.log('[PAYMENT] Capturing PayPal order:', { paypalOrderId: token });
     
     if (!paypal) {
       throw new Error('PayPal SDK not initialized');
@@ -317,7 +304,6 @@ const capturePayPalPayment = async (req, res) => {
     const response = await paypal.execute(request);
     const captureResult = response.result;
 
-    console.log("[PAYMENT] PayPal order captured successfully:", {
       captureId: captureResult.id,
       status: captureResult.status,
     });
@@ -449,7 +435,6 @@ const getTransactions = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    console.log('[PAYMENT] Getting transactions for user:', userId, 'page:', page, 'limit:', limit, 'offset:', offset);
 
     // Get all payments where user is either buyer or seller
     const query = `
@@ -470,10 +455,8 @@ const getTransactions = async (req, res) => {
       LIMIT $2 OFFSET $3
     `;
 
-    console.log('[PAYMENT] Executing query with params:', [userId, limit, offset]);
     const result = await pool.query(query, [userId, limit, offset]);
     
-    console.log('[PAYMENT] Query returned rows:', result.rows.length);
     
     // Transform the data to match frontend expectations
     const transactions = result.rows.map(row => ({
@@ -508,7 +491,6 @@ const moveToEscrow = async (req, res) => {
     const { paymentId } = req.params;
     const { escrowData = {} } = req.body;
 
-    console.log('[PAYMENT] Moving payment to escrow:', paymentId);
 
     const payment = await movePaymentToEscrow(paymentId, escrowData);
 
@@ -530,7 +512,6 @@ const releaseEscrow = async (req, res) => {
     const { paymentId } = req.params;
     const { releaseData = {} } = req.body;
 
-    console.log('[PAYMENT] Releasing escrow funds:', paymentId);
 
     const payment = await releaseEscrowFunds(paymentId, releaseData);
 
@@ -552,7 +533,6 @@ const updatePaymentTimelineController = async (req, res) => {
     const { paymentId } = req.params;
     const { status, metadata = {} } = req.body;
 
-    console.log('[PAYMENT] Updating payment timeline:', paymentId, 'status:', status);
 
     const payment = await updatePaymentTimeline(paymentId, status, metadata);
 

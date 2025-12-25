@@ -52,12 +52,9 @@ const getBuyerOrders = async (req, res) => {
     const userId = req.user.id;
     const { page = 1, limit = 20, status } = req.query;
     
-    console.log('[ORDER] Getting buyer orders for user:', userId, 'status:', status, 'page:', page, 'limit:', limit);
     
     const result = await getOrdersByUser(userId, 'buyer', status, page, limit);
     
-    console.log('[ORDER] Successfully got buyer orders:', result.orders.length);
-    console.log('[ORDER] Sample order data:', JSON.stringify(result.orders[0], null, 2));
     
     res.json(result);
   } catch (error) {
@@ -103,13 +100,10 @@ const getOrder = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
     
-    console.log('[ORDER] Getting individual order:', id, 'for user:', userId);
     
     const order = await getOrderById(userId, id);
     
-    console.log('[ORDER] Individual order result:', order ? 'found' : 'not found');
     if (order) {
-      console.log('[ORDER] Sample individual order data:', JSON.stringify(order, null, 2));
     }
     
     if (!order) {
@@ -134,7 +128,6 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status, tracking_info } = req.body;
     
-    console.log('[ORDER UPDATE] Request:', { userId, orderId: id, status, tracking_info });
     
     // Validate status transitions
     const validStatuses = ['pending', 'reserved', 'paid', 'shipped', 'delivered', 'cancelled', 'refunded', 'disputed', 'completed'];

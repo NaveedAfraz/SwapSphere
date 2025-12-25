@@ -84,7 +84,6 @@ const getIntentById = async (intentId) => {
 };
 
 const updateIntent = async (intentId, updateData) => {
-  console.log('updateIntent called with:', { intentId, updateData });
   const { title, description, category, max_price, location, status } = updateData;
   
   const updateFields = [];
@@ -92,49 +91,42 @@ const updateIntent = async (intentId, updateData) => {
   let paramIndex = 1;
 
   if (title !== undefined) {
-    console.log('Updating title:', title);
     updateFields.push(`title = $${paramIndex}`);
     queryParams.push(title);
     paramIndex++;
   }
 
   if (description !== undefined) {
-    console.log('Updating description:', description);
     updateFields.push(`description = $${paramIndex}`);
     queryParams.push(description);
     paramIndex++;
   }
 
   if (category !== undefined) {
-    console.log('Updating category:', category);
     updateFields.push(`category = $${paramIndex}`);
     queryParams.push(category);
     paramIndex++;
   }
 
   if (max_price !== undefined) {
-    console.log('Updating max_price:', max_price);
     updateFields.push(`max_price = $${paramIndex}`);
     queryParams.push(max_price);
     paramIndex++;
   }
 
   if (location !== undefined) {
-    console.log('Updating location:', location);
     updateFields.push(`location = $${paramIndex}`);
     queryParams.push(JSON.stringify(location));
     paramIndex++;
   }
 
   if (status !== undefined) {
-    console.log('Updating status:', status);
     updateFields.push(`status = $${paramIndex}`);
     queryParams.push(status);
     paramIndex++;
   }
 
   if (updateFields.length === 0) {
-    console.log('No fields to update');
     throw new Error('No fields to update');
   }
 
@@ -148,12 +140,9 @@ const updateIntent = async (intentId, updateData) => {
     RETURNING *
   `;
 
-  console.log('Update query:', query);
-  console.log('Query params:', queryParams);
 
   try {
     const result = await pool.query(query, queryParams);
-    console.log('Update result:', result.rows[0]);
     return result.rows[0] || null;
   } catch (error) {
     console.error('Database error in updateIntent:', error);

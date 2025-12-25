@@ -38,7 +38,6 @@ const setupSocketIO = (server) => {
 
   // Connection handler
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.userId} (${socket.userEmail})`);
 
     // Join user to their personal room for direct messages
     socket.join(`user:${socket.userId}`);
@@ -56,7 +55,6 @@ const setupSocketIO = (server) => {
         if (result.rows.length > 0) {
           socket.join(`chat:${chatId}`);
           socket.emit('joined_chat', { chatId });
-          console.log(`User ${socket.userId} joined chat ${chatId}`);
         } else {
           socket.emit('error', { message: 'Not authorized to join this chat' });
         }
@@ -69,7 +67,6 @@ const setupSocketIO = (server) => {
     socket.on('leave_chat', (chatId) => {
       socket.leave(`chat:${chatId}`);
       socket.emit('left_chat', { chatId });
-      console.log(`User ${socket.userId} left chat ${chatId}`);
     });
 
     // Handle sending messages
@@ -116,7 +113,6 @@ const setupSocketIO = (server) => {
 
         // Broadcast message to all participants in the chat
         io.to(`chat:${chatId}`).emit('new_message', newMessage);
-        console.log(`Message sent in chat ${chatId} by ${socket.userId}`);
 
       } catch (error) {
         console.error('Error sending message:', error);
@@ -169,7 +165,6 @@ const setupSocketIO = (server) => {
 
     // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.userId} (${socket.userEmail})`);
     });
 
     // Handle errors

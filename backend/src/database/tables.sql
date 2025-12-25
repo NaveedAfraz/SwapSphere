@@ -519,3 +519,36 @@ ADD COLUMN IF NOT EXISTS listing_id uuid REFERENCES listings(id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_intent_listing_seller
 ON notifications (intent_id, listing_id, user_id)
 WHERE intent_id IS NOT NULL AND listing_id IS NOT NULL;
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS order_type TEXT NOT NULL DEFAULT 'cash';
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS swap_items JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE orders
+ADD CONSTRAINT orders_order_type_check
+CHECK (order_type IN ('cash', 'swap', 'hybrid'));
+
+-- Offer type: cash | swap | hybrid
+ALTER TABLE offers
+ADD COLUMN IF NOT EXISTS offer_type TEXT NOT NULL DEFAULT 'cash';
+
+-- Cash amount for the offer (0 for swap-only)
+ALTER TABLE offers
+ADD COLUMN IF NOT EXISTS cash_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+-- Swap items (lightweight, inline JSON)
+-- Each item: { listing_id, title, image }
+ALTER TABLE offers
+ADD COLUMN IF NOT EXISTS swap_items JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Ensure valid offer types
+ALTER TABLE offers
+ADD CONSTRAINT offers_offer_type_check
+CHECK (offer_type IN ('cash', 'swap', 'hybrid'));
+
+-- Cash must be >= 0
+ALTER TABLE offers
+ADD CONSTRAINT offers_cash_amount_check
+CHECK (cash_amount >= 0);

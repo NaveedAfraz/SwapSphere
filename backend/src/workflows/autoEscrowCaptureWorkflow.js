@@ -18,7 +18,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
     const { orderId, buyerId, sellerId, orderData } = event.data;
     const WAIT_DAYS = 3; // Configurable: can be 3-5 days
 
-    console.log(`[AUTO ESCROW] Starting auto-capture workflow for order: ${orderId}`);
 
     // Step 1: Wait for N days to give buyer time to confirm delivery
     const waitResult = await step.waitForEvent(
@@ -32,7 +31,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
 
     // If buyer confirmed delivery, cancel auto-capture
     if (waitResult) {
-      console.log(`[AUTO ESCROW] Buyer confirmed delivery for order: ${orderId}, cancelling auto-capture`);
       return {
         success: true,
         action: "cancelled",
@@ -57,7 +55,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
       const result = await pool.query(disputeQuery, [orderId]);
       
       if (result.rows.length > 0) {
-        console.log(`[AUTO ESCROW] Active dispute found for order: ${orderId}, cancelling auto-capture`);
         return { 
           hasDispute: true, 
           dispute: result.rows[0] 
@@ -109,7 +106,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
           paymentDetails.payment_intent_id
         );
         
-        console.log(`[AUTO ESCROW] Payment captured for order: ${orderId}, Intent: ${paymentDetails.payment_intent_id}`);
         
         return { 
           success: true, 
@@ -191,7 +187,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
         
         await pool.query('COMMIT');
         
-        console.log(`[AUTO ESCROW] Database updated for order: ${orderId}`);
         
         return {
           paymentUpdated: paymentUpdate.rows[0],
@@ -241,7 +236,6 @@ const autoEscrowCaptureWorkflow = inngest.createFunction(
           }
         });
         
-        console.log(`[AUTO ESCROW] Notifications sent for order: ${orderId}`);
         
         return { success: true };
       } catch (error) {

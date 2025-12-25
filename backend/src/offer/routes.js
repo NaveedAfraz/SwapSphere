@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { pool } = require('../database/db');
 const { 
   createOffer,
   getBuyerOffers,
@@ -37,7 +38,7 @@ router.get('/listing/:listingId', authenticate, getListingOffers);
 // Get a specific offer by ID
 router.get('/:id', authenticate, checkResourceOwnership('offer'), getOffer);
 
-// Accept an offer (seller only, with security checks)
+// Accept an offer (buyer or seller, with security checks)
 router.post('/:id/accept', 
   authenticate, 
   checkResourceOwnership('offer'),

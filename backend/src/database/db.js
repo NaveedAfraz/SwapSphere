@@ -1,5 +1,4 @@
 const { Pool } = require("pg");
-console.log("database url ", process.env.DATABASE_URL);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { 
@@ -18,7 +17,6 @@ const testConnection = async () => {
     const client = await pool.connect();
     const result = await client.query("SELECT NOW()");
     client.release();
-    console.log("Database connected successfully:", result.rows[0]);
     return true;
   } catch (err) {
     console.error("Database connection error:", err);
@@ -32,7 +30,6 @@ const query = async (text, params) => {
   try {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log("Executed query", { text, duration, rows: result.rowCount });
     return result;
   } catch (error) {
     console.error("Query error", { text, error });
@@ -59,7 +56,6 @@ const transaction = async (callback) => {
 // Graceful shutdown
 const closePool = async () => {
   await pool.end();
-  console.log("Database pool closed");
 };
 
 module.exports = {

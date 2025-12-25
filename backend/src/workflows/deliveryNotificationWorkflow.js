@@ -12,7 +12,6 @@ const deliveryNotificationWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { orderId, buyerId, sellerId, orderData } = event.data;
 
-    console.log(`[DELIVERY NOTIFICATION] Processing delivery notification for order: ${orderId}`);
 
     // Step 1: Fetch buyer and seller details
     const userDetails = await step.run("fetch-user-details", async () => {
@@ -107,7 +106,6 @@ const deliveryNotificationWorkflow = inngest.createFunction(
           }
         });
         
-        console.log(`[DELIVERY NOTIFICATION] Push notification sent to buyer: ${buyerId}`);
         
         return { success: true, sentAt: new Date() };
       } catch (error) {

@@ -2,6 +2,17 @@ export type OfferStatus = "idle" | "loading" | "success" | "error";
 
 export type OfferState = "pending" | "accepted" | "rejected" | "countered" | "withdrawn" | "expired";
 
+export type OfferType = "cash" | "swap" | "hybrid";
+
+export interface SwapItem {
+  listing_id: string;
+  title: string;
+  image?: string;
+  price: string;
+  condition: string;
+  category: string;
+}
+
 export interface Offer {
   id: string;
   listing_id: string;
@@ -21,6 +32,10 @@ export interface Offer {
   expires_at?: string;
   created_at: string;
   updated_at: string;
+  // Swap offer fields
+  offer_type?: OfferType;
+  cash_amount?: number;
+  swap_items?: SwapItem[];
 }
 
 export interface OfferStateType {
@@ -59,6 +74,10 @@ export interface CreateOfferPayload {
   expires_at?: string;
   buyer_id: string; // Explicitly specify who is the buyer
   intent_id?: string; // For seller counter-offers to intents
+  // Swap offer fields
+  offer_type?: OfferType;
+  cash_amount?: number;
+  swap_items?: SwapItem[];
 }
 
 export interface UpdateOfferPayload {
@@ -66,6 +85,10 @@ export interface UpdateOfferPayload {
   counter_amount?: number;
   counter_message?: string;
   expires_at?: string;
+  // Swap offer fields
+  offer_type?: OfferType;
+  cash_amount?: number;
+  swap_items?: SwapItem[];
 }
 
 export interface CounterOfferPayload {
@@ -73,6 +96,10 @@ export interface CounterOfferPayload {
   counter_amount: number;
   counter_message?: string;
   expires_at?: string;
+  // Swap offer fields
+  offer_type?: OfferType;
+  cash_amount?: number;
+  swap_items?: SwapItem[];
 }
 
 export interface OfferSearchParams {

@@ -58,7 +58,6 @@ app.use(
   })
 );
 
-console.log(
   "[SERVER] Webhook URL should be:",
   process.env.NGROK_URL ||
     `${
@@ -88,5 +87,4 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   testConnection();
-  console.log("Server is running on port", PORT);
 });

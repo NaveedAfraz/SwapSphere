@@ -128,12 +128,10 @@ const findChatByUsersController = async (req, res) => {
     const participant2 = participant2_id || req.query.participant_id;
      
     if (!participant1 || !participant2) {
-      console.log("Missing participant IDs");
       return res.status(400).json({ error: 'Both participant IDs are required' });
     }
     
     if (participant1 === participant2) {
-      console.log("Same participant IDs provided");
       return res.status(400).json({ error: 'Participants must be different users' });
     }
     
@@ -141,7 +139,6 @@ const findChatByUsersController = async (req, res) => {
     
      
     if (!chat) {
-      console.log("No chat found");
       return res.status(404).json({ error: 'Chat not found' });
     }
     

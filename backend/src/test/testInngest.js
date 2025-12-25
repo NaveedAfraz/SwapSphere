@@ -21,7 +21,6 @@ async function testIntentCreatedEvent() {
       },
     });
 
-    console.log("Event sent successfully:", result);
     return result;
   } catch (error) {
     console.error("Failed to send event:", error);
@@ -42,7 +41,6 @@ async function testInngestConnectivity() {
       },
     });
 
-    console.log("Inngest connectivity test passed:", result);
     return result;
   } catch (error) {
     console.error("Inngest connectivity test failed:", error);
@@ -68,7 +66,6 @@ async function testMultipleEvents() {
     }
 
     const results = await Promise.all(promises);
-    console.log(`Successfully sent ${results.length} events in batch`);
     return results;
   } catch (error) {
     console.error("Batch event test failed:", error);
@@ -84,14 +81,12 @@ async function testWebhookEndpoint() {
     const baseUrl = process.env.NGROK_URL || 'http://localhost:5000';
     const webhookUrl = `${baseUrl}/api/inngest`;
     
-    console.log(`Testing webhook endpoint: ${webhookUrl}`);
     
     // Simple health check
     const response = await fetch(`${webhookUrl}/health`);
     
     if (response.ok) {
       const data = await response.json();
-      console.log("Webhook endpoint is healthy:", data);
       return data;
     } else {
       throw new Error(`Webhook responded with status: ${response.status}`);
@@ -105,19 +100,14 @@ async function testWebhookEndpoint() {
 // Run tests if this file is executed directly
 if (require.main === module) {
   (async () => {
-    console.log("Testing Inngest connectivity...");
     await testInngestConnectivity();
     
-    console.log("\nTesting intent.created event...");
     await testIntentCreatedEvent();
     
-    console.log("\nTesting multiple events...");
     await testMultipleEvents();
     
-    console.log("\nTesting webhook endpoint...");
     await testWebhookEndpoint();
     
-    console.log("\nAll tests completed!");
   })().catch(console.error);
 }
 

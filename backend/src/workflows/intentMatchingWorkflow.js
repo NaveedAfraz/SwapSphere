@@ -15,14 +15,11 @@ const intentMatchingWorkflow = inngest.createFunction(
   { id: "intent-matching-workflow", name: "Intent Matching Workflow" },
   { event: "intent.created" },
   async ({ event, step }) => {
-    console.log("[WORKFLOW] Intent matching workflow triggered!");
-    console.log("[WORKFLOW] Event data:", JSON.stringify(event, null, 2));
     
     const { intentId } = event.data;
 
     // Step 1: Fetch intent details 
     const intent = await step.run("fetch-intent", async () => {
-      console.log(`[WORKFLOW] Fetching intent details for: ${intentId}`);
       
       const query = `
         SELECT i.id, i.buyer_id, i.title, i.description, i.category, 
@@ -35,20 +32,15 @@ const intentMatchingWorkflow = inngest.createFunction(
       
       const result = await pool.query(query, [intentId]);
       if (result.rows.length === 0) {
-        console.log(`[WORKFLOW] Intent ${intentId} not found or not open`);
         throw new Error(`Intent ${intentId} not found or not open`);
       }
       
       const intentData = result.rows[0];
-      console.log(`[WORKFLOW] Raw location JSON: ${JSON.stringify(intentData.location_json)}`);
-      console.log(`[WORKFLOW] Extracted buyer_city: "${intentData.buyer_city}", buyer_state: "${intentData.buyer_state}"`);
-      console.log(`[WORKFLOW] Intent found: ${intentData.title}, category: ${intentData.category}, max_price: ${intentData.max_price}`);
       return intentData;
     });
 
     // Step 2: Find matching listings
     const matchedListings = await step.run("find-matching-listings", async () => {
-      console.log(`[WORKFLOW] Finding matching listings for intent: ${intentId}`);
       
       // Debug: Check what listings exist before running the main query
       const debugQuery = `
@@ -143,12 +135,7 @@ const intentMatchingWorkflow = inngest.createFunction(
 
       const result = await pool.query(matchingQuery, queryParams);
 
-      console.log(`[WORKFLOW] Query parameters: intentId=${intentId}, category=${intent.category}, maxPrice=${intent.max_price}, buyerId=${intent.buyer_id}`);
-      console.log(`[WORKFLOW] Location parameters: buyer_city="${intent.buyer_city}", buyer_state="${intent.buyer_state}"`);
-      console.log(`[WORKFLOW] Found ${result.rows.length} matching listings`);
       result.rows.forEach(listing => {
-        console.log(`[WORKFLOW] - Listing: ${listing.listing_title}, Price: ${listing.listing_price}, City: "${listing.listing_city}", State: "${listing.listing_state}"`);
-        console.log(`[WORKFLOW]   Seller ID: ${listing.seller_id}, Seller User ID: ${listing.seller_user_id}`);
       });
 
       return result.rows;
@@ -156,17 +143,14 @@ const intentMatchingWorkflow = inngest.createFunction(
 
     // Step 3: Create notifications for sellers (with deduplication)
     const notifications = await step.run("create-notifications", async () => {
-      console.log(`[WORKFLOW] Creating notifications for ${matchedListings.length} matched listings`);
       
       if (matchedListings.length === 0) {
-        console.log(`[WORKFLOW] No matched listings, skipping notifications`);
         return { created: 0, notifications: [] };
       }
 
       // Prepare notification data for each matched listing
       const notificationData = matchedListings.map(listing => {
         if (!listing.seller_user_id) {
-          console.log(`[WORKFLOW] WARNING: Skipping notification for listing ${listing.listing_id} - seller_user_id is null, seller_id: ${listing.seller_id}`);
           return null;
         }
         
@@ -192,15 +176,12 @@ const intentMatchingWorkflow = inngest.createFunction(
         };
       }).filter(Boolean); // Remove null entries
 
-      console.log(`[WORKFLOW] Prepared ${notificationData.length} notifications for insertion`);
       
       if (notificationData.length === 0) {
-        console.log(`[WORKFLOW] No valid notifications to create (all had null seller_user_id)`);
         return { created: 0, notifications: [] };
       }
 
       // Log first notification for debugging
-      console.log(`[WORKFLOW] Sample notification data:`, JSON.stringify(notificationData[0], null, 2));
 
       // Use INSERT ... ON CONFLICT for deduplication
       const valuesClauses = notificationData.map((notif, index) => 
@@ -225,14 +206,10 @@ const intentMatchingWorkflow = inngest.createFunction(
         RETURNING id, user_id, actor_id, type, payload, intent_id, listing_id, created_at
       `;
       
-      console.log(`[WORKFLOW] Executing insert query with ${params.length} parameters`);
-      console.log(`[WORKFLOW] SQL: ${insertQuery.substring(0, 200)}...`);
       
       const result = await pool.query(insertQuery, params);
       
-      console.log(`[WORKFLOW] Successfully created ${result.rows.length} notifications (deduplication applied)`);
       result.rows.forEach(notification => {
-        console.log(`[WORKFLOW] - Notification for seller: ${notification.user_id}, listing: ${notification.listing_id}`);
       });
       
       return {
@@ -243,10 +220,8 @@ const intentMatchingWorkflow = inngest.createFunction(
 
     // Step 4: Emit Socket.IO notifications to online sellers
     const socketResults = await step.run("emit-socket-notifications", async () => {
-      console.log(`[WORKFLOW] Emitting Socket.IO notifications for ${notifications.created} notifications`);
       
       if (notifications.created === 0) {
-        console.log(`[WORKFLOW] No notifications to emit via Socket.IO`);
         return { emitted: 0, rate_limited: 0 };
       }
 
@@ -254,11 +229,9 @@ const intentMatchingWorkflow = inngest.createFunction(
         // Get Socket.IO instance from global or context
         const io = global.io || null;
         if (!io) {
-          console.log(`[WORKFLOW] Socket.IO instance not available, skipping socket notifications`);
           return { emitted: 0, rate_limited: 0 };
         }
 
-        console.log(`[WORKFLOW] Socket.IO instance found, processing notifications`);
         
         // Initialize notification service with actual Socket.IO instance
         const notificationService = new NotificationService(io, null);
@@ -266,7 +239,6 @@ const intentMatchingWorkflow = inngest.createFunction(
         // Process socket notifications with rate limiting
         const results = await notificationService.processSocketNotifications(notifications.notifications);
         
-        console.log(`[WORKFLOW] Socket.IO results: emitted=${results.processed || 0}, rate_limited=${results.rate_limited || 0}`);
         
         return {
           emitted: results.processed || 0,
@@ -280,10 +252,8 @@ const intentMatchingWorkflow = inngest.createFunction(
 
     // Step 5: Enqueue push notification batch job
     const pushResults = await step.run("enqueue-push-batch", async () => {
-      console.log(`[WORKFLOW] Enqueuing push notification batch for ${notifications.created} notifications`);
       
       if (notifications.created === 0) {
-        console.log(`[WORKFLOW] No notifications to enqueue for push notifications`);
         return { enqueued: 0 };
       }
 
@@ -294,13 +264,10 @@ const intentMatchingWorkflow = inngest.createFunction(
         created_at: new Date().toISOString()
       };
 
-      console.log(`[WORKFLOW] Creating push batch with ${pushBatchData.batch_size} notifications`);
-      console.log(`[WORKFLOW] Notification IDs: ${pushBatchData.notification_ids.join(', ')}`);
 
       // Send event to trigger push notification worker using step.sendEvent
       await step.sendEvent({ name: "push.batch.process", data: pushBatchData });
       
-      console.log(`[WORKFLOW] Push batch event sent successfully`);
 
       return { 
         enqueued: notifications.created,
@@ -309,8 +276,6 @@ const intentMatchingWorkflow = inngest.createFunction(
     });
 
     // Final workflow summary
-    console.log(`[WORKFLOW] Intent matching workflow completed for intent: ${intentId}`);
-    console.log(`[WORKFLOW] Summary: ${matchedListings.length} listings matched, ${notifications.created} notifications created, ${socketResults.emitted} socket notifications emitted, ${pushResults.enqueued} push notifications enqueued`);
 
     return {
       success: true,

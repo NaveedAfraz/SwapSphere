@@ -86,7 +86,7 @@ const getDealRooms = async (req, res) => {
   }
 };
 
-const getDealRoom = async (req, res) => {
+const getDealRoomController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
@@ -108,10 +108,11 @@ const getDealRoom = async (req, res) => {
     // Fetch latest offer for this deal room
     let latestOffer = null;
     const offerQuery = `
-      SELECT o.id, o.offered_price, o.status, o.created_at, o.buyer_id, o.seller_id
+      SELECT o.id, o.offered_price, o.status, o.created_at, o.buyer_id, o.seller_id,
+             o.offer_type, o.cash_amount, o.swap_items, o.metadata
       FROM offers o
-      WHERE o.deal_room_id = $1
-      ORDER BY o.created_at DESC
+      WHERE o.deal_room_id = $1 AND o.status = 'pending'
+      ORDER BY o.created_at DESC, o.updated_at DESC
       LIMIT 1
     `;
     
@@ -119,6 +120,20 @@ const getDealRoom = async (req, res) => {
     if (offerResult.rows.length > 0) {
       latestOffer = offerResult.rows[0];
     }
+    
+    // Fetch offer history for this deal room
+    const offerHistoryQuery = `
+      SELECT o.id, o.offered_price, o.status, o.created_at, o.updated_at, 
+             o.buyer_id, o.seller_id, o.offer_type, o.cash_amount, o.swap_items,
+             o.counter_for, p.name as buyer_name, p.profile_picture_url as buyer_avatar
+      FROM offers o
+      LEFT JOIN users u ON o.buyer_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE o.deal_room_id = $1
+      ORDER BY o.created_at ASC
+    `;
+    
+    const offerHistoryResult = await pool.query(offerHistoryQuery, [id]);
     
     // Fetch messages for this deal room
     const messagesQuery = `
@@ -151,6 +166,7 @@ const getDealRoom = async (req, res) => {
     res.json({
       ...dealRoom,
       latest_offer: latestOffer,
+      offer_history: offerHistoryResult.rows,
       messages: messagesResult.rows,
       events: eventsResult.rows,
     });
@@ -225,7 +241,7 @@ const updateDealRoomStateController = async (req, res) => {
 module.exports = {
   createDealRoom: createDealRoomController,
   getDealRooms,
-  getDealRoom,
+  getDealRoom: getDealRoomController,
   findDealRoom: findDealRoomController,
   updateDealRoomState: updateDealRoomStateController,
 };

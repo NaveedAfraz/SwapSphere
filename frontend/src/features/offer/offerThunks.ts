@@ -63,6 +63,10 @@ export const createOfferThunk = createAsyncThunk<
         buyer_id: offerData.buyer_id, // Explicitly pass buyer_id
         // Include intent_id if present (for seller counter-offers to intents)
         ...(offerData.intent_id && { intent_id: offerData.intent_id }),
+        // Include swap offer fields if present
+        ...(offerData.offer_type && { offer_type: offerData.offer_type }),
+        ...(offerData.cash_amount !== undefined && { cash_amount: offerData.cash_amount }),
+        ...(offerData.swap_items && { swap_items: offerData.swap_items }),
       };
       
       const response = await apiClient.post<OfferResponse>("/offer", backendPayload);
@@ -72,6 +76,52 @@ export const createOfferThunk = createAsyncThunk<
       console.error('[OFFER] Failed to create offer:', error);
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to create offer";
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const createSwapOfferThunk = createAsyncThunk<
+  OfferResponse,
+  CreateOfferPayload,
+  { rejectValue: string }
+>(
+  "offer/createSwapOffer",
+  async (offerData: CreateOfferPayload, { rejectWithValue }) => {
+    try {
+      console.log('[THUNK] createSwapOfferThunk called with:', {
+        ...offerData,
+        swap_items_count: offerData.swap_items?.length || 0
+      });
+      
+      // Map frontend payload to backend expected format
+      const backendPayload = {
+        listing_id: offerData.listing_id,
+        offered_price: offerData.cash_amount || 0, // Use cash_amount for hybrid, 0 for swap-only
+        offered_quantity: 1,
+        expires_at: offerData.expires_at,
+        buyer_id: offerData.buyer_id,
+        // Swap offer specific fields
+        offer_type: offerData.offer_type, // 'swap' or 'hybrid'
+        cash_amount: offerData.cash_amount || 0,
+        swap_items: offerData.swap_items || [],
+        // Include intent_id if present
+        ...(offerData.intent_id && { intent_id: offerData.intent_id }),
+      };
+
+      console.log('[THUNK] Sending to backend:', {
+        ...backendPayload,
+        swap_items_count: backendPayload.swap_items.length
+      });
+      
+      const response = await apiClient.post<OfferResponse>("/offer", backendPayload);
+      console.log('[THUNK] Backend response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[THUNK] Failed to create swap offer:', error);
+      console.error('[THUNK] Error response:', error.response?.data);
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to create swap offer";
       return rejectWithValue(errorMessage);
     }
   }
@@ -153,6 +203,10 @@ export const counterOfferThunk = createAsyncThunk<
         offered_price: counterData.counter_amount,
         offered_quantity: 1, // Default quantity
         expires_at: counterData.expires_at,
+        // Include swap offer fields if present
+        ...(counterData.offer_type && { offer_type: counterData.offer_type }),
+        ...(counterData.cash_amount !== undefined && { cash_amount: counterData.cash_amount }),
+        ...(counterData.swap_items && { swap_items: counterData.swap_items }),
       };
       
       const response = await apiClient.post<OfferResponse>(`/offer/${counterData.offer_id}/counter`, backendPayload);

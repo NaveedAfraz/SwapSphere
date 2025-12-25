@@ -45,7 +45,6 @@ const setupDealRoomSocketIO = (server) => {
 
   // Connection handler
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.userId} (${socket.userEmail})`);
 
     // Join user to their personal room for direct messages
     socket.join(`user:${socket.userId}`);
@@ -64,7 +63,6 @@ const setupDealRoomSocketIO = (server) => {
         if (result.rows.length > 0) {
           socket.join(`deal_room:${dealRoomId}`);
           socket.emit('joined_deal_room', { dealRoomId });
-          console.log(`User ${socket.userId} joined deal room ${dealRoomId}`);
         } else {
           socket.emit('error', { message: 'Not authorized to join this deal room' });
         }
@@ -77,7 +75,6 @@ const setupDealRoomSocketIO = (server) => {
     socket.on('leave_deal_room', (dealRoomId) => {
       socket.leave(`deal_room:${dealRoomId}`);
       socket.emit('left_deal_room', { dealRoomId });
-      console.log(`User ${socket.userId} left deal room ${dealRoomId}`);
     });
 
     // Handle sending messages
@@ -123,7 +120,6 @@ const setupDealRoomSocketIO = (server) => {
 
         // Broadcast message to all participants in the deal room
         io.to(`deal_room:${dealRoomId}`).emit('new_message', newMessage);
-        console.log(`Message sent in deal room ${dealRoomId} by ${socket.userId}`);
 
       } catch (error) {
         console.error('Error sending message:', error);
@@ -235,7 +231,6 @@ const setupDealRoomSocketIO = (server) => {
           metadata: metadata || {}
         });
 
-        console.log(`Deal room ${dealRoomId} state changed from ${oldState} to ${newState} by ${socket.userId}`);
 
       } catch (error) {
         console.error('Error updating deal state:', error);
@@ -245,7 +240,6 @@ const setupDealRoomSocketIO = (server) => {
 
     // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.userId} (${socket.userEmail})`);
     });
 
     // Handle errors
@@ -260,7 +254,6 @@ const setupDealRoomSocketIO = (server) => {
 // Function to emit events to deal rooms from outside the socket handler
 const emitToDealRoom = (dealRoomId, event, data) => {
   if (globalIO) {
-    console.log(`[SOCKET] Emitting ${event} to deal room: ${dealRoomId}`);
     globalIO.to(`deal_room:${dealRoomId}`).emit(event, data);
   } else {
     console.warn('[SOCKET] Global IO instance not available for emitting to deal room');

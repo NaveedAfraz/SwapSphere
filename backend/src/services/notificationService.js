@@ -31,7 +31,6 @@ class NotificationService {
         unread_count: data.unread_count || null
       });
       
-      console.log(`Socket notification emitted to user ${userId}:`, event);
     } catch (error) {
       console.error(`Failed to emit socket notification to user ${userId}:`, error);
     }
@@ -185,7 +184,6 @@ class NotificationService {
             // await this.pushService.send(pushPayload);
             
             // For now, simulate the push service call
-            console.log(`Push notification sent to user ${notification.user_id}:`, pushPayload.title);
 
             // Mark notification as delivered
             await this.markNotificationDelivered(notification.id);

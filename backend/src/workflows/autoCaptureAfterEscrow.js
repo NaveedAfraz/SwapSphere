@@ -18,7 +18,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
     const { dealRoomId, orderId, paymentIntentId } = event.data;
     const WAIT_DAYS = 3; // Configurable: can be 3-5 days
 
-    console.log(`[AUTO CAPTURE] Starting auto-capture workflow for order: ${orderId}`);
 
     // Step 1: Wait for N days to allow for disputes and delivery confirmation
     await step.sleep("wait-period", `${WAIT_DAYS}d`);
@@ -49,7 +48,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
       
       // Check if order status is still 'paid' (not completed/cancelled)
       if (orderCheck.status !== 'paid') {
-        console.log(`[AUTO CAPTURE] Order ${orderId} status is ${orderCheck.status}, skipping auto-capture`);
         return { 
           eligible: false, 
           reason: 'order_not_paid',
@@ -69,7 +67,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
       const disputeResult = await pool.query(disputeQuery, [orderId]);
       
       if (disputeResult.rows.length > 0) {
-        console.log(`[AUTO CAPTURE] Active dispute found for order: ${orderId}, skipping auto-capture`);
         return { 
           eligible: false, 
           reason: 'active_dispute',
@@ -89,7 +86,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
       const paymentResult = await pool.query(paymentQuery, [orderId]);
       
       if (paymentResult.rows.length === 0) {
-        console.log(`[AUTO CAPROW] No escrowed payment found for order: ${orderId}, skipping auto-capture`);
         return { 
           eligible: false, 
           reason: 'no_escrowed_payment' 
@@ -122,7 +118,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
           eligibilityCheck.payment.provider_payment_id
         );
         
-        console.log(`[AUTO CAPTURE] Payment captured for order: ${orderId}, Intent: ${eligibilityCheck.payment.provider_payment_id}`);
         
         return { 
           success: true, 
@@ -200,7 +195,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
         
         await pool.query('COMMIT');
         
-        console.log(`[AUTO CAPTURE] Database updated for order: ${orderId}`);
         
         return {
           paymentUpdated: paymentUpdate.rows[0],
@@ -250,7 +244,6 @@ const autoCaptureAfterEscrow = inngest.createFunction(
           }
         });
         
-        console.log(`[AUTO CAPTURE] Notifications sent for order: ${orderId}`);
         
         return { success: true };
       } catch (error) {

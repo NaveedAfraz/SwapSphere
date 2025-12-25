@@ -1,16 +1,23 @@
 const { pool } = require("../database/db");
 
 const createOffer = async (buyerId, sellerId, offerData) => {
-  const { listing_id, offered_price, offered_quantity, expires_at, deal_room_id } = offerData;
+  const { listing_id, offered_price, offered_quantity, expires_at, deal_room_id, offer_type, cash_amount, swap_items, metadata } = offerData;
+  
+  // Default to cash offer for backward compatibility
+  const finalOfferType = offer_type || 'cash';
+  const finalCashAmount = cash_amount || offered_price || 0;
+  const finalSwapItems = swap_items || [];
+  const finalMetadata = metadata || {};
   
   const query = `
-    INSERT INTO offers (listing_id, buyer_id, seller_id, offered_price, offered_quantity, expires_at, deal_room_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO offers (listing_id, buyer_id, seller_id, offered_price, offered_quantity, expires_at, deal_room_id, offer_type, cash_amount, swap_items, metadata)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *
   `;
   
   const result = await pool.query(query, [
-    listing_id, buyerId, sellerId, offered_price, offered_quantity || 1, expires_at, deal_room_id
+    listing_id, buyerId, sellerId, offered_price, offered_quantity || 1, expires_at, deal_room_id,
+    finalOfferType, finalCashAmount, JSON.stringify(finalSwapItems), JSON.stringify(finalMetadata)
   ]);
   
   return result.rows[0];
@@ -183,13 +190,24 @@ const updateOfferStatus = async (userId, offerId, status) => {
     
     const offer = offerResult.rows[0];
     
-    // Check permissions
+    // Check permissions based on who made the offer using metadata
+    const madeByUserId = offer.metadata?.made_by_user_id;
+    const counteredByUserId = offer.metadata?.countered_by_user_id;
+    const updatedByUserId = offer.metadata?.updated_by_user_id;
+    
+    // Determine who actually made this offer
+    const offerMaker = madeByUserId || counteredByUserId || updatedByUserId || offer.buyer_id;
+    
     if (status === 'cancelled' && offer.buyer_id !== userId) {
       throw new Error('Only buyer can cancel offer');
     }
     
-    if ((status === 'accepted' || status === 'declined') && offer.seller_id !== userId) {
-      throw new Error('Only seller can accept/decline offer');
+    if (status === 'declined' && offer.seller_id !== userId) {
+      throw new Error('Only seller can decline offer');
+    }
+    
+    if (status === 'accepted' && offerMaker === userId) {
+      throw new Error('Cannot accept your own offer');
     }
     
     // Update the offer
@@ -214,7 +232,6 @@ const updateOfferStatus = async (userId, offerId, status) => {
 const createCounterOffer = async (userId, originalOfferId, counterData) => {
   const { counter_amount, expires_at } = counterData;
   
-  console.log('[COUNTER] Creating counter offer with data:', { userId, originalOfferId, counter_amount, expires_at });
   
   if (!counter_amount) {
     throw new Error('Counter amount is required');
@@ -242,7 +259,6 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
     
     // Check if user is authorized to counter (either buyer or seller)
     if (original.buyer_id !== userId && original.seller_user_id !== userId) {
-      console.log('[COUNTER] Authorization failed - Buyer ID:', original.buyer_id, 'Seller User ID:', original.seller_user_id, 'Current User ID:', userId);
       throw new Error('You are not authorized to counter this offer');
     }
     
@@ -253,15 +269,23 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
     // Update the existing offer with counter offer details
     const updateQuery = `
       UPDATE offers 
-      SET offered_price = $1, offered_quantity = $2, expires_at = $3, status = 'countered', updated_at = CURRENT_TIMESTAMP
-      WHERE id = $4
+      SET offered_price = $1, offered_quantity = $2, expires_at = $3, status = 'countered', updated_at = CURRENT_TIMESTAMP,
+          metadata = COALESCE(metadata, '{}')::jsonb || $4::jsonb
+      WHERE id = $5
       RETURNING *
     `;
+    
+    const counterMetadata = {
+      countered_by_user_id: userId,
+      countered_at: new Date().toISOString(),
+      is_seller_counter: original.seller_user_id === userId
+    };
     
     const result = await pool.query(updateQuery, [
       counter_amount,
       1, // Default quantity since offered_quantity is not passed in counterData
       expires_at,
+      JSON.stringify(counterMetadata),
       originalOfferId
     ]);
     
@@ -269,14 +293,11 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
     
     // Emit real-time counter offer update to both buyer and seller
     try {
-      console.log('[COUNTER] Starting socket emission process...');
       const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
       
       // Get deal room ID to emit to the right room
       const dealRoomId = updatedOffer.deal_room_id;
       if (dealRoomId) {
-        console.log('[COUNTER] Emitting counter offer update to deal room:', dealRoomId);
-        console.log('[COUNTER] Emit data:', {
           offerId: updatedOffer.id,
           newAmount: updatedOffer.offered_price,
           updatedBy: userId,
@@ -288,9 +309,7 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
           updatedBy: userId,
           timestamp: updatedOffer.updated_at
         });
-        console.log('[COUNTER] Socket emission completed');
       } else {
-        console.log('[COUNTER] No deal room ID found for socket emission');
       }
     } catch (error) {
       console.error('[COUNTER] Failed to emit socket event:', error);
@@ -319,13 +338,12 @@ const expireOffers = async () => {
 };
 
 const updateOffer = async (userId, offerId, updateData) => {
-  const { counter_amount, expires_at } = updateData;
+  const { counter_amount, expires_at, offer_type, cash_amount, swap_items } = updateData;
   
   await pool.query("BEGIN");
   
   try {
     // First verify the user is a participant in this deal (buyer or seller)
-    console.log('[OFFER DEBUG] Checking authorization - Offer ID:', offerId, 'User ID:', userId);
     
     // First check if offer exists at all
     const offerExistsCheck = await pool.query(
@@ -333,9 +351,7 @@ const updateOffer = async (userId, offerId, updateData) => {
       [offerId]
     );
     
-    console.log('[OFFER DEBUG] Offer exists check - Found rows:', offerExistsCheck.rows.length);
     if (offerExistsCheck.rows.length > 0) {
-      console.log('[OFFER DEBUG] Found offer - Buyer ID:', offerExistsCheck.rows[0].buyer_id, 'Seller ID:', offerExistsCheck.rows[0].seller_id);
     }
     
     // Check authorization: user is buyer OR user is seller (through sellers.user_id)
@@ -344,37 +360,70 @@ const updateOffer = async (userId, offerId, updateData) => {
       [offerId, userId]
     );
     
-    console.log('[OFFER DEBUG] Authorization query result rows:', offerCheck.rows.length);
-    console.log('[OFFER DEBUG] Query executed: SELECT o.* FROM offers o LEFT JOIN sellers s ON o.seller_id = s.id WHERE o.id =', offerId, 'AND (o.buyer_id =', userId, 'OR s.user_id =', userId, ')');
     
     if (offerCheck.rows.length === 0) {
-      console.log('[OFFER DEBUG] Authorization failed - offer not found or user not authorized');
       throw new Error('Offer not found or not authorized');
     }
     
     const originalOffer = offerCheck.rows[0];
     
+    // Build dynamic update query based on provided data
+    const updateFields = [];
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    if (counter_amount !== undefined) {
+      updateFields.push(`offered_price = $${paramIndex++}`);
+      queryParams.push(counter_amount);
+    }
+    
+    if (expires_at !== undefined) {
+      updateFields.push(`expires_at = $${paramIndex++}`);
+      queryParams.push(expires_at);
+    }
+    
+    if (offer_type !== undefined) {
+      updateFields.push(`offer_type = $${paramIndex++}`);
+      queryParams.push(offer_type);
+    }
+    
+    if (cash_amount !== undefined) {
+      updateFields.push(`cash_amount = $${paramIndex++}`);
+      queryParams.push(cash_amount);
+    }
+    
+    if (swap_items !== undefined) {
+      updateFields.push(`swap_items = $${paramIndex++}`);
+      queryParams.push(JSON.stringify(swap_items));
+    }
+    
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    
+    // Add metadata update to track who made this change
+    updateFields.push(`metadata = COALESCE(o.metadata, '{}')::jsonb || $${paramIndex++}::jsonb`);
+    queryParams.push(JSON.stringify({
+      updated_by_user_id: userId,
+      updated_at: new Date().toISOString(),
+      is_seller_update: originalOffer.seller_user_id === userId
+    }));
+    
     // Update the offer
     const updateQuery = `
       UPDATE offers o 
-      SET offered_price = $1, expires_at = $2, updated_at = CURRENT_TIMESTAMP
+      SET ${updateFields.join(', ')}
       FROM sellers s 
-      WHERE o.id = $3 AND o.seller_id = s.id AND (o.buyer_id = $4 OR s.user_id = $4)
+      WHERE o.id = $${paramIndex++} AND o.seller_id = s.id AND (o.buyer_id = $${paramIndex++} OR s.user_id = $${paramIndex++})
       RETURNING o.*
     `;
     
-    const result = await pool.query(updateQuery, [
-      counter_amount,
-      expires_at || null,
-      offerId,
-      userId
-    ]);
+    queryParams.push(offerId, userId, userId);
+    
+    const result = await pool.query(updateQuery, queryParams);
     
     const updatedOffer = result.rows[0];
     
     // Emit real-time offer update to both buyer and seller
     try {
-      console.log('[OFFER] Starting socket emission process...');
       // Import the socket server module to get the IO instance
       const setupSocketIO = require('../socket/socketServer');
       // We need to get the IO instance from the server - this will be handled differently
@@ -382,24 +431,26 @@ const updateOffer = async (userId, offerId, updateData) => {
       const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
       
       // Get deal room ID to emit to the right room
-      const dealRoomId = updatedOffer.deal_room_id;
+      const dealRoomId = updatedOffer.deal_room_id || originalOffer.deal_room_id;
       if (dealRoomId) {
-        console.log('[OFFER] Emitting offer update to deal room:', dealRoomId);
-        console.log('[OFFER] Emit data:', {
           offerId: updatedOffer.id,
           newAmount: updatedOffer.offered_price,
+          offerType: updatedOffer.offer_type,
+          cashAmount: updatedOffer.cash_amount,
+          swapItems: updatedOffer.swap_items,
           updatedBy: userId,
           timestamp: updatedOffer.updated_at
         });
         emitToDealRoom(dealRoomId, 'offer_updated', {
           offerId: updatedOffer.id,
           newAmount: updatedOffer.offered_price,
+          offerType: updatedOffer.offer_type,
+          cashAmount: updatedOffer.cash_amount,
+          swapItems: updatedOffer.swap_items,
           updatedBy: userId,
           timestamp: updatedOffer.updated_at
         });
-        console.log('[OFFER] Socket emission completed');
       } else {
-        console.log('[OFFER] No deal room ID found for socket emission');
       }
     } catch (error) {
       console.error('[OFFER] Failed to emit socket event:', error);
@@ -430,7 +481,10 @@ const updateOffer = async (userId, offerId, updateData) => {
           offered_price: counter_amount,
           offered_quantity: updatedOffer.offered_quantity || 1,
           seller_user_id: originalOffer.seller_id,
-          deal_room_id: originalOffer.deal_room_id
+          deal_room_id: originalOffer.deal_room_id,
+          offer_type: updatedOffer.offer_type,
+          cash_amount: updatedOffer.cash_amount,
+          swap_items: updatedOffer.swap_items
         },
         actor_id: userId
       });

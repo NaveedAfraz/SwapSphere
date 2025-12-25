@@ -6,7 +6,6 @@ const cleanupAbandonedDealRooms = inngest.createFunction(
   { id: 'cleanup-abandoned-deal-rooms' },
   { cron: '0 2 * * *' }, // Run daily at 2 AM
   async ({ step }) => {
-    console.log('[CLEANUP] Starting abandoned deal rooms cleanup');
     
     // Find deal rooms that have been inactive for 30 days
     const abandonedDealRooms = await step.run('find-abandoned-deal-rooms', async () => {
@@ -36,7 +35,6 @@ const cleanupAbandonedDealRooms = inngest.createFunction(
     });
     
     if (abandonedDealRooms.length > 0) {
-      console.log(`[CLEANUP] Canceled ${abandonedDealRooms.length} abandoned deal rooms`);
       
       // Create deal events for cleanup
       await step.run('create-cleanup-events', async () => {
@@ -66,7 +64,6 @@ const cleanupOldWebhookEvents = inngest.createFunction(
   { id: 'cleanup-old-webhook-events' },
   { cron: '0 3 * * *' }, // Run daily at 3 AM
   async ({ step }) => {
-    console.log('[CLEANUP] Starting old webhook events cleanup');
     
     const deletedCount = await step.run('delete-old-webhook-events', async () => {
       const query = 'DELETE FROM processed_webhook_events WHERE processed_at < NOW() - INTERVAL \'7 days\'';
@@ -74,7 +71,6 @@ const cleanupOldWebhookEvents = inngest.createFunction(
       return result.rowCount;
     });
     
-    console.log(`[CLEANUP] Deleted ${deletedCount} old webhook events`);
     
     return { deleted_webhook_events: deletedCount };
   }
@@ -85,7 +81,6 @@ const cleanupExpiredPayments = inngest.createFunction(
   { id: 'cleanup-expired-payments' },
   { cron: '0 4 * * *' }, // Run daily at 4 AM
   async ({ step }) => {
-    console.log('[CLEANUP] Starting expired payments cleanup');
     
     const expiredPayments = await step.run('find-expired-payments', async () => {
       const query = `
@@ -109,7 +104,6 @@ const cleanupExpiredPayments = inngest.createFunction(
     });
     
     if (expiredPayments.length > 0) {
-      console.log(`[CLEANUP] Marked ${expiredPayments.length} payments as expired`);
       
       // Update corresponding orders
       await step.run('update-orders', async () => {

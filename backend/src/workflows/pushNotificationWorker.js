@@ -67,7 +67,6 @@ const pushNotificationWorker = inngest.createFunction(
         processing_time_ms: Date.now() - new Date(created_at).getTime()
       };
 
-      console.log("Push batch metrics:", JSON.stringify(metrics, null, 2));
 
       // TODO: You might want to store these metrics in your analytics system
       // await analytics.track("push_batch_processed", metrics);
@@ -91,7 +90,6 @@ const pushNotificationWorker = inngest.createFunction(
         // 2. Implement exponential backoff
         // 3. Alert on persistent failures
 
-        console.log(`Failed notifications: ${failedNotifications.length}`);
         return { failed_count: failedNotifications.length, failures: failedNotifications };
       });
     }
@@ -127,7 +125,6 @@ const cleanupRateLimits = inngest.createFunction(
       // Clean up old rate limit entries
       notificationService.cleanupRateLimitStore();
       
-      console.log("Rate limit store cleanup completed");
       
       return {
         cleaned_at: new Date().toISOString(),

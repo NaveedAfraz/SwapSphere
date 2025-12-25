@@ -100,16 +100,10 @@ const getChatsByUser = async (userId, options = {}) => {
     pool.query(dataQuery, [userId, limit, offset]),
   ]);
 
-  console.log("Count query result:", countResult.rows[0]);
-  console.log("Data query result rows:", dataResult.rows.length);
-  console.log("Sample chat data:", dataResult.rows || "No chats found");
 
   const total = parseInt(countResult.rows[0].total);
   const totalPages = Math.ceil(total / limit);
 
-  console.log("Final total:", total);
-  console.log("Total pages:", totalPages);
-  console.log("Returning chats:", dataResult.rows.length);
 
   return {
     chats: dataResult.rows,
@@ -326,22 +320,15 @@ const findChatByUsers = async (
 
   query += ` ORDER BY c.created_at DESC LIMIT 1`;
 
-  console.log("Final query:", query);
-  console.log("Query params:", params);
 
   const result = await pool.query(query, params);
 
-  console.log("Query result rows:", result.rows);
-  console.log("Query result row count:", result.rows.length);
 
   if (result.rows.length > 0) {
-    console.log("Found chat ID:", result.rows[0].id);
     const chat = await getChatById(currentUserId, result.rows[0].id);
-    console.log("Full chat data:", chat);
     return chat;
   }
 
-  console.log("No chat found, returning null");
   return null;
 };
 

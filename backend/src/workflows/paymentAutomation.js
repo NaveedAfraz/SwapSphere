@@ -12,7 +12,6 @@ try {
     const paypalSDK = require('@paypal/checkout-server-sdk');
     const environment = new paypalSDK.core.SandboxEnvironment(clientId, clientSecret);
     paypal = new paypalSDK.core.PayPalHttpClient(environment);
-    console.log('[PAYMENT-AUTOMATION] PayPal SDK initialized');
   } else {
     console.warn('[PAYMENT-AUTOMATION] PayPal credentials not configured');
     paypal = null;
@@ -33,7 +32,6 @@ const autoCapturePayment = inngest.createFunction(
   async ({ event, step }) => {
     const { payment_id, order_id, deal_room_id, amount } = event.data;
 
-    console.log('[AUTO-CAPTURE] Starting auto-capture workflow for payment:', payment_id);
 
     // Wait for delivery period using business days
     const captureDate = addBusinessDays(new Date(), DELIVERY_WAIT_BUSINESS_DAYS);
@@ -66,7 +64,6 @@ const autoCapturePayment = inngest.createFunction(
 
     // Verify payment is still authorized and no disputes exist
     if (payment.status !== 'succeeded' || order.status !== 'paid') {
-      console.log('[AUTO-CAPTURE] Payment status changed, skipping capture:', {
         payment_status: payment.status,
         order_status: order.status
       });
@@ -88,7 +85,6 @@ const autoCapturePayment = inngest.createFunction(
     });
 
     if (hasDisputes) {
-      console.log('[AUTO-CAPTURE] Active dispute found, skipping capture');
       return { status: 'skipped', reason: 'Active dispute' };
     }
 
@@ -118,7 +114,6 @@ const autoCapturePayment = inngest.createFunction(
         const request = new paypalSDK.payments.CapturesCaptureRequest(paypalPaymentId);
         
         const capture = await paypal.execute(request);
-        console.log('[AUTO-CAPTURE] PayPal payment captured successfully:', capture.result.id);
         return capture.result;
       } catch (error) {
         console.error('[AUTO-CAPTURE] Failed to capture PayPal payment:', error);
@@ -170,7 +165,6 @@ const autoCapturePayment = inngest.createFunction(
         }
 
         await pool.query('COMMIT');
-        console.log('[AUTO-CAPTURE] Database updated successfully');
 
       } catch (error) {
         await pool.query('ROLLBACK');
@@ -225,7 +219,6 @@ const handlePaymentFailure = inngest.createFunction(
   async ({ event, step }) => {
     const { payment_id, order_id, deal_room_id, failure_reason } = event.data;
 
-    console.log('[PAYMENT-FAILURE] Handling payment failure:', payment_id);
 
     // Wait a short delay before processing
     await step.sleep('processing-delay', '5m');
@@ -299,7 +292,6 @@ const handleOrderCompletion = inngest.createFunction(
   async ({ event, step }) => {
     const { payment_id, order_id, deal_room_id, amount } = event.data;
 
-    console.log('[ORDER-COMPLETION] Handling order completion:', order_id);
 
     // Wait a brief period before triggering review requests
     await step.sleep('review-delay', '1h');

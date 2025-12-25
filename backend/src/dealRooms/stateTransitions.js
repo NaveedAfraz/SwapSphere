@@ -70,7 +70,6 @@ const updateDealRoomState = async (dealRoomId, newState, actorId = null, metadat
     
     await pool.query('COMMIT');
     
-    console.log(`[STATE-TRANSITION] Deal room ${dealRoomId} transitioned from ${currentState} to ${newState}`);
     
     return updatedDealRoom;
     
@@ -105,7 +104,6 @@ const canUserPerformAction = async (dealRoomId, userId, action) => {
   const dealRoomResult = await pool.query(query, [dealRoomId]);
   
   if (dealRoomResult.rows.length === 0) {
-    console.log('[PERMISSION] Deal room not found:', dealRoomId);
     return false;
   }
   
@@ -113,7 +111,6 @@ const canUserPerformAction = async (dealRoomId, userId, action) => {
   const isBuyer = dealRoom.buyer_id === userId;
   const isSeller = dealRoom.seller_user_id === userId;
   
-  console.log('[PERMISSION] Checking action:', { 
     dealRoomId, 
     userId, 
     action, 
@@ -125,36 +122,34 @@ const canUserPerformAction = async (dealRoomId, userId, action) => {
   
   // Define permissions based on action and state
   const permissions = {
+    'counter_offer': () => {
+      const canCounter = (isBuyer || isSeller) && dealRoom.current_state === 'negotiation';
+      return canCounter;
+    },
     'accept_offer': () => {
-      const canAccept = isSeller && dealRoom.current_state === 'negotiation';
-      console.log('[PERMISSION] Accept offer check:', { isSeller, currentState: dealRoom.current_state, canAccept });
+      const canAccept = (isBuyer || isSeller) && dealRoom.current_state === 'negotiation';
       return canAccept;
     },
     'make_payment': () => {
       const canPay = isBuyer && dealRoom.current_state === 'payment_pending';
-      console.log('[PERMISSION] Make payment check:', { isBuyer, currentState: dealRoom.current_state, canPay });
       return canPay;
     },
     'confirm_delivery': () => {
       const canConfirm = isBuyer && dealRoom.current_state === 'in_delivery';
-      console.log('[PERMISSION] Confirm delivery check:', { isBuyer, currentState: dealRoom.current_state, canConfirm });
       return canConfirm;
     },
     'open_dispute': () => {
       const canDispute = (isBuyer || isSeller) && ['payment_authorized', 'in_delivery'].includes(dealRoom.current_state);
-      console.log('[PERMISSION] Open dispute check:', { isBuyer, isSeller, currentState: dealRoom.current_state, canDispute });
       return canDispute;
     },
     'cancel_deal': () => {
       const canCancel = (isBuyer || isSeller) && !['completed', 'canceled'].includes(dealRoom.current_state);
-      console.log('[PERMISSION] Cancel deal check:', { isBuyer, isSeller, currentState: dealRoom.current_state, canCancel });
       return canCancel;
     }
   };
   
   const permissionCheck = permissions[action];
   const permissionResult = permissionCheck ? permissionCheck() : false;
-  console.log('[PERMISSION] Final permission result:', { action, result: permissionResult });
   return permissionResult;
 };
 
@@ -182,7 +177,8 @@ const getAvailableActions = async (dealRoomId, userId) => {
   // Define available actions based on state and user role
   switch (dealRoom.current_state) {
     case 'negotiation':
-      if (isSeller) actions.push('accept_offer');
+      if (isBuyer || isSeller) actions.push('accept_offer');
+      if (isBuyer || isSeller) actions.push('counter_offer');
       actions.push('cancel_deal');
       break;
       

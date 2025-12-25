@@ -10,36 +10,28 @@ const { inngest, sendEvent } = require("../services/inngest");
 
 const createIntentController = async (req, res) => {
   try {
-    console.log("[INTENT] Creating new intent request received");
-    console.log("[INTENT] User ID:", req.user.id);
-    console.log("[INTENT] Request body:", JSON.stringify(req.body, null, 2));
     
     const userId = req.user.id;
     const { title, description, category, max_price, location } = req.body;
 
     // Validation
     if (!title || !title.trim()) {
-      console.log("[INTENT] Validation failed: Title is required");
       return res.status(400).json({ error: "Title is required" });
     }
 
     if (!description || !description.trim()) {
-      console.log("[INTENT] Validation failed: Description is required");
       return res.status(400).json({ error: "Description is required" });
     }
 
     if (!max_price || parseFloat(max_price) <= 0) {
-      console.log("[INTENT] Validation failed: Valid max price is required");
       return res.status(400).json({ error: "Valid max price is required" });
     }
 
     if (!category) {
-      console.log("[INTENT] Validation failed: Category is required");
       return res.status(400).json({ error: "Category is required" });
     }
 
     if (!location || !location.city) {
-      console.log("[INTENT] Validation failed: Location with city is required");
       return res.status(400).json({ error: "Location with city is required" });
     }
 
@@ -52,13 +44,9 @@ const createIntentController = async (req, res) => {
       location,
     };
 
-    console.log("[INTENT] Creating intent with data:", JSON.stringify(intentData, null, 2));
     const intent = await createIntent(intentData);
-    console.log("[INTENT] Intent created successfully:", JSON.stringify(intent, null, 2));
     
-    console.log("[INTENT] Sending intent.created event to Inngest");
     await sendEvent({ name: "intent.created", data: { intentId: intent.id } });
-    console.log("[INTENT] Event sent successfully");
     
     res.status(201).json(intent);
   } catch (error) {
@@ -116,7 +104,6 @@ const updateIntentController = async (req, res) => {
     const { title, description, category, max_price, location, status } =
       req.body;
 
-    console.log("updateIntentController called with:", {
       id,
       userId,
       requestBody: req.body,
@@ -126,12 +113,10 @@ const updateIntentController = async (req, res) => {
     const existingIntent = await getIntentById(id);
 
     if (!existingIntent) {
-      console.log("Intent not found:", id);
       return res.status(400).json({ error: "Intent not found" });
     }
 
     if (existingIntent.buyer_id !== userId) {
-      console.log(
         "Access denied for user:",
         userId,
         "intent owner:",
@@ -145,7 +130,6 @@ const updateIntentController = async (req, res) => {
 
     if (title !== undefined) {
       if (!title.trim()) {
-        console.log("Title validation failed - empty title");
         return res.status(400).json({ error: "Title cannot be empty" });
       }
       updateData.title = title.trim();
@@ -153,7 +137,6 @@ const updateIntentController = async (req, res) => {
 
     if (description !== undefined) {
       if (!description.trim()) {
-        console.log("Description validation failed - empty description");
         return res.status(400).json({ error: "Description cannot be empty" });
       }
       updateData.description = description.trim();
@@ -161,7 +144,6 @@ const updateIntentController = async (req, res) => {
 
     if (max_price !== undefined) {
       if (parseFloat(max_price) <= 0) {
-        console.log("Max price validation failed - price:", max_price);
         return res
           .status(400)
           .json({ error: "Max price must be greater than 0" });
@@ -175,7 +157,6 @@ const updateIntentController = async (req, res) => {
 
     if (location !== undefined) {
       if (!location.city) {
-        console.log("Location validation failed - missing city:", location);
         return res.status(400).json({ error: "Location must include city" });
       }
       updateData.location = location;
@@ -184,16 +165,13 @@ const updateIntentController = async (req, res) => {
     if (status !== undefined) {
       const validStatuses = ["open", "matched", "closed"];
       if (!validStatuses.includes(status)) {
-        console.log("Status validation failed - invalid status:", status);
         return res.status(400).json({ error: "Invalid status" });
       }
       updateData.status = status;
     }
 
-    console.log("Final updateData:", updateData);
 
     const updatedIntent = await updateIntent(id, updateData);
-    console.log("Intent updated successfully:", updatedIntent);
     res.json(updatedIntent);
   } catch (error) {
     console.error("Error updating intent:", error);
