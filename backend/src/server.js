@@ -58,13 +58,14 @@ app.use(
   })
 );
 
-  "[SERVER] Webhook URL should be:",
-  process.env.NGROK_URL ||
-    `${
-      process.env.FRONTEND_URL?.replace("3000", "5000") ||
-      "http://localhost:5000"
-    }/api/inngest`
-);
+//   console.log(
+//   "[SERVER] Webhook URL should be:",
+//   process.env.NGROK_URL ||
+//     `${
+//       process.env.FRONTEND_URL?.replace("3000", "5000") ||
+//       "http://localhost:5000"
+//     }/api/inngest`
+// );
 
 app.use("/api/auth", require("./auth/routes"));
 app.use("/api/profile", require("./profile/routes"));

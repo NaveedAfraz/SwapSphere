@@ -15,7 +15,6 @@ const sendEvent = async (eventName, data) => {
       }
     });
     
-    console.log(`[EVENT SERVICE] Event sent: ${eventName}`, data);
     return { success: true };
   } catch (error) {
     console.error(`[EVENT SERVICE] Failed to send event: ${eventName}`, error);

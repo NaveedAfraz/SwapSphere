@@ -57,6 +57,7 @@ import {
 } from "../../../services/socketService";
 import { useRouter } from "expo-router";
 import { SwapOfferPayload } from "../types/swapOffer";
+import StartAuctionModal from "../../../features/auction/components/StartAuctionModal";
 
 interface DealRoomChatProps {
   dealRoomId: string;
@@ -71,6 +72,13 @@ interface DealRoomChatProps {
   conversationId?: string;
   actualChatId?: string;
 }
+
+const AuctionBanner = ({ onPress, theme }: { onPress: () => void; theme: any }) => (
+  <TouchableOpacity onPress={onPress} style={[getStyles(theme).bannerContainer, { backgroundColor: theme.colors.accent }]}>
+    <Ionicons name="hammer" size={20} color={theme.colors.surface} />
+    <ThemedText style={getStyles(theme).bannerText}>Seller has started a private auction. [Join Auction]</ThemedText>
+  </TouchableOpacity>
+);
 
 const DealRoomChat: React.FC<DealRoomChatProps> = ({
   dealRoomId,
@@ -106,13 +114,25 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   const [paymentStatusChecked, setPaymentStatusChecked] = useState(false);
   const [showOfferHistory, setShowOfferHistory] = useState(false);
   const [orderType, setOrderType] = useState<string>("cash");
+  const [showStartAuctionModal, setShowStartAuctionModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Calculate if this is the user's own offer based on who last updated it
   const calculatedIsOwnOffer = lastOfferUpdatedBy === activeUser?.id;
 
+  // Determine if user is seller and can start auction
+  const isSeller = currentDealRoom?.seller_user_id === activeUser?.id;
+  const canStartAuction = isSeller && 
+    currentDealRoom?.current_state === 'negotiation' && 
+    !currentDealRoom?.metadata?.auction_id;
+
   // Determine current status - prioritize deal room state over order status
   const currentStatus = currentDealRoom?.current_state || offerStatus;
+
+  const showCurrentOrderStatus = (() => {
+    const excludedStatuses = ["accepted", "offer_accepted", "pending", "paid", "shipped", "delivered", "completed", "countered"];
+    return currentStatus && !excludedStatuses.includes(currentStatus);
+  })();
 
   const dealRoomMessages = messages[dealRoomId] || [];
 
@@ -520,6 +540,19 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
               {formattedDealRoom.state_display_name}
             </ThemedText>
           </View>
+
+          {/* Start Auction Button - Seller Only */}
+          {canStartAuction && (
+            <TouchableOpacity
+              style={[getStyles(theme).startAuctionButton]}
+              onPress={() => setShowStartAuctionModal(true)}
+            >
+              <Ionicons name="hammer" size={16} color={theme.colors.surface} />
+              <ThemedText style={getStyles(theme).startAuctionText}>
+                Start Auction
+              </ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -542,6 +575,13 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   return (
     <View style={[getStyles(theme).safeArea, { paddingTop: insets.top }]}>
       {renderHeader()}
+
+      {currentDealRoom?.metadata?.auction_id && (
+        <AuctionBanner 
+          theme={theme} 
+          onPress={() => router.push(`/deal-room/${dealRoomId}-auction` as any)} 
+        />
+      )}
 
       {/* Offer Negotiation - Hide when payment is completed, still checking status, or order is in advanced status */}
       {itemName &&
@@ -597,96 +637,88 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
         )}
 
       {/* Current Order Status Display */}
-      {currentStatus &&
-        currentStatus !== "accepted" &&
-        currentStatus !== "pending" &&
-        currentStatus !== "paid" &&
-        currentStatus !== "shipped" &&
-        currentStatus !== "delivered" &&
-        currentStatus !== "completed" &&
-        currentStatus != "countered" && (
+      {showCurrentOrderStatus && (
+        <View
+          style={{
+            padding: 16,
+            backgroundColor: theme.colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+          }}
+        >
           <View
             style={{
-              padding: 16,
-              backgroundColor: theme.colors.background,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.border,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
             }}
           >
+            <ThemedText
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: theme.colors.primary,
+              }}
+            >
+              Order Status
+            </ThemedText>
             <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 8,
+                backgroundColor:
+                  currentStatus === "delivered"
+                    ? "#3B82F6"
+                    : currentStatus === "completed"
+                    ? "#10B981"
+                    : currentStatus === "shipped"
+                    ? "#F59E0B"
+                    : currentStatus === "paid"
+                    ? "#10B981"
+                    : "#6B7280",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 12,
               }}
             >
               <ThemedText
                 style={{
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: "600",
-                  color: theme.colors.primary,
+                  color: "#FFFFFF",
+                  textTransform: "uppercase",
                 }}
               >
-                Order Status
+                {currentStatus === "delivered"
+                  ? "Delivered"
+                  : currentStatus === "completed"
+                  ? "Completed"
+                  : currentStatus === "shipped"
+                  ? "Shipped"
+                  : currentStatus === "paid"
+                  ? "Paid"
+                  : (currentStatus || '').charAt(0).toUpperCase() + (currentStatus || '').slice(1)}
               </ThemedText>
-              <View
-                style={{
-                  backgroundColor:
-                    currentStatus === "delivered"
-                      ? "#3B82F6"
-                      : currentStatus === "completed"
-                      ? "#10B981"
-                      : currentStatus === "shipped"
-                      ? "#F59E0B"
-                      : currentStatus === "paid"
-                      ? "#10B981"
-                      : "#6B7280",
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 12,
-                }}
-              >
-                <ThemedText
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: "#FFFFFF",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {currentStatus === "delivered"
-                    ? "Delivered"
-                    : currentStatus === "completed"
-                    ? "Completed"
-                    : currentStatus === "shipped"
-                    ? "Shipped"
-                    : currentStatus === "paid"
-                    ? "Paid"
-                    : currentStatus.charAt(0).toUpperCase() +
-                      currentStatus.slice(1)}
-                </ThemedText>
-              </View>
             </View>
-            <ThemedText
-              style={{
-                fontSize: 14,
-                color: theme.colors.secondary,
-                textAlign: "center",
-              }}
-            >
-              {currentStatus === "delivered"
-                ? "You marked this order as delivered. Waiting for buyer confirmation."
-                : currentStatus === "completed"
-                ? "Order completed! Payment has been released to your account."
-                : currentStatus === "shipped"
-                ? "You have shipped this order. Track delivery in My Sales."
-                : currentStatus === "paid"
-                ? "Payment received and held in escrow until delivery."
-                : `Order status: ${currentStatus}`}
-            </ThemedText>
           </View>
-        )}
+          <ThemedText
+            style={{
+              fontSize: 14,
+              color: theme.colors.secondary,
+              textAlign: "center",
+            }}
+          >
+            {currentStatus === "delivered"
+              ? "You marked this order as delivered. Waiting for buyer confirmation."
+              : currentStatus === "completed"
+              ? "Order completed! Payment has been released to your account."
+              : currentStatus === "shipped"
+              ? "You have shipped this order. Track delivery in My Sales."
+              : currentStatus === "paid"
+              ? "Payment received and held in escrow until delivery."
+              : `Order status: ${currentStatus}`}
+          </ThemedText>
+        </View>
+      )}
 
       {paymentCompleted && (
         <View
@@ -1170,6 +1202,32 @@ const getStyles = (theme: any) =>
       color: theme.colors.surface,
       fontSize: 14,
       fontWeight: "600",
+    } as TextStyle,
+    startAuctionButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      backgroundColor: theme.colors.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      marginTop: 8,
+    } as ViewStyle,
+    startAuctionText: {
+      color: theme.colors.surface,
+      fontSize: 12,
+      fontWeight: "600",
+      marginLeft: 4,
+    } as TextStyle,
+    bannerContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 16,
+    } as ViewStyle,
+    bannerText: {
+      color: theme.colors.surface,
+      fontSize: 14,
+      fontWeight: "600",
+      marginLeft: 12,
     } as TextStyle,
   });
 
