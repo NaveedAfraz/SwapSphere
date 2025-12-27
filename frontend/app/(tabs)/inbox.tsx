@@ -117,9 +117,14 @@ export default function InboxScreen() {
 
       <View style={styles.listContainer}>
         <DealRoomList
-          onDealRoomPress={(dealRoom: DealRoom) =>
-            router.push(`/deal-room/${dealRoom.id}` as any)
-          }
+          onDealRoomPress={(dealRoom: DealRoom) => {
+            // Navigate to auction screen for auction deal rooms, regular chat for others
+            if (dealRoom.room_type === 'auction') {
+              router.push(`/deal-room/${dealRoom.id}-auction` as any);
+            } else {
+              router.push(`/deal-room/${dealRoom.id}` as any);
+            }
+          }}
           state={selectedTab === "unread" ? "unread" : undefined}
           refreshing={refreshing}
           onRefresh={onRefresh}

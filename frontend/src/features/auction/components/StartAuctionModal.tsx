@@ -13,7 +13,7 @@ import {
 import { useAppSelector, useAppDispatch } from '../../../hooks/redux';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemedText } from '@/src/components/ThemedView';
-import { createAuction } from '../auctionSlice';
+import { createAuction } from '../auctionThunks';
 import { Ionicons } from '@expo/vector-icons';
 import DefaultAvatar from '../../dealRooms/components/DefaultAvatar';
 
@@ -89,11 +89,11 @@ const StartAuctionModal: React.FC<StartAuctionModalProps> = ({
     }
 
     const auctionData = {
-      deal_room_id: dealRoomId,
-      start_price: parseFloat(startPrice),
-      minimum_increment: parseFloat(minimumIncrement),
-      duration_minutes: parseInt(duration),
-      participant_ids: selectedBuyers,
+      directDealId: dealRoomId,
+      startPrice: parseFloat(startPrice),
+      minIncrement: parseFloat(minimumIncrement),
+      durationMinutes: parseInt(duration),
+      inviteeIds: selectedBuyers,
     };
 
     dispatch(createAuction(auctionData))
@@ -106,7 +106,6 @@ const StartAuctionModal: React.FC<StartAuctionModalProps> = ({
       })
       .catch((error) => {
         Alert.alert('Error', 'Failed to create auction. Please try again.');
-        console.error('Create auction error:', error);
       });
   };
 

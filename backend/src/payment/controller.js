@@ -34,11 +34,7 @@ try {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
-    hasClientId: !!clientId,
-    hasClientSecret: !!clientSecret,
-    clientIdLength: clientId?.length,
-    clientSecretLength: clientSecret?.length,
-  });
+ 
 
   if (clientId && clientSecret) {
     const paypalSDK = require("@paypal/checkout-server-sdk");
@@ -66,10 +62,7 @@ const createPayPalPaymentIntent = async (req, res) => {
     const userId = req.user.id;
     const { order_id } = req.body;
 
-      userId,
-      order_id,
-    });
-
+ 
     // Lock the order row to prevent concurrent payment creation
     const lockQuery = "SELECT * FROM orders WHERE id = $1 FOR UPDATE";
     const orderResult = await pool.query(lockQuery, [order_id]);
@@ -79,10 +72,7 @@ const createPayPalPaymentIntent = async (req, res) => {
     }
 
     const order = orderResult.rows[0];
-      orderId: order.id,
-      status: order.status,
-      buyerId: order.buyer_id,
-    });
+     
 
     // Verify user ownership
     if (order.buyer_id !== userId) {
@@ -106,10 +96,7 @@ const createPayPalPaymentIntent = async (req, res) => {
     }
 
     // Create PayPal order
-      amount: order.total_amount,
-      currency: "USD", // Hardcoded for PayPal sandbox
-      orderId: order_id,
-    });
+ 
 
     let paypalOrder;
     if (paypal) {
@@ -141,8 +128,7 @@ const createPayPalPaymentIntent = async (req, res) => {
       try {
         const response = await paypal.execute(request);
         paypalOrder = response.result;
-          paypalOrderId: paypalOrder.id,
-        });
+       
       } catch (paypalError) {
         console.error("[PAYMENT] PayPal API error:", paypalError);
         throw new Error("PayPal order creation failed: " + paypalError.message);
@@ -177,11 +163,7 @@ const createPayPalPaymentIntent = async (req, res) => {
 
     // Update order status based on payment status
     await updateOrderStatusFromPayment(order_id, 'created');
-
-      paymentId: updatedPayment.id,
-      paypalOrderId: paypalOrder.id,
-    });
-
+ 
     await pool.query("COMMIT");
 
     res.json({
@@ -303,11 +285,7 @@ const capturePayPalPayment = async (req, res) => {
 
     const response = await paypal.execute(request);
     const captureResult = response.result;
-
-      captureId: captureResult.id,
-      status: captureResult.status,
-    });
-
+ 
     // ✅ success path (same as yours)
     const updatePaymentQuery = `
     UPDATE payments 

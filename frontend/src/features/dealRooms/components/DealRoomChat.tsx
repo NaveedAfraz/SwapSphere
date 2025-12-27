@@ -58,6 +58,8 @@ import {
 import { useRouter } from "expo-router";
 import { SwapOfferPayload } from "../types/swapOffer";
 import StartAuctionModal from "../../../features/auction/components/StartAuctionModal";
+import { createAuction } from "../../../features/auction/auctionThunks";
+import { fetchAuction } from "../../../features/auction/auctionThunks";
 
 interface DealRoomChatProps {
   dealRoomId: string;
@@ -73,10 +75,24 @@ interface DealRoomChatProps {
   actualChatId?: string;
 }
 
-const AuctionBanner = ({ onPress, theme }: { onPress: () => void; theme: any }) => (
-  <TouchableOpacity onPress={onPress} style={[getStyles(theme).bannerContainer, { backgroundColor: theme.colors.accent }]}>
+const AuctionBanner = ({
+  onPress,
+  theme,
+}: {
+  onPress: () => void;
+  theme: any;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      getStyles(theme).bannerContainer,
+      { backgroundColor: theme.colors.accent },
+    ]}
+  >
     <Ionicons name="hammer" size={20} color={theme.colors.surface} />
-    <ThemedText style={getStyles(theme).bannerText}>Seller has started a private auction. [Join Auction]</ThemedText>
+    <ThemedText style={getStyles(theme).bannerText}>
+      Seller has started a private auction. [Join Auction]
+    </ThemedText>
   </TouchableOpacity>
 );
 
@@ -122,22 +138,44 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
 
   // Determine if user is seller and can start auction
   const isSeller = currentDealRoom?.seller_user_id === activeUser?.id;
-  const canStartAuction = isSeller && 
-    currentDealRoom?.current_state === 'negotiation' && 
-    !currentDealRoom?.metadata?.auction_id;
 
   // Determine current status - prioritize deal room state over order status
   const currentStatus = currentDealRoom?.current_state || offerStatus;
+  console.log(currentStatus);
+  const [showCurrentOrderStatus, setShowCurrentOrderStatus] = useState(false);
 
-  const showCurrentOrderStatus = (() => {
-    const excludedStatuses = ["accepted", "offer_accepted", "pending", "paid", "shipped", "delivered", "completed", "countered"];
-    return currentStatus && !excludedStatuses.includes(currentStatus);
-  })();
+  useEffect(() => {
+    const excludedStatuses = [
+      "negotiation",
+      "accepted",
+      "offer_accepted",
+      "pending",
+      "paid",
+      "shipped",
+      "delivered",
+      "completed",
+      "countered",
+    ];
+    const shouldShow = Boolean(currentStatus && !excludedStatuses.includes(currentStatus));
+    setShowCurrentOrderStatus(shouldShow);
+  }, [currentStatus]);
 
   const dealRoomMessages = messages[dealRoomId] || [];
 
   // Filter out any undefined or invalid messages
   const validMessages = dealRoomMessages.filter((m: Message) => m && m.id);
+  const canStartAuction =
+    isSeller &&
+    currentDealRoom?.current_state === "negotiation" &&
+    !currentDealRoom?.metadata?.auction_id;
+
+  console.log('Auction availability check:', { 
+    dealRoomId, 
+    isSeller, 
+    currentState: currentDealRoom?.current_state, 
+    hasAuctionId: !!currentDealRoom?.metadata?.auction_id, 
+    canStartAuction 
+  });
 
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
@@ -160,34 +198,50 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   }, []);
 
   useEffect(() => {
-    dispatch(fetchDealRoom(dealRoomId));
+    // Only fetch messages, deal room data is handled by parent
     dispatch(fetchMessages({ dealRoomId }));
+    
+    // Reset ALL state when switching deal rooms
+    setShowStartAuctionModal(false);
+    setShowOfferHistory(false);
+    setPaymentCompleted(false);
+    setShowCurrentOrderStatus(false);
+    setPaymentStatusChecked(false);
+    
+    console.log('Switched to deal room:', dealRoomId, '- Reset all state');
   }, [dealRoomId, dispatch]);
 
   // Fetch order data to get order type
   useEffect(() => {
     const fetchOrderType = async () => {
-      if (currentDealRoom?.latest_order_id) {
+      // Only run if we have current deal room data and it belongs to this deal room
+      if (currentDealRoom?.latest_order_id && currentDealRoom.id === dealRoomId) {
         try {
           // Try to get order type from offer history first
-          if (currentDealRoom.offer_history && currentDealRoom.offer_history.length > 0) {
-            const acceptedOffer = currentDealRoom.offer_history.find(offer => offer.status === "accepted");
+          if (
+            currentDealRoom.offer_history &&
+            currentDealRoom.offer_history.length > 0
+          ) {
+            const acceptedOffer = currentDealRoom.offer_history.find(
+              (offer) => offer.status === "accepted"
+            );
             if (acceptedOffer && acceptedOffer.offer_type) {
               setOrderType(acceptedOffer.offer_type);
               return;
             }
           }
-          
+
           // Fallback: Fetch order data to get order_type
-          const response = await fetch(`/api/orders/${currentDealRoom.latest_order_id}`);
+          const response = await fetch(
+            `/api/orders/${currentDealRoom.latest_order_id}`
+          );
           if (response.ok) {
             const order = await response.json();
             if (order.order_type) {
               setOrderType(order.order_type);
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
     };
 
@@ -197,9 +251,12 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
   // Check payment status when deal room data loads
   useEffect(() => {
     const checkPaymentStatus = async () => {
-      if (currentDealRoom?.latest_order_id) {
+      // Only run if we have current deal room data and it belongs to this deal room
+      if (currentDealRoom?.latest_order_id && currentDealRoom.id === dealRoomId) {
         try {
-          const result = await dispatch(getOrderPaymentsThunk(currentDealRoom.latest_order_id));
+          const result = await dispatch(
+            getOrderPaymentsThunk(currentDealRoom.latest_order_id)
+          );
           if (getOrderPaymentsThunk.fulfilled.match(result)) {
             const payments = result.payload;
             if (payments && payments.length > 0) {
@@ -217,7 +274,11 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
           setPaymentCompleted(false);
         } finally {
           // Fallback: Check deal room order_status if payment API didn't detect completion
-          if (!paymentCompleted && (currentDealRoom?.order_status === "paid" || currentDealRoom?.order_status === "completed")) {
+          if (
+            !paymentCompleted &&
+            (currentDealRoom?.order_status === "paid" ||
+              currentDealRoom?.order_status === "completed")
+          ) {
             setPaymentCompleted(true);
           }
 
@@ -385,6 +446,31 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
         Alert.alert("Error", "Failed to send message. Please try again.");
       }
     }
+  };
+
+  const handleStartAuction = () => {
+    if (!currentDealRoom) return;
+
+    const auctionData = {
+      directDealId: dealRoomId,
+      startPrice: currentOffer || originalPrice || 0,
+      minIncrement: 100, // Default increment
+      durationMinutes: 30, // Default 30 minutes
+      inviteeIds: [currentDealRoom.buyer_id].filter(Boolean), // Invite the buyer
+    };
+
+    dispatch(createAuction(auctionData))
+      .unwrap()
+      .then((result) => {
+        Alert.alert("Success", "Auction created successfully!");
+        setShowStartAuctionModal(false);
+        // Navigate to auction deal room
+        router.push(`/deal-room/${dealRoomId}-auction` as any);
+      })
+      .catch((error) => {
+        Alert.alert("Error", "Failed to create auction. Please try again.");
+        console.error("Create auction error:", error);
+      });
   };
 
   const handleTyping = (text: string) => {
@@ -577,9 +663,9 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
       {renderHeader()}
 
       {currentDealRoom?.metadata?.auction_id && (
-        <AuctionBanner 
-          theme={theme} 
-          onPress={() => router.push(`/deal-room/${dealRoomId}-auction` as any)} 
+        <AuctionBanner
+          theme={theme}
+          onPress={() => router.push(`/deal-room/${dealRoomId}-auction` as any)}
         />
       )}
 
@@ -696,7 +782,8 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
                   ? "Shipped"
                   : currentStatus === "paid"
                   ? "Paid"
-                  : (currentStatus || '').charAt(0).toUpperCase() + (currentStatus || '').slice(1)}
+                  : (currentStatus || "").charAt(0).toUpperCase() +
+                    (currentStatus || "").slice(1)}
               </ThemedText>
             </View>
           </View>
@@ -729,72 +816,57 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
             borderBottomColor: theme.colors.border,
           }}
         >
-          <View
+          <ThemedText style={{ marginBottom: 8, fontWeight: "600" }}>
+            {currentDealRoom?.buyer_id === activeUser?.id
+              ? "Purchase Completed"
+              : "Payment Received"}
+          </ThemedText>
+          <TouchableOpacity
             style={{
+              backgroundColor: theme.colors.accent,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 6,
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 12,
             }}
+            onPress={() =>
+              router.push(
+                currentDealRoom?.buyer_id === activeUser?.id
+                  ? "/profile/my-purchases"
+                  : "/profile/sales"
+              )
+            }
+            activeOpacity={0.8}
           >
+            <Ionicons
+              name={
+                currentDealRoom?.buyer_id === activeUser?.id
+                  ? "bag-outline"
+                  : "storefront-outline"
+              }
+              size={16}
+              color={theme.colors.surface}
+              style={{ marginRight: 6 }}
+            />
             <ThemedText
               style={{
-                fontSize: 16,
+                color: theme.colors.surface,
                 fontWeight: "600",
-                color: theme.colors.primary,
+                fontSize: 14,
               }}
             >
-              ✓{" "}
               {currentDealRoom?.buyer_id === activeUser?.id
-                ? "Purchase Completed"
-                : "Payment Received"}
+                ? "My Purchases"
+                : "My Sales"}
             </ThemedText>
-            <TouchableOpacity
-              style={{
-                backgroundColor: theme.colors.accent,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 6,
-                flexDirection: "row",
-                alignItems: "center",
-              }}
-              onPress={() =>
-                router.push(
-                  currentDealRoom?.buyer_id === activeUser?.id
-                    ? "/profile/my-purchases"
-                    : "/profile/sales"
-                )
-              }
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={
-                  currentDealRoom?.buyer_id === activeUser?.id
-                    ? "bag-outline"
-                    : "storefront-outline"
-                }
-                size={16}
-                color={theme.colors.surface}
-                style={{ marginRight: 6 }}
-              />
-              <ThemedText
-                style={{
-                  color: theme.colors.surface,
-                  fontWeight: "600",
-                  fontSize: 14,
-                }}
-              >
-                {currentDealRoom?.buyer_id === activeUser?.id
-                  ? "My Purchases"
-                  : "My Sales"}
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
           <ThemedText
             style={{
               fontSize: 14,
               color: theme.colors.secondary,
               textAlign: "center",
+              marginTop: 8,
             }}
           >
             {currentDealRoom?.buyer_id === activeUser?.id
@@ -803,8 +875,7 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
           </ThemedText>
         </View>
       )}
-
-      {/* Pay Now Button - Show if offer is accepted and user is buyer and payment not completed and status checked and it's a cash offer */}
+             {/* Pay Now Button - Show if offer is accepted and user is buyer and payment not completed and status checked and it's a cash offer */}
       {(currentStatus === "accepted" || currentStatus === "offer_accepted") &&
         currentDealRoom?.buyer_id === activeUser?.id &&
         currentDealRoom?.latest_order_id &&
@@ -848,7 +919,8 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
             style={{ padding: 16, backgroundColor: theme.colors.background }}
           >
             <ThemedText style={{ marginBottom: 12, textAlign: "center" }}>
-              Offer accepted! Please review the terms and conditions for in-person exchange.
+              Offer accepted! Please review the terms and conditions for
+              in-person exchange.
             </ThemedText>
             <TouchableOpacity
               style={{
@@ -951,6 +1023,30 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
         </View>
       </View>
 
+      {/* Start Auction Modal */}
+      {showStartAuctionModal && (
+        <StartAuctionModal
+          visible={showStartAuctionModal}
+          onClose={() => setShowStartAuctionModal(false)}
+          dealRoomId={dealRoomId}
+          listingId={currentDealRoom?.listing_id || ""}
+          sellerId={currentDealRoom?.seller_user_id || ""}
+          currentOffer={currentOffer}
+          availableBuyers={
+            currentDealRoom?.buyer_id
+              ? [
+                  {
+                    user_id: currentDealRoom.buyer_id,
+                    name: currentDealRoom.buyer_name || "Buyer",
+                    avatar: currentDealRoom.buyer_avatar,
+                    last_offer_amount: currentOffer,
+                  },
+                ]
+              : []
+          }
+        />
+      )}
+
       {/* Offer History Modal */}
       {showOfferHistory && currentDealRoom?.offer_history && (
         <View
@@ -990,12 +1086,20 @@ const DealRoomChat: React.FC<DealRoomChatProps> = ({
               }}
             >
               <Text
-                style={{ fontSize: 18, fontWeight: "600", color: theme.colors.primary }}
+                style={{
+                  fontSize: 18,
+                  fontWeight: "600",
+                  color: theme.colors.primary,
+                }}
               >
                 Offer History ({currentDealRoom.offer_history.length})
               </Text>
               <TouchableOpacity onPress={() => setShowOfferHistory(false)}>
-                <Ionicons name="close" size={24} color={theme.colors.secondary} />
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={theme.colors.secondary}
+                />
               </TouchableOpacity>
             </View>
 
@@ -1066,8 +1170,8 @@ const getStyles = (theme: any) =>
       color: theme.colors.secondary,
     } as TextStyle,
     statusContainer: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
+      flexDirection: "column" as const,
+      alignItems: "flex-end" as const,
     } as ViewStyle,
     statusBadge: {
       paddingHorizontal: 8,

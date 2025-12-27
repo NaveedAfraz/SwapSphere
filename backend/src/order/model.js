@@ -305,13 +305,7 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     }
     
     const order = orderResult.rows[0];
-    
-      orderId: order.id, 
-      buyer_id: order.buyer_id, 
-      seller_id: order.seller_id, 
-      seller_user_id: order.seller_user_id,
-      currentStatus: order.status 
-    });
+  
     
     // Check permissions based on status
     const buyerOnlyStatuses = ['cancelled'];
@@ -323,11 +317,7 @@ const updateOrderStatus = async (userId, orderId, status, trackingInfo = null) =
     }
     
     if (sellerOnlyStatuses.includes(status) && order.seller_user_id !== userId) {
-        orderSellerId: order.seller_id, 
-        orderSellerUserId: order.seller_user_id,
-        requestUserId: userId, 
-        status 
-      });
+   
       throw new Error('Only seller can perform this action');
     }
     

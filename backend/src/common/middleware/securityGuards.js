@@ -52,11 +52,7 @@ const checkDealRoomAction = (action) => {
       const userId = req.user.id;
       // For offer actions, we need to get the deal room ID from the offer
       let dealRoomId = null;
-      
-        bodyDealRoomId: req.body?.deal_room_id,
-        paramsId: req.params.id 
-      });
-      
+       
       // First check if deal room ID is in request body
       if (req.body && req.body.deal_room_id) {
         dealRoomId = req.body.deal_room_id;
@@ -315,16 +311,16 @@ const logSecurityEvent = (eventType) => {
     
     res.send = function(data) {
       // Log security-relevant events
-      if (res.statusCode >= 400) {
-          type: eventType,
-          user_id: req.user?.id,
-          ip: req.ip,
-          path: req.path,
-          method: req.method,
-          status_code: res.statusCode,
-          timestamp: new Date().toISOString()
-        });
-      }
+      // if (res.statusCode >= 400) {
+      //     type: eventType,
+      //     user_id: req.user?.id,
+      //     ip: req.ip,
+      //     path: req.path,
+      //     method: req.method,
+      //     status_code: res.statusCode,
+      //     timestamp: new Date().toISOString()
+      //   });
+      // }
       
       originalSend.call(this, data);
     };

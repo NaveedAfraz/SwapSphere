@@ -30,7 +30,7 @@ const getDealRoomsByUser = async (userId, options = {}) => {
   const offset = (page - 1) * limit;
 
 
-  let whereClause = "WHERE dr.buyer_id = $1 OR dr.seller_id = (SELECT id FROM sellers WHERE user_id = $1)";
+  let whereClause = "WHERE (dr.buyer_id = $1 OR dr.seller_id = (SELECT id FROM sellers WHERE user_id = $1) OR dr.id IN (SELECT deal_room_id FROM deal_room_participants WHERE user_id = $1))";
   let queryParams = [userId];
   let paramIndex = 2;
 
@@ -51,6 +51,7 @@ const getDealRoomsByUser = async (userId, options = {}) => {
   const dataQuery = `
     SELECT DISTINCT dr.id, dr.intent_id, dr.listing_id, dr.buyer_id, dr.seller_id, 
            dr.current_state, dr.metadata, dr.created_at, dr.updated_at,
+           dr.room_type, dr.superseded_by_auction_id,
            l.title as listing_title, l.price as listing_price,
            li.url as listing_image,
            buyer_profile.name as buyer_name, buyer_profile.profile_picture_url as buyer_avatar,

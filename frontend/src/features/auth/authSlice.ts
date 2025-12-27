@@ -184,7 +184,7 @@ const authSlice = createSlice({
             id: action.payload.user.id,
             email: action.payload.user.email,
             phone: action.payload.user.phone,
-            token: action.payload.user.token,
+            token: action.payload.token, // Use token from payload root, not user object
             sellerMode: action.payload.user.sellerMode,
             profileCompleted: action.payload.user.profileCompleted,
           };

@@ -140,6 +140,29 @@ const DealRoomList: React.FC<DealRoomListProps> = ({
               </Text>
             </View>
             
+            {/* Deal Room Type Badge */}
+            <View style={[
+              styles.typeBadge,
+              { 
+                backgroundColor: item.room_type === 'auction' ? '#3B82F6' : '#10B981',
+                borderRadius: 4,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                marginLeft: 8
+              }
+            ]}>
+              <Text style={[
+                styles.typeBadgeText,
+                { 
+                  color: '#FFFFFF',
+                  fontSize: 10,
+                  fontWeight: '600'
+                }
+              ]}>
+                {item.room_type === 'auction' ? 'AUCTION' : '1V1'}
+              </Text>
+            </View>
+            
             {formattedDealRoom.listing_price && (
               <ThemedText type="caption" style={styles.price}>
                 ${formattedDealRoom.listing_price}
@@ -278,6 +301,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '500',
+  },
+  typeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   price: {
     fontSize: 14,

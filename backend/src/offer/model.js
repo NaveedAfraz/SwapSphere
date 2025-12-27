@@ -298,11 +298,7 @@ const createCounterOffer = async (userId, originalOfferId, counterData) => {
       // Get deal room ID to emit to the right room
       const dealRoomId = updatedOffer.deal_room_id;
       if (dealRoomId) {
-          offerId: updatedOffer.id,
-          newAmount: updatedOffer.offered_price,
-          updatedBy: userId,
-          timestamp: updatedOffer.updated_at
-        });
+         
         emitToDealRoom(dealRoomId, 'offer_updated', {
           offerId: updatedOffer.id,
           newAmount: updatedOffer.offered_price,
@@ -433,14 +429,7 @@ const updateOffer = async (userId, offerId, updateData) => {
       // Get deal room ID to emit to the right room
       const dealRoomId = updatedOffer.deal_room_id || originalOffer.deal_room_id;
       if (dealRoomId) {
-          offerId: updatedOffer.id,
-          newAmount: updatedOffer.offered_price,
-          offerType: updatedOffer.offer_type,
-          cashAmount: updatedOffer.cash_amount,
-          swapItems: updatedOffer.swap_items,
-          updatedBy: userId,
-          timestamp: updatedOffer.updated_at
-        });
+          
         emitToDealRoom(dealRoomId, 'offer_updated', {
           offerId: updatedOffer.id,
           newAmount: updatedOffer.offered_price,

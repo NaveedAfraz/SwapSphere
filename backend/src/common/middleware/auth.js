@@ -3,12 +3,15 @@ const { User } = require("../../auth/model");
 
 // Authenticate middleware - verifies JWT token
 const authenticate = async (req, res, next) => {
+  console.log('Auth middleware called for:', req.method, req.url);
+  console.log('Auth header:', req.header("Authorization"));
   
   try {
     // Get token from header
     const authHeader = req.header("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log('No valid auth header found');
       return res.status(401).json({
         error: "Access denied. No token provided.",
       });

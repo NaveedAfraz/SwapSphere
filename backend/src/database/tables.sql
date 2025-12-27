@@ -552,3 +552,47 @@ CHECK (offer_type IN ('cash', 'swap', 'hybrid'));
 ALTER TABLE offers
 ADD CONSTRAINT offers_cash_amount_check
 CHECK (cash_amount >= 0);
+
+CREATE TABLE deal_room_participants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_room_id uuid REFERENCES deal_rooms(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(20) CHECK (role IN ('seller','buyer')) NOT NULL,
+  joined_at timestamptz DEFAULT now(),
+  UNIQUE (deal_room_id, user_id)
+);
+ALTER TABLE deal_rooms
+ADD COLUMN room_type VARCHAR(20) DEFAULT 'direct',
+ADD COLUMN superseded_by_auction_id uuid REFERENCES deal_rooms(id);
+
+CREATE TABLE auctions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_room_id uuid REFERENCES deal_rooms(id) ON DELETE CASCADE,
+  listing_id uuid REFERENCES listings(id) ON DELETE CASCADE,
+  seller_id uuid REFERENCES sellers(id),
+  start_price NUMERIC NOT NULL,
+  min_increment NUMERIC NOT NULL,
+  reserve_price NUMERIC,
+  state VARCHAR(20) DEFAULT 'active',
+  start_at timestamptz DEFAULT now(),
+  end_at timestamptz NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE auction_invites (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  auction_id uuid REFERENCES auctions(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE (auction_id, user_id)
+);
+
+CREATE TABLE auction_bids (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  auction_id uuid REFERENCES auctions(id) ON DELETE CASCADE,
+  bidder_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_auction_bids_amount
+ON auction_bids (auction_id, amount DESC);

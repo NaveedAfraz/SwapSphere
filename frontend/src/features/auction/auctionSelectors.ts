@@ -59,14 +59,14 @@ export const selectHighestBidAmount = createSelector(
 export const selectMinimumNextBid = createSelector(
   [selectHighestBidAmount, selectCurrentAuction],
   (highestAmount, auction): number => {
-    const minimumIncrement = auction?.minimum_increment || 0;
+    const minimumIncrement = auction?.min_increment || 0;
     return highestAmount + minimumIncrement;
   }
 );
 
 export const selectAuctionParticipants = createSelector(
-  [selectCurrentAuction],
-  (auction): Auction['participants'] => auction?.participants || []
+  [selectAuctionState],
+  (auctionState) => auctionState.participants || []
 );
 
 export const selectIsAuctionActive = createSelector(

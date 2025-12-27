@@ -110,15 +110,7 @@ const canUserPerformAction = async (dealRoomId, userId, action) => {
   const dealRoom = dealRoomResult.rows[0];
   const isBuyer = dealRoom.buyer_id === userId;
   const isSeller = dealRoom.seller_user_id === userId;
-  
-    dealRoomId, 
-    userId, 
-    action, 
-    currentState: dealRoom.current_state,
-    isBuyer, 
-    isSeller,
-    sellerUserId: dealRoom.seller_user_id
-  });
+   
   
   // Define permissions based on action and state
   const permissions = {

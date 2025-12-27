@@ -63,6 +63,7 @@ export interface DealRoom {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
+  room_type?: 'direct' | 'auction';
 
   // Join data from related tables
   listing_title?: string;

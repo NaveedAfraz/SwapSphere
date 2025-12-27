@@ -83,9 +83,11 @@ app.use("/api/review", require("./review/routes"));
 app.use("/api/support", require("./support/routes"));
 app.use("/api/user", require("./user/routes"));
 app.use("/api/intents", require("./intents/routes"));
+app.use("/api/auction", require("./auction/routes"));
 
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
+  console.log("Successfully running on port", PORT);
   testConnection();
 });

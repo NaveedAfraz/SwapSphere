@@ -10,7 +10,6 @@ const { inngest, sendEvent } = require("../services/inngest");
 
 const createIntentController = async (req, res) => {
   try {
-    
     const userId = req.user.id;
     const { title, description, category, max_price, location } = req.body;
 
@@ -45,9 +44,9 @@ const createIntentController = async (req, res) => {
     };
 
     const intent = await createIntent(intentData);
-    
+
     await sendEvent({ name: "intent.created", data: { intentId: intent.id } });
-    
+
     res.status(201).json(intent);
   } catch (error) {
     console.error("[INTENT] Error creating intent:", error);
@@ -104,11 +103,6 @@ const updateIntentController = async (req, res) => {
     const { title, description, category, max_price, location, status } =
       req.body;
 
-      id,
-      userId,
-      requestBody: req.body,
-    });
-
     // First check if intent exists and belongs to user
     const existingIntent = await getIntentById(id);
 
@@ -117,11 +111,6 @@ const updateIntentController = async (req, res) => {
     }
 
     if (existingIntent.buyer_id !== userId) {
-        "Access denied for user:",
-        userId,
-        "intent owner:",
-        existingIntent.buyer_id
-      );
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -169,7 +158,6 @@ const updateIntentController = async (req, res) => {
       }
       updateData.status = status;
     }
-
 
     const updatedIntent = await updateIntent(id, updateData);
     res.json(updatedIntent);

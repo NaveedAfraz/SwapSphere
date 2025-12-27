@@ -1,7 +1,7 @@
 const { Pool } = require("pg");
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { 
+  ssl: {
     rejectUnauthorized: false, // required for Neon
   },
 });
@@ -16,6 +16,9 @@ const testConnection = async () => {
   try {
     const client = await pool.connect();
     const result = await client.query("SELECT NOW()");
+    if (result) {
+      console.log("DB connected");
+    }
     client.release();
     return true;
   } catch (err) {

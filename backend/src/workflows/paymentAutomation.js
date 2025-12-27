@@ -64,6 +64,7 @@ const autoCapturePayment = inngest.createFunction(
 
     // Verify payment is still authorized and no disputes exist
     if (payment.status !== 'succeeded' || order.status !== 'paid') {
+      console.log('Payment status changed:', {
         payment_status: payment.status,
         order_status: order.status
       });
@@ -77,7 +78,7 @@ const autoCapturePayment = inngest.createFunction(
         WHERE deal_room_id = $1 
         AND type IN ('dispute.opened', 'dispute.created')
         AND created_at > NOW() - INTERVAL '${DISPUTE_WINDOW_DAYS} days'
-        LIMIT 1
+        LIMIT 1 
       `;
       
       const result = await pool.query(query, [deal_room_id]);

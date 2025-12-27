@@ -119,12 +119,7 @@ const handlePaymentCompleted = async (event) => {
     await markWebhookEventProcessed(event.id);
     
     await pool.query('COMMIT');
-    
-      paymentId: dbPayment.id,
-      orderId: dbPayment.order_id,
-      paypalPaymentId: payment.id
-    });
-    
+  
   } catch (error) {
     await pool.query('ROLLBACK');
     console.error('Error processing PayPal payment completion:', error);
@@ -204,11 +199,7 @@ const handlePaymentFailed = async (event) => {
     
     await pool.query('COMMIT');
     
-      paymentId: dbPayment.id,
-      paypalPaymentId: payment.id,
-      failureReason: payment.status_details
-    });
-    
+ 
   } catch (error) {
     await pool.query('ROLLBACK');
     console.error('Error processing PayPal payment failure:', error);

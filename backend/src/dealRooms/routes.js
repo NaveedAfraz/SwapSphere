@@ -12,6 +12,8 @@ const {
 
 const router = express.Router();
 
+console.log('Deal room routes loaded');
+
 // Create a new deal room
 router.post("/", authenticateToken, createDealRoom);
 
@@ -22,7 +24,10 @@ router.get("/", authenticateToken, getDealRooms);
 router.get("/find", authenticateToken, findDealRoom);
 
 // Get a specific deal room by ID
-router.get("/:id", authenticateToken, getDealRoom);
+router.get("/:id", authenticateToken, (req, res, next) => {
+  console.log('Deal room route called for ID:', req.params.id);
+  next();
+}, getDealRoom);
 
 // Update deal room state
 router.patch("/:id/state", authenticateToken, updateDealRoomState);

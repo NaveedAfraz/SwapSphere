@@ -51,7 +51,8 @@ const AuctionBidCard: React.FC<AuctionBidCardProps> = ({
     };
   };
 
-  const formatTime = (timestamp: string) => {
+  const formatTime = (timestamp?: string) => {
+    if (!timestamp) return 'Just now';
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -62,6 +63,9 @@ const AuctionBidCard: React.FC<AuctionBidCardProps> = ({
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return `${Math.floor(diffMins / 1440)}d ago`;
   };
+
+  // Handle both created_at and placed_at timestamps
+  const timestamp = bid.placed_at || bid.created_at;
 
   return (
     <TouchableOpacity
@@ -89,7 +93,7 @@ const AuctionBidCard: React.FC<AuctionBidCardProps> = ({
             )}
           </View>
           <ThemedText style={styles.bidTime}>
-            {formatTime(bid.placed_at)}
+            {formatTime(timestamp)}
           </ThemedText>
         </View>
       </View>
