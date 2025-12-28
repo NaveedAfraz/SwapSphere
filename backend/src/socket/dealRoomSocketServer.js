@@ -431,9 +431,12 @@ const setupDealRoomSocketIO = (server) => {
 
 // Function to emit events to deal rooms from outside the socket handler
 const emitToDealRoom = (dealRoomId, event, data) => {
+  console.log(`[SOCKET EMIT] Emitting to deal_room:${dealRoomId}, event: ${event}, data:`, data);
   if (globalIO) {
     globalIO.to(`deal_room:${dealRoomId}`).emit(event, data);
+    console.log(`[SOCKET EMIT] Emitted successfully to deal_room:${dealRoomId}`);
   } else {
+    console.log('[SOCKET EMIT] globalIO is null, cannot emit');
   }
 };
 

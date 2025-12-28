@@ -79,7 +79,7 @@ export const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
     <Modal
       visible={visible}
       transparent={true}
-      animationType="none"
+      animationType="fade"
       onRequestClose={closeModal}
     >
       <Animated.View style={styles.modalOverlay}>
@@ -93,13 +93,7 @@ export const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
             styles.participantsModal,
             {
               backgroundColor: theme.colors.surface,
-              shadowColor: '#000',
-              transform: [{
-                translateX: slideAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [300, 0]
-                })
-              }]
+              shadowColor: '#e01c1c020',
             }
           ]}
         >
@@ -188,7 +182,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   participantsModal: {
-    width: 300,
+    width: '80%',
     height: '100%',
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.1,

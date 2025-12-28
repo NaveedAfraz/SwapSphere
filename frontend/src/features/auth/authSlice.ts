@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import type { AuthState, AuthUser } from "./types/auth";
+import type { AuthState, AuthUser, AuthResponse } from "./types/auth";
 
 const initialState: AuthState = {
   user: null,
@@ -53,19 +53,24 @@ const authSlice = createSlice({
         "auth/login/fulfilled",
         (
           state: AuthState,
-          action: PayloadAction<AuthUser & { token: string }>
+          action: PayloadAction<AuthResponse>
         ) => {
+          // console.log('[SLICE] Login fulfilled with payload:', action.payload);
           state.status = "authenticated";
+          
+          // User data is nested under action.payload.user
+          const userData = action.payload.user;
           state.user = {
-            id: action.payload.id,
-            email: action.payload.email,
-            phone: action.payload.phone,
-            token: action.payload.token,
-            sellerMode: action.payload.sellerMode,
-            profileCompleted: action.payload.profileCompleted,
+            id: userData.id,
+            email: userData.email,
+            phone: userData.phone,
+            token: userData.token || action.payload.token,
+            sellerMode: userData.sellerMode,
+            profileCompleted: userData.profileCompleted,
           };
           state.accessToken = action.payload.token;
           state.error = null;
+          // console.log('[SLICE] Updated auth state:', { user: state.user, status: state.status });
         }
       )
       .addCase("auth/login/rejected", (state: AuthState, action: any) => {

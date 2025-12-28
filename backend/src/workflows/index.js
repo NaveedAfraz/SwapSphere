@@ -20,7 +20,7 @@ const {
   cleanupExpiredPayments
 } = require('./cleanupJobs');
 
-// const { autoCloseAuction } = require('./auctionWorkflow');
+const { auctionCloseWorkflow } = require('./auctionCloseWorkflow');
 
 // All workflows to be registered with Inngest
 const workflows = [
@@ -34,8 +34,8 @@ const workflows = [
   handleOrderCompletion,
   cleanupAbandonedDealRooms,
   cleanupOldWebhookEvents,
-  cleanupExpiredPayments
-  // autoCloseAuction
+  cleanupExpiredPayments,
+  auctionCloseWorkflow
 ];
 
 // Debug: Log workflow details
@@ -51,6 +51,6 @@ module.exports = {
   autoCaptureAfterEscrow,
   autoCapturePayment,
   handlePaymentFailure,
-  // handleOrderCompletion,
-  // autoCloseAuction
+  handleOrderCompletion,
+  auctionCloseWorkflow
 };

@@ -21,6 +21,9 @@ const server = createServer(app);
 // Set up deal room socket server with all event handlers
 const io = setupDealRoomSocketIO(server);
 
+// Make Socket.IO available globally for workflows
+global.socketIO = io;
+
 // Middleware
 app.use(helmet());
 app.use(cors());

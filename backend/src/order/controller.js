@@ -52,13 +52,11 @@ const getBuyerOrders = async (req, res) => {
     const userId = req.user.id;
     const { page = 1, limit = 20, status } = req.query;
     
-    
     const result = await getOrdersByUser(userId, 'buyer', status, page, limit);
-    
     
     res.json(result);
   } catch (error) {
-    console.error('Error getting buyer orders:', error);
+    console.error('[ORDER CONTROLLER] Error getting buyer orders:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

@@ -57,7 +57,7 @@ export interface Order {
   total_amount?: number;
   quantity: number;
   status: OrderState;
-  payment_status: "pending" | "paid" | "refunded" | "failed";
+  payment_status: "created" | "requires_action" | "succeeded" | "failed" | "refunded" | "canceled" | "escrowed";
   shipping_address?: ShippingAddress;
   tracking_info?: TrackingInfo;
   notes?: string;

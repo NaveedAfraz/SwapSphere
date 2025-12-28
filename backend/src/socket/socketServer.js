@@ -29,7 +29,7 @@ const setupSocketIO = (server) => {
       }
 
       socket.userId = decoded.userId;
-      socket.userEmail = result.rows[0].email;
+      socket.email = result.rows[0].email;
       next();
     } catch (error) {
       next(new Error('Authentication error'));

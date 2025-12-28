@@ -76,7 +76,7 @@ export const selectIsAuctionActive = createSelector(
 
 export const selectIsAuctionEnded = createSelector(
   [selectCurrentAuction],
-  (auction): boolean => auction?.state === 'ended'
+  (auction): boolean => auction?.state === 'closed'
 );
 
 export const selectIsAuctionCancelled = createSelector(
@@ -87,7 +87,7 @@ export const selectIsAuctionCancelled = createSelector(
 export const selectAuctionWinner = createSelector(
   [selectCurrentAuction],
   (auction): string | null => {
-    if (auction?.state !== 'ended') return null;
+    if (auction?.state !== 'closed') return null;
     return auction.metadata?.winner_id || auction.highest_bidder_id || null;
   }
 );

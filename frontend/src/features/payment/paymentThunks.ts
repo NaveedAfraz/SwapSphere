@@ -290,7 +290,7 @@ export const createPaymentOrderThunk = createAsyncThunk(
   "payment/createPaymentOrder",
   async ({ orderId, amount }: { orderId: string; amount: number }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/payment/paypal/order", {
+      const response = await apiClient.post("/payment/order", {
         order_id: orderId,
         amount: amount,
       });
@@ -307,7 +307,7 @@ export const capturePayPalPaymentThunk = createAsyncThunk(
   "payment/capturePayPalPayment",
   async (token: string, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post("/payment/paypal/capture", { token });
+      const response = await apiClient.post("/payment/capture", { token });
       return response.data;
     } catch (error: any) {
       // Handle INSTRUMENT_DECLINED error for funding source issues

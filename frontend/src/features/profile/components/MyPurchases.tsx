@@ -32,6 +32,124 @@ import {
 } from "../../order/orderSelectors";
 import { useAppDispatch } from "@/src/hooks/redux";
 
+const createStyles = (theme: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.background },
+
+  purchaseCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+  purchaseHeader: { flexDirection: "row", marginBottom: 12 },
+
+  itemImage: { width: 64, height: 64, borderRadius: 10, marginRight: 12 },
+
+  itemInfo: { flex: 1 },
+
+  itemTitle: { fontSize: 16, fontWeight: "600", color: theme.colors.primary },
+
+  itemPrice: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.colors.accent,
+    marginTop: 4,
+  },
+
+  itemCondition: { fontSize: 12, color: theme.colors.secondary, marginTop: 2 },
+
+  statusRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+
+  statusText: { fontSize: 10, fontWeight: "700", color: theme.colors.surface },
+
+  sellerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+
+  sellerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
+
+  sellerDetails: { flex: 1 },
+
+  sellerName: { fontSize: 14, fontWeight: "600", color: theme.colors.primary },
+
+  starContainer: { flexDirection: "row" },
+
+  purchaseDate: { fontSize: 12, color: theme.colors.secondary },
+
+  actionButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+
+  viewDetailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+  },
+
+  viewDetailsButtonText: {
+    fontSize: 12,
+    color: theme.colors.accent,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
+
+  confirmDeliveryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: theme.colors.success,
+  },
+
+  confirmDeliveryButtonText: {
+    fontSize: 12,
+    color: "#FFFFFF",
+    marginLeft: 4,
+    fontWeight: "600",
+  },
+
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: theme.colors.secondary,
+    marginTop: 16,
+    textAlign: "center",
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: theme.colors.secondary,
+    marginTop: 4,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+});
+
 export default function MyPurchases() {
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "pending" | "processing" | "completed" | "cancelled"
@@ -61,11 +179,17 @@ export default function MyPurchases() {
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case "paid":
+      case "succeeded":
         return theme.colors.success;
-      case "pending":
+      case "created":
         return theme.colors.warning;
+      case "requires_action":
+        return theme.colors.warning;
+      case "failed":
+        return theme.colors.error;
       case "refunded":
+        return theme.colors.error;
+      case "canceled":
         return theme.colors.error;
       default:
         return theme.colors.secondary;
@@ -145,38 +269,12 @@ export default function MyPurchases() {
 
   // Fetch both transactions and orders on component mount
   useEffect(() => {
-    console.log('[MyPurchases] Component mounted, fetching data...');
     dispatch(fetchTransactionsThunk({ page: 1, limit: 20 }) as any);
-    dispatch(fetchMyOrdersThunk({ page: 1, limit: 20 }) as any); // Remove invalid status parameter
+    dispatch(fetchMyOrdersThunk({ page: 1, limit: 20 }) as any);
   }, [dispatch]);
-
-  // Log data changes
-  useEffect(() => {
-    console.log('[MyPurchases] Transactions updated:', transactions?.length || 0, 'items');
-    console.log('[MyPurchases] MyOrders updated:', myOrders?.length || 0, 'items');
-    console.log('[MyPurchases] Order status:', orderStatus);
-    console.log('[MyPurchases] Order error:', orderError);
-    console.log('[MyPurchases] Payment error:', paymentError);
-    
-    if (myOrders && myOrders.length > 0) {
-      console.log('[MyPurchases] Sample order data:', JSON.stringify(myOrders[0], null, 2));
-    }
-    
-    if (orderError) {
-      console.error('[MyPurchases] Full order error:', orderError);
-    }
-    if (paymentError) {
-      console.error('[MyPurchases] Full payment error:', paymentError);
-    }
-  }, [transactions, myOrders, orderStatus, orderError, paymentError]);
 
   // Combine transactions and orders for comprehensive view
   const purchaseData = (myOrders || []).map(order => {
-    console.log('[MyPurchases] Processing order:', order.id, 'status:', order.status);
-    console.log('[MyPurchases] Order listing data:', order.listing);
-    console.log('[MyPurchases] Order listing type:', typeof order.listing);
-    console.log('[MyPurchases] Order listing keys:', order.listing ? Object.keys(order.listing) : 'null');
-    
     return {
       ...order,
       // Find corresponding transaction if available
@@ -185,7 +283,7 @@ export default function MyPurchases() {
       listing: order.listing || {},
       seller: order.seller || {},
       amount: order.total_amount || 0,
-      payment_status: order.payment_status || 'pending',
+      payment_status: order.payment_status || 'created',
       status: order.status || 'processing',
     };
   });
@@ -193,14 +291,12 @@ export default function MyPurchases() {
   const filteredPurchases = purchaseData.filter(
     (item: any) => {
       const matches = selectedFilter === "all" || item.status === selectedFilter;
-      console.log('[MyPurchases] Item filter:', item.id, 'status:', item.status, 'filter:', selectedFilter, 'matches:', matches);
       return matches;
     }
   );
 
-  console.log('[MyPurchases] Final filtered data:', filteredPurchases.length, 'items');
-
-  const renderPurchase = ({ item }: { item: any }) => (
+  const renderPurchase = ({ item }: { item: any }) => {
+    return (
     <TouchableOpacity
       style={styles.purchaseCard}
       onPress={() => router.push(`/profile/${item.id}` as any)}
@@ -302,7 +398,7 @@ export default function MyPurchases() {
       </View>
     </TouchableOpacity>
   );
-
+  }
   return (
     <View style={styles.container}>
       <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
@@ -324,220 +420,3 @@ export default function MyPurchases() {
     </View>
   );
 }
-
-const createStyles = (theme: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-
-  purchaseCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: theme.colors.primary,
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-
-  purchaseHeader: { flexDirection: "row", marginBottom: 12 },
-
-  itemImage: { width: 64, height: 64, borderRadius: 10, marginRight: 12 },
-
-  itemInfo: { flex: 1 },
-
-  itemTitle: { fontSize: 16, fontWeight: "600", color: theme.colors.primary },
-
-  itemPrice: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: theme.colors.accent,
-    marginTop: 4,
-  },
-
-  itemCondition: { fontSize: 12, color: theme.colors.secondary, marginTop: 2 },
-
-  statusRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-
-  statusText: { fontSize: 10, fontWeight: "700", color: theme.colors.surface },
-
-  sellerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-
-  sellerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
-
-  sellerDetails: { flex: 1 },
-
-  sellerName: { fontSize: 14, fontWeight: "600", color: theme.colors.primary },
-
-  purchaseDate: { fontSize: 12, color: theme.colors.secondary },
-
-  starContainer: { flexDirection: "row" },
-
-  // View Details Button styles
-  actionButtonsContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-
-  viewDetailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: theme.colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-  },
-
-  viewDetailsButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: theme.colors.accent,
-    marginLeft: 8,
-  },
-
-  confirmDeliveryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    backgroundColor: "#10B981",
-    marginTop: 8,
-  },
-
-  confirmDeliveryButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-
-  expandedDetails: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-
-  detailLabel: { fontSize: 13, fontWeight: "600", color: theme.colors.primary },
-
-  trackingNumber: { fontSize: 13, color: theme.colors.accent },
-
-  actionButtons: { flexDirection: "row", marginTop: 8 },
-
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 24,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    flex: 1,
-  },
-
-  actionButtonText: { fontSize: 12, fontWeight: "600", color: theme.colors.accent },
-
-  secondaryActionButton: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.warning,
-    borderWidth: 1,
-  },
-
-  // Enhanced details styles
-  detailSection: {
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-
-  detailSectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-
-  detailValue: { 
-    fontSize: 13, 
-    color: theme.colors.primary,
-    flex: 1,
-    textAlign: 'right'
-  },
-
-  // Timeline styles
-  timelineItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  timelineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-
-  timelineContent: {
-    flex: 1,
-  },
-
-  timelineTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.primary,
-  },
-
-  timelineDate: {
-    fontSize: 12,
-    color: theme.colors.secondary,
-    marginTop: 2,
-  },
-
-  // Empty state styles
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: theme.colors.secondary,
-    marginTop: 16,
-    textAlign: "center",
-  },
-
-  emptySubtext: {
-    fontSize: 14,
-    color: theme.colors.secondary,
-    marginTop: 4,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-});

@@ -273,6 +273,9 @@ const login = async (req, res) => {
         id: user.id,
         email: user.email,
         phone: user.phone,
+        sellerMode: profile?.seller_mode || false,
+        profileCompleted: !!profile,
+        token: token,
         profile: profile || null,
         seller: seller ? {
           id: seller.id,

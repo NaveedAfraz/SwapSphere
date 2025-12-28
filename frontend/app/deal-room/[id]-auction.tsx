@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import {
   View,
   Image,
@@ -18,7 +18,8 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/src/hooks/redux";
 import { useTheme } from "@/src/contexts/ThemeContext";
-import { ThemedText } from "@/src/components/ThemedView";
+import { ThemedView, ThemedText } from "@/src/components/ThemedView";
+import { PullToRefresh } from "@/src/components/PullToRefresh";
 import { useAuth } from "@/src/hooks/useAuth";
 import {
   joinAuctionRoom,
@@ -32,7 +33,6 @@ import {
 } from "@/src/services/socketService";
 import {
   handleBidUpdate,
-  updateTimeRemaining,
   handleAuctionClosed,
 } from "@/src/features/auction/auctionSlice";
 import {
@@ -42,7 +42,6 @@ import {
   selectAuctionPlacingBid,
   selectHighestBid,
   selectMinimumNextBid,
-  selectAuctionTimeRemaining,
   selectAuctionParticipants,
 } from "@/src/features/auction/auctionSelectors";
 import AuctionBidCard from "@/src/features/auction/components/AuctionBidCard";
@@ -56,6 +55,84 @@ import {
   placeBid,
 } from "@/src/features/auction/auctionThunks";
 import { Ionicons } from "@expo/vector-icons";
+import { theme } from "@/src/theme";
+
+const formatTime = (seconds: number) => {
+  if (seconds <= 0) return "00:00";
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  return `${minutes.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+type AuctionCountdownProps = {
+  endAt?: string | null;
+  auctionState?: string | null;
+};
+
+const AuctionCountdown = memo(
+  ({ endAt, auctionState }: AuctionCountdownProps) => {
+    const { theme, classes } = useTheme();
+    const [timeLeft, setTimeLeft] = useState(0);
+
+    useEffect(() => {
+      if (endAt) {
+        const end = new Date(endAt).getTime();
+        const now = Date.now();
+        const secondsRemaining = Math.max(0, Math.floor((end - now) / 1000));
+        setTimeLeft(secondsRemaining);
+      } else {
+        setTimeLeft(0);
+      }
+    }, [endAt]);
+
+    useEffect(() => {
+      if ((auctionState === "active" || auctionState === "setup") && endAt) {
+        const interval = setInterval(() => {
+          const end = new Date(endAt).getTime();
+          const now = Date.now();
+          const distance = end - now;
+
+          if (distance <= 0) {
+            clearInterval(interval);
+            setTimeLeft(0);
+          } else {
+            const secondsRemaining = Math.floor(distance / 1000);
+            setTimeLeft(secondsRemaining);
+          }
+        }, 1000);
+
+        return () => clearInterval(interval);
+      }
+    }, [auctionState, endAt]);
+
+    return (
+      <View
+        style={[
+          classes.card,
+          styles.timerContainer,
+          { borderColor: theme.colors.border },
+        ]}
+      >
+        <Ionicons name="timer-outline" size={20} color={theme.colors.accent} />
+        <ThemedText color="accent" style={styles.timerText}>
+          {formatTime(timeLeft)}
+        </ThemedText>
+      </View>
+    );
+  }
+);
+
+AuctionCountdown.displayName = "AuctionCountdown";
 
 const AuctionDealRoomScreen = () => {
   const { id: routeId } = useLocalSearchParams();
@@ -65,7 +142,7 @@ const AuctionDealRoomScreen = () => {
 
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, classes } = useTheme();
   const { user: activeUser } = useAuth();
   const insets = useSafeAreaInsets();
   const currentAuction = useAppSelector(selectCurrentAuction);
@@ -74,9 +151,8 @@ const AuctionDealRoomScreen = () => {
   const isPlacingBid = useAppSelector(selectAuctionPlacingBid);
   const highestBid = useAppSelector(selectHighestBid);
   const minimumNextBid = useAppSelector(selectMinimumNextBid);
-  const timeRemaining = useAppSelector(selectAuctionTimeRemaining);
   const participants = useAppSelector(selectAuctionParticipants);
-
+  console.log(currentAuction);
   const [bidAmount, setBidAmount] = useState("");
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -84,20 +160,19 @@ const AuctionDealRoomScreen = () => {
 
   useEffect(() => {
     if (currentAuction?.id && !isLoading) {
-      
       // Initialize socket connection if not connected
       const initializeSocket = async () => {
         if (!isSocketConnected()) {
           await connectSocket();
         }
-        
+
         // Join auction room (deal room based) and set up listeners
         joinAuctionRoom(currentAuction.deal_room_id);
         // Also join the deal room to receive socket events
         joinChatRoom(currentAuction.deal_room_id);
         onAuctionUpdate(); // Register listeners
       };
-      
+
       initializeSocket();
 
       return () => {
@@ -117,10 +192,8 @@ const AuctionDealRoomScreen = () => {
       // Fetch the auction data using the new endpoint
       dispatch(fetchAuctionByDealRoom(dealRoomIdForAuction))
         .unwrap()
-        .then((result) => {
-        })
-        .catch((error) => {
-        });
+        .then((result) => {})
+        .catch((error) => {});
     }
   }, [dealRoomId, dispatch]);
 
@@ -133,43 +206,20 @@ const AuctionDealRoomScreen = () => {
       setKeyboardHeight(0);
     };
 
-    const showSubscription = Keyboard.addListener('keyboardDidShow', keyboardDidShow);
-    const hideSubscription = Keyboard.addListener('keyboardDidHide', keyboardDidHide);
+    const showSubscription = Keyboard.addListener(
+      "keyboardDidShow",
+      keyboardDidShow
+    );
+    const hideSubscription = Keyboard.addListener(
+      "keyboardDidHide",
+      keyboardDidHide
+    );
 
     return () => {
       showSubscription.remove();
       hideSubscription.remove();
     };
   }, []);
-
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  // Timer logic for both setup and active states
-  useEffect(() => {
-    if (
-      (currentAuction?.state === "active" ||
-        currentAuction?.state === "setup") &&
-      currentAuction?.end_at
-    ) {
-      const interval = setInterval(() => {
-        const end = new Date(currentAuction.end_at).getTime();
-        const now = new Date().getTime();
-        const distance = end - now;
-
-        if (distance < 0) {
-          clearInterval(interval);
-          setTimeLeft(distance)
-          dispatch(updateTimeRemaining(0));
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [currentAuction?.state, currentAuction?.end_at]);
-
-  const openParticipantsModal = () => {
-    setShowParticipantsModal(true);
-  };
 
   const closeParticipantsModal = () => {
     setShowParticipantsModal(false);
@@ -178,19 +228,24 @@ const AuctionDealRoomScreen = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      // Re-fetch auction data
-      const dealRoomIdForAuction = typeof dealRoomId === "string" ? dealRoomId : dealRoomId[0];
+      // Force refresh auction data
+      const dealRoomIdForAuction =
+        typeof dealRoomId === "string" ? dealRoomId : dealRoomId[0];
       if (dealRoomIdForAuction) {
         await dispatch(fetchAuctionByDealRoom(dealRoomIdForAuction)).unwrap();
       }
     } catch (error) {
+      console.error("Error refreshing auction:", error);
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handlePlaceBid = () => {
+  const openParticipantsModal = () => {
+    setShowParticipantsModal(true);
+  };
 
+  const handlePlaceBid = () => {
     if (!currentAuction) {
       return;
     }
@@ -238,9 +293,20 @@ const AuctionDealRoomScreen = () => {
   };
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    if (seconds <= 0) return "00:00";
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${minutes.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const isSeller = currentAuction?.seller_user_id === activeUser?.id;
@@ -265,38 +331,24 @@ const AuctionDealRoomScreen = () => {
       </TouchableOpacity>
       <View style={styles.headerInfo}>
         <ThemedText style={styles.headerTitle}>Auction</ThemedText>
-        <ThemedText style={styles.headerSubtitle}>
+        {/* <ThemedText style={styles.headerSubtitle}>
           #{currentAuction?.id.substring(0, 8)}
-        </ThemedText>
+        </ThemedText> */}
       </View>
       <View style={styles.headerActions}>
         <TouchableOpacity
           onPress={openParticipantsModal}
-          style={[
-            styles.participantsButton,
-            { backgroundColor: theme.colors.background },
-          ]}
+          style={[classes.card, styles.participantsButton]}
         >
-          <Ionicons name="people" size={20} color={theme.colors.primary} />
-          <ThemedText
-            style={[
-              styles.participantsButtonText,
-              { color: theme.colors.primary },
-            ]}
-          >
+          <Ionicons name="people" size={20} color={theme.colors.secondary} />
+          <ThemedText style={[classes.caption, styles.participantsButtonText]}>
             {participants?.length || 0}
           </ThemedText>
         </TouchableOpacity>
-        <View style={styles.timerContainer}>
-          <Ionicons
-            name="timer-outline"
-            size={20}
-            color={theme.colors.primary}
-          />
-          <ThemedText style={styles.timerText}>
-            {formatTime(timeRemaining || timeLeft)}
-          </ThemedText>
-        </View>
+        <AuctionCountdown
+          endAt={currentAuction?.end_at}
+          auctionState={currentAuction?.state}
+        />
       </View>
     </View>
   );
@@ -305,15 +357,18 @@ const AuctionDealRoomScreen = () => {
     <View style={styles.highestBidContainer}>
       <ThemedText style={styles.highestBidLabel}>Highest Bid</ThemedText>
       <ThemedText style={styles.highestBidAmount}>
-        ${((currentAuction?.current_highest_bid && Number(currentAuction.current_highest_bid) > 0) 
-          ? Number(currentAuction.current_highest_bid) 
-          : Number(currentAuction?.start_price || 0)).toLocaleString()}
+        $
+        {(currentAuction?.current_highest_bid &&
+        Number(currentAuction.current_highest_bid) > 0
+          ? Number(currentAuction.current_highest_bid)
+          : Number(currentAuction?.start_price || 0)
+        ).toLocaleString()}
       </ThemedText>
     </View>
   );
 
   const renderBidStream = () => (
-    <ScrollView 
+    <ScrollView
       style={styles.bidStream}
       refreshControl={
         <RefreshControl
@@ -328,7 +383,8 @@ const AuctionDealRoomScreen = () => {
         .slice()
         .sort(
           (a, b) =>
-            new Date((b.placed_at || b.created_at) || '').getTime() - new Date((a.placed_at || a.created_at) || '').getTime()
+            new Date(b.placed_at || b.created_at || "").getTime() -
+            new Date(a.placed_at || a.created_at || "").getTime()
         )
         .map((bid) => (
           <AuctionBidCard
@@ -434,7 +490,7 @@ const AuctionDealRoomScreen = () => {
       );
     }
 
-    if (currentAuction?.state === "ended") {
+    if (currentAuction?.state === "closed") {
       const endedMessage = "Auction has ended.";
       return (
         <View
@@ -470,6 +526,49 @@ const AuctionDealRoomScreen = () => {
     const minBid = biddingBaseline + minIncrement;
     const isValidBid = bidAmount && Number(bidAmount) >= minBid;
 
+    // Check if auction time has expired (with 2-second buffer for safety)
+    const now = Date.now();
+    const endTime = currentAuction?.end_at
+      ? new Date(currentAuction.end_at).getTime()
+      : 0;
+    const isTimeExpired = currentAuction?.end_at && endTime <= now + 2000;
+
+    // Debug logging (remove in production)
+    console.log("Time check:", {
+      now,
+      endTime,
+      timeLeft: endTime - now,
+      isTimeExpired,
+    });
+
+    if (isTimeExpired) {
+      return (
+        <View
+          style={[
+            styles.spectatorView,
+            {
+              backgroundColor: theme.colors.background,
+              borderTopColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="checkmark-circle"
+            size={24}
+            color={theme.colors.secondary}
+          />
+          <ThemedText
+            style={[
+              styles.spectatorText,
+              { color: theme.colors.secondary, marginTop: 8 },
+            ]}
+          >
+            Auction time has expired
+          </ThemedText>
+        </View>
+      );
+    }
+
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -486,35 +585,41 @@ const AuctionDealRoomScreen = () => {
           ]}
         >
           <View style={styles.bidMetaRow}>
-            <View style={styles.metaPill}>
+            <View
+              style={[
+                classes.card,
+                styles.metaPill,
+                { borderColor: theme.colors.border },
+              ]}
+            >
               <Ionicons
                 name="cash-outline"
                 size={16}
-                color={theme.colors.primary}
+                color={theme.colors.accent}
               />
-              <ThemedText color="secondary" style={styles.metaLabel}>
+              <ThemedText color="accent" style={styles.metaLabel}>
                 Baseline
               </ThemedText>
-              <ThemedText color="primary" style={styles.metaValue}>
+              <ThemedText color="accent" style={styles.metaValue}>
                 ${biddingBaseline.toLocaleString()}
               </ThemedText>
             </View>
-            <View style={styles.metaPill}>
+            <View
+              style={[
+                classes.card,
+                styles.metaPill,
+                { borderColor: theme.colors.border },
+              ]}
+            >
               <Ionicons
                 name="trending-up-outline"
                 size={16}
                 color={theme.colors.accent}
               />
-              <ThemedText
-                color="secondary"
-                style={styles.metaLabel}
-              >
+              <ThemedText color="accent" style={styles.metaLabel}>
                 Min Increment
               </ThemedText>
-              <ThemedText
-                color="accent"
-                style={styles.metaValue}
-              >
+              <ThemedText color="accent" style={styles.metaValue}>
                 +${minIncrement.toLocaleString()}
               </ThemedText>
             </View>
@@ -523,7 +628,11 @@ const AuctionDealRoomScreen = () => {
           <View style={styles.bidInputRow}>
             <View style={styles.inputContainer}>
               <ThemedText
-                style={[styles.inputLabel, { color: theme.colors.secondary }]}
+                color="accent"
+                style={[
+                  styles.inputLabel,
+                  { fontWeight: "600", marginBottom: 8 },
+                ]}
               >
                 Enter your bid
               </ThemedText>
@@ -534,13 +643,19 @@ const AuctionDealRoomScreen = () => {
                     borderColor: isValidBid
                       ? theme.colors.accent
                       : theme.colors.border,
+                    backgroundColor: theme.colors.surface,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.currencySymbol,
-                    { color: theme.colors.primary },
+                    {
+                      color: theme.colors.accent,
+                      borderRightWidth: 1,
+                      borderRightColor: theme.colors.border,
+                      paddingRight: 8,
+                    },
                   ]}
                 >
                   $
@@ -549,8 +664,8 @@ const AuctionDealRoomScreen = () => {
                   style={[
                     styles.input,
                     {
-                      backgroundColor: theme.colors.background,
-                      color: theme.colors.primary,
+                      backgroundColor: theme.colors.surface,
+                      color: theme.colors.accent,
                     },
                   ]}
                   placeholder={minBid.toLocaleString()}
@@ -563,7 +678,8 @@ const AuctionDealRoomScreen = () => {
                 <TouchableOpacity
                   style={[
                     styles.quickFillButton,
-                    { backgroundColor: theme.colors.background },
+                    classes.card,
+                    { borderColor: theme.colors.border },
                   ]}
                   onPress={() => setBidAmount(String(minBid))}
                   disabled={isPlacingBid}
@@ -573,19 +689,12 @@ const AuctionDealRoomScreen = () => {
                     size={16}
                     color={theme.colors.accent}
                   />
-                  <ThemedText
-                    style={[
-                      styles.quickFillText,
-                      { color: theme.colors.accent },
-                    ]}
-                  >
+                  <ThemedText color="accent" style={styles.quickFillText}>
                     Min
                   </ThemedText>
                 </TouchableOpacity>
               </View>
-              <ThemedText
-                style={[styles.minBidText, { color: theme.colors.secondary }]}
-              >
+              <ThemedText color="accent" style={styles.minBidText}>
                 Your offer must be at least ${minBid.toLocaleString()}
               </ThemedText>
             </View>
@@ -611,9 +720,9 @@ const AuctionDealRoomScreen = () => {
                 color="white"
                 style={styles.bidButtonIcon}
               />
-              <ThemedText style={styles.bidButtonText}>
+              <Text style={[styles.bidButtonText, { color: "white" }]}>
                 {isPlacingBid ? "Placing..." : "Place Bid"}
-              </ThemedText>
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -624,14 +733,14 @@ const AuctionDealRoomScreen = () => {
                 size={16}
                 color={theme.colors.error || "#DC2626"}
               />
-              <ThemedText
+              <Text
                 style={[
                   styles.validationText,
                   { color: theme.colors.error || "#DC2626" },
                 ]}
               >
                 Bid must be at least ${minBid.toLocaleString()}
-              </ThemedText>
+              </Text>
             </View>
           )}
         </View>
@@ -664,7 +773,7 @@ const AuctionDealRoomScreen = () => {
     );
   }
 
-  if (currentAuction.state === "ended") {
+  if (currentAuction.state === "closed") {
     return (
       <View
         style={[
@@ -688,23 +797,28 @@ const AuctionDealRoomScreen = () => {
   // Show full auction interface for setup and active states
   if (currentAuction.state === "setup" || currentAuction.state === "active") {
     return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: theme.colors.background, paddingTop: insets.top },
-        ]}
-      >
-        {renderHeader()}
-        {renderHighestBid()}
-        {renderBidStream()}
-        {renderBidInput()}
-        <ParticipantsModal
-          visible={showParticipantsModal}
-          onClose={closeParticipantsModal}
-          participants={participants}
-          activeUserId={activeUser?.id}
-        />
-      </View>
+      <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
+        <View
+          style={[
+            styles.container,
+            {
+              backgroundColor: theme.colors.background,
+              paddingTop: insets.top,
+            },
+          ]}
+        >
+          {renderHeader()}
+          {renderHighestBid()}
+          {renderBidStream()}
+          {renderBidInput()}
+          <ParticipantsModal
+            visible={showParticipantsModal}
+            onClose={closeParticipantsModal}
+            participants={participants}
+            activeUserId={activeUser?.id}
+          />
+        </View>
+      </PullToRefresh>
     );
   }
 
@@ -777,7 +891,6 @@ const styles = StyleSheet.create({
   timerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -785,7 +898,6 @@ const styles = StyleSheet.create({
   timerText: {
     marginLeft: 4,
     fontWeight: "600",
-    color: "#111827",
   },
   highestBidContainer: {
     padding: 16,
@@ -883,8 +995,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#F9FAFB",
+    borderColor: theme.colors.border,
   },
   metaLabel: {
     fontSize: 12,
@@ -899,8 +1010,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2,
     borderRadius: 12,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
+    borderColor: theme.colors.border,
   },
   currencySymbol: {
     fontSize: 18,
@@ -917,7 +1027,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: theme.colors.border,
   },
   quickFillText: {
     fontSize: 12,
@@ -971,6 +1081,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
+    borderColor: theme.colors.border,
   },
   participantAvatar: {
     marginRight: 12,
@@ -998,6 +1109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    backgroundColor: theme.colors.primary,
   },
   roleBadgeText: {
     color: "white",
@@ -1035,7 +1147,7 @@ const styles = StyleSheet.create({
   participantsModal: {
     width: 300,
     height: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.colors.background,
     shadowColor: "#000",
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.1,
@@ -1049,6 +1161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
+    borderColor: theme.colors.border,
   },
   modalHeaderContent: {
     flexDirection: "row",

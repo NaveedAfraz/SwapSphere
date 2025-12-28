@@ -78,6 +78,7 @@ export const onAuctionUpdate = () => {
     });
 
     socket.on('auction:closed', (data: { auctionId: string; dealRoomId: string; winnerId?: string; finalAmount: number; hasWinner: boolean }) => {
+      console.log('[SOCKET] Received auction:closed event:', data);
       store.dispatch(handleAuctionClosed(data));
     });
 

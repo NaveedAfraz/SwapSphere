@@ -1,4 +1,4 @@
-const { query, transaction } = require('../database/db');
+const { query, transaction, pool } = require('../database/db');
 const {
   getHighestBid,
   insertDealEvent,
@@ -68,7 +68,7 @@ const startAuction = async (req, res) => {
       const auctionResult = await client.query(
         `INSERT INTO auctions 
          (deal_room_id, listing_id, seller_id, start_price, min_increment, state, start_at, end_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, 'setup', NOW(), $6, NOW())
+         VALUES ($1, $2, $3, $4, $5, 'active', NOW(), $6, NOW())
          RETURNING id`,
         [auctionDealRoomId, listing_id, seller_record_id, startPrice, minIncrement, endAt]
       );
@@ -242,6 +242,7 @@ const placeBid = async (req, res) => {
 
 // Get Auction by Deal Room ID
 const getAuctionByDealRoom = async (req, res) => {
+  console.log(`[Auction] getAuctionByDealRoom called for dealRoom: ${req.params.dealRoomId}`);
   const { dealRoomId } = req.params;
   const userId = req.user?.id;
 
@@ -253,22 +254,85 @@ const getAuctionByDealRoom = async (req, res) => {
     `;
     const dealRoomResult = await query(dealRoomQuery, [dealRoomId]);
     
+    console.log(`[Auction] Deal room query result:`, dealRoomResult.rows.length, 'rows');
+    
     if (dealRoomResult.rows.length === 0) {
+      console.log(`[Auction] No auction deal room found for: ${dealRoomId}`);
       return res.status(404).json({ error: 'Auction deal room not found' });
     }
     
     const metadata = dealRoomResult.rows[0].metadata;
     const auctionId = metadata?.auction_id;
     
+    console.log(`[Auction] Found auction ID in metadata: ${auctionId}`);
+    
     if (!auctionId) {
-      return res.status(404).json({ error: 'Auction ID not found in deal room metadata' });
+      console.log(`[Auction] No auction ID in metadata for: ${dealRoomId}`);
+      return res.status(404).json({ error: 'Auction not found in deal room' });
     }
     
-    
     // Now get the auction details
+    console.log(`[Auction] Calling getAuctionWithDetails for auction: ${auctionId}`);
     const auction = await getAuctionWithDetails(auctionId);
+    console.log(`[Auction] getAuctionWithDetails result:`, auction ? 'found' : 'not found');
     if (!auction) {
+      console.log(`[Auction] Auction not found with ID: ${auctionId}`);
       return res.status(404).json({ error: 'Auction not found' });
+    }
+
+    console.log(`[Auction] Auction details - ID: ${auction.id}, State: ${auction.state}, End: ${auction.end_at}`);
+
+    // Calculate remaining time
+    const remainingSeconds = Math.max(0, Math.floor(auction.remaining_seconds));
+
+    // Check if auction is closed and emit socket events if needed
+    console.log(`[Auction] Checking auction state: ${auction.state} for auction: ${auctionId}`);
+    console.log(`[Auction] Remaining seconds: ${remainingSeconds}, End time: ${auction.end_at}`);
+    if (auction.state === 'closed') {
+      console.log(`[Auction] Auction is closed, checking for winner...`);
+      try {
+        // Get winner information if auction has winner
+        const winnerQuery = `
+          SELECT ab.*, p.name, u.email
+          FROM auction_bids ab
+          JOIN users u ON ab.bidder_id = u.id
+          LEFT JOIN profiles p ON ab.bidder_id = p.user_id
+          WHERE ab.auction_id = $1
+          ORDER BY ab.amount DESC, ab.created_at ASC
+          LIMIT 1
+        `;
+        const winnerResult = await query(winnerQuery, [auctionId]);
+        
+        if (winnerResult.rows.length > 0) {
+          const winner = winnerResult.rows[0];
+          
+          // Emit socket events for auction closed with winner
+          const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+          emitToDealRoom(auction.deal_room_id, 'auction:closed', {
+            type: 'auction.closed',
+            auctionId,
+            timestamp: new Date().toISOString(),
+            winnerId: winner.bidder_id,
+            amount: winner.amount,
+            bidId: winner.id
+          });
+          
+          console.log(`[Auction] Emitted auction.closed event for winner: ${winner.bidder_id}`);
+        } else {
+          // Emit socket events for auction closed without winner
+          const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+          emitToDealRoom(auction.deal_room_id, 'auction:closed', {
+            type: 'auction.closed',
+            auctionId,
+            timestamp: new Date().toISOString(),
+            reason: 'no_bids'
+          });
+          
+          console.log(`[Auction] Emitted auction.closed event without winner`);
+        }
+      } catch (error) {
+        console.error('[Auction] Error emitting socket events:', error);
+      }
     }
 
     // Get highest bid
@@ -281,8 +345,38 @@ const getAuctionByDealRoom = async (req, res) => {
     participants = await getAuctionParticipants(auction.deal_room_id);
     console.log('Participants found:', participants.length, participants);
 
-    // Calculate remaining time
-    const remainingSeconds = Math.max(0, Math.floor(auction.remaining_seconds));
+    // If auction is closed, enrich response with winner info (from DB rows)
+    let winnerId = null;
+    let winningAmount = null;
+    let orderId = null;
+    if (auction.state === 'closed') {
+      winnerId = auction.winner_id || null;
+      winningAmount = auction.winning_amount || null;
+      
+      // Fetch the order ID for this auction
+      if (winnerId) {
+        const orderQuery = `
+          SELECT id FROM orders 
+          WHERE buyer_id = $1 
+          AND seller_id = $2 
+          AND total_amount = $3
+          AND created_at >= $4
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        const orderResult = await pool.query(orderQuery, [
+          winnerId,
+          auction.seller_id,
+          winningAmount,
+          auction.end_at
+        ]);
+        
+        if (orderResult.rows.length > 0) {
+          orderId = orderResult.rows[0].id;
+          console.log(`[Auction] Found order for auction: ${orderId}`);
+        }
+      }
+    }
 
     res.json({
       auction: {
@@ -300,6 +394,9 @@ const getAuctionByDealRoom = async (req, res) => {
         seller_user_id: auction.seller_user_id,
         remainingSeconds,
         bids: auction.bids || [], // Include bids from getAuctionWithDetails
+        winner_id: winnerId,
+        winning_amount: winningAmount,
+        order_id: orderId // Include order ID for payment
       },
       highestBid: highestBid ? {
         id: highestBid.id,
@@ -352,6 +449,56 @@ const getAuction = async (req, res) => {
 
     // Calculate remaining time
     const remainingSeconds = Math.max(0, Math.floor(auction.remaining_seconds));
+
+    // Check if auction is closed and emit socket events if needed
+    console.log(`[Auction] Checking auction state: ${auction.state} for auction: ${auctionId}`);
+    console.log(`[Auction] Remaining seconds: ${remainingSeconds}, End time: ${auction.end_at}`);
+    if (auction.state === 'closed') {
+      console.log(`[Auction] Auction is closed, checking for winner...`);
+      try {
+        // Get winner information if auction has winner
+        const winnerQuery = `
+          SELECT ab.*, p.name, u.email
+          FROM auction_bids ab
+          JOIN users u ON ab.bidder_id = u.id
+          LEFT JOIN profiles p ON ab.bidder_id = p.user_id
+          WHERE ab.auction_id = $1
+          ORDER BY ab.amount DESC, ab.created_at ASC
+          LIMIT 1
+        `;
+        const winnerResult = await query(winnerQuery, [auctionId]);
+        
+        if (winnerResult.rows.length > 0) {
+          const winner = winnerResult.rows[0];
+          
+          // Emit socket events for auction closed with winner
+          const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+          emitToDealRoom(auction.deal_room_id, 'auction:closed', {
+            type: 'auction.closed',
+            auctionId,
+            timestamp: new Date().toISOString(),
+            winnerId: winner.bidder_id,
+            amount: winner.amount,
+            bidId: winner.id
+          });
+          
+          console.log(`[Auction] Emitted auction.closed event for winner: ${winner.bidder_id}`);
+        } else {
+          // Emit socket events for auction closed without winner
+          const { emitToDealRoom } = require('../socket/dealRoomSocketServer');
+          emitToDealRoom(auction.deal_room_id, 'auction:closed', {
+            type: 'auction.closed',
+            auctionId,
+            timestamp: new Date().toISOString(),
+            reason: 'no_bids'
+          });
+          
+          console.log(`[Auction] Emitted auction.closed event without winner`);
+        }
+      } catch (error) {
+        console.error('[Auction] Error emitting socket events:', error);
+      }
+    }
 
     res.json({
       auction: {

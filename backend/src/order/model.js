@@ -130,11 +130,30 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
            COUNT(oi.id) as item_count,
            COALESCE(
              JSON_BUILD_OBJECT(
-               'id', (o.metadata->>'listing_id')::uuid,
-               'title', o.metadata->>'listing_title',
-               'price', l.price,
-               'condition', l.condition,
-               'description', l.description,
+               'id', CASE 
+                 WHEN (o.metadata->>'listing_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' 
+                 THEN (o.metadata->>'listing_id')::uuid 
+                 WHEN o.metadata->>'auction_id' IS NOT NULL AND a.listing_id IS NOT NULL
+                 THEN a.listing_id
+                 ELSE NULL 
+               END,
+               'title', COALESCE(
+                 o.metadata->>'listing_title', 
+                 l.title
+               ),
+               'price', COALESCE(
+                 l.price, 
+                 (o.metadata->>'listing_price')::numeric,
+                 a.start_price
+               ),
+               'condition', COALESCE(
+                 l.condition, 
+                 (o.metadata->>'listing_condition')::text
+               ),
+               'description', COALESCE(
+                 l.description, 
+                 (o.metadata->>'listing_description')::text
+               ),
                'images', COALESCE(
                  JSON_AGG(
                    JSON_BUILD_OBJECT('url', li.url) 
@@ -144,16 +163,25 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
                )
              ),
              '{}'::json
-           ) as listing
+           ) as listing,
+           COALESCE(p.status, 'created') as payment_status
     FROM orders o
     LEFT JOIN users ub ON o.buyer_id = ub.id
     LEFT JOIN sellers s ON o.seller_id = s.id
     LEFT JOIN users us ON s.user_id = us.id
     LEFT JOIN order_items oi ON o.id = oi.order_id
-    LEFT JOIN listings l ON l.id = (o.metadata->>'listing_id')::uuid
+    LEFT JOIN auctions a ON a.id = (o.metadata->>'auction_id')::uuid
+    LEFT JOIN listings l ON l.id = CASE 
+      WHEN (o.metadata->>'listing_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' 
+      THEN (o.metadata->>'listing_id')::uuid 
+      WHEN o.metadata->>'auction_id' IS NOT NULL AND a.listing_id IS NOT NULL
+      THEN a.listing_id
+      ELSE NULL 
+    END
     LEFT JOIN listing_images li ON l.id = li.listing_id
+    LEFT JOIN payments p ON p.order_id = o.id AND p.status = 'escrowed'
     WHERE ${whereConditions.join(' AND ')}
-    GROUP BY o.id, ub.email, us.email, s.store_name, l.id, l.title, l.price, l.condition, l.description
+    GROUP BY o.id, ub.email, us.email, s.store_name, l.id, l.title, l.price, l.condition, l.description, p.status, a.id, a.listing_id, a.start_price
     ORDER BY o.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}
   `;
@@ -170,7 +198,6 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
   
   // Parse JSON fields for each order
   const orders = dataResult.rows.map(order => {
-    
     try {
       const parsedListing = typeof order.listing === 'string' ? JSON.parse(order.listing) : order.listing;
       return {
@@ -178,8 +205,7 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
         listing: parsedListing
       };
     } catch (error) {
-      console.error('Error parsing listing JSON for order:', order.id, error);
-      console.error('[ORDER MODEL] Failed JSON string:', order.listing);
+      console.error('[ORDER MODEL] Error parsing listing JSON for order:', order.id, error);
       return {
         ...order,
         listing: {}
@@ -194,8 +220,7 @@ const getOrdersByUser = async (userId, userType, filters = {}, options = {}) => 
       limit: parseInt(limit),
       total,
       totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1
+      currentPage: parseInt(page)
     }
   };
 };
