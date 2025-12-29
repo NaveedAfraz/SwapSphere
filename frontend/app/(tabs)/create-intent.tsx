@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import * as ExpoLocation from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -68,31 +70,41 @@ export default function CreateIntentScreen() {
   const currentIntent = useSelector(selectCurrentIntent);
 
   // Form state
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [category, setCategory] = useState<number>(0);
-  const [location, setLocation] = useState("");
+  const [title, setTitle] = useState("Need Laptop for Work");
+  const [description, setDescription] = useState(
+    "Looking for any laptop in working condotion for development work"
+  );
+  const [maxPrice, setMaxPrice] = useState("3000");
+  const [category, setCategory] = useState<number>(1); // Electronics (matches MacBook listings)
+  const [location, setLocation] = useState(""); // Keep for form data structure but won't show in UI
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(isEditMode);
+  const [isLocationFromGPS, setIsLocationFromGPS] = useState(false);
 
   // Modal state
   const [messageModal, setMessageModal] = useState({
     visible: false,
     title: "",
     message: "",
-    type: 'info' as 'error' | 'success' | 'info',
+    type: "info" as "error" | "success" | "info",
   });
 
-  const showMessage = (title: string, message: string, type: 'error' | 'success' | 'info' = 'info', onSuccess?: () => void) => {
+  const showMessage = (
+    title: string,
+    message: string,
+    type: "error" | "success" | "info" = "info",
+    onSuccess?: () => void
+  ) => {
     setMessageModal({
       visible: true,
       title,
       message,
       type,
     });
-    
+
     // Store success callback if provided
-    if (type === 'success' && onSuccess) {
+    if (type === "success" && onSuccess) {
       (window as any).successCallback = onSuccess;
     }
   };
@@ -103,12 +115,12 @@ export default function CreateIntentScreen() {
       (window as any).successCallback();
       delete (window as any).successCallback;
     }
-    
+
     setMessageModal({
       visible: false,
       title: "",
       message: "",
-      type: 'info',
+      type: "info",
     });
   };
 
@@ -118,6 +130,57 @@ export default function CreateIntentScreen() {
       dispatch(getIntentThunk(id) as any);
     }
   }, [dispatch, id, isEditMode]);
+
+  useEffect(() => {
+    const fetchGPS = async () => {
+      console.log("[GPS] Starting GPS fetch...");
+
+      // Check if location services are enabled in settings
+      const locationEnabled = await AsyncStorage.getItem("locationServices");
+      console.log("[GPS] Location services enabled:", locationEnabled);
+
+      if (locationEnabled !== "true") {
+        console.log("[GPS] Location services disabled - proceeding without GPS coordinates");
+        setLatitude(null);
+        setLongitude(null);
+        setIsLocationFromGPS(false);
+        return;
+      }
+
+      try {
+        console.log("[GPS] Requesting location permissions...");
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+        console.log("[GPS] Permission status:", status);
+
+        if (status === "granted") {
+          console.log("[GPS] Permission granted - getting current position...");
+          const loc = await ExpoLocation.getCurrentPositionAsync({});
+          const { latitude, longitude } = loc.coords;
+
+          console.log("[GPS] GPS coordinates obtained:", { latitude, longitude });
+          setLatitude(latitude);
+          setLongitude(longitude);
+          setIsLocationFromGPS(true);
+
+          // Save coordinates to storage
+          await AsyncStorage.multiSet([
+            ["lastLatitude", latitude.toString()],
+            ["lastLongitude", longitude.toString()]
+          ]);
+          console.log("[GPS] GPS coordinates saved to storage");
+        } else {
+          console.log("[GPS] Permission denied");
+          setIsLocationFromGPS(false);
+        }
+      } catch (error) {
+        console.log("[GPS] GPS fetch failed:", error);
+        setIsLocationFromGPS(false);
+      }
+    };
+
+    // Initial fetch only
+    fetchGPS();
+  }, []); // No dependencies - only run once on mount
 
   // Populate form fields when intent data is loaded
   useEffect(() => {
@@ -154,17 +217,21 @@ export default function CreateIntentScreen() {
   // Handle errors
   useEffect(() => {
     if (createError) {
-      showMessage("Error", createError, 'error');
+      showMessage("Error", createError, "error");
     }
     if (updateError) {
-      showMessage("Error", updateError, 'error');
+      showMessage("Error", updateError, "error");
     }
   }, [createError, updateError]);
 
   const handleSubmit = async () => {
     // Validation
-    if (!title || !description || !maxPrice || !category || !location) {
-      showMessage("Missing Information", "Please fill in all required fields", 'error');
+    if (!title || !description || !maxPrice || !category) {
+      showMessage(
+        "Missing Information",
+        "Please fill in all required fields",
+        "error"
+      );
       return;
     }
 
@@ -183,28 +250,52 @@ export default function CreateIntentScreen() {
 
     const selectedCategory = categoryMap[category];
     if (!selectedCategory) {
-      showMessage("Error", "Invalid category selected", 'error');
+      showMessage("Error", "Invalid category selected", "error");
       return;
     }
 
-    // Prepare intent data
     const intentData = {
       title: title.trim(),
       description: description.trim(),
-      max_price: parseFloat(maxPrice),
       category: selectedCategory,
+      max_price: parseFloat(maxPrice),
       location: {
         city: location.split(",")[0]?.trim() || location,
         state: location.split(",")[1]?.trim(),
       },
+      latitude,
+      longitude,
     };
 
-    // Dispatch appropriate thunk based on mode
+    // Log location data for testing
+    console.log("[INTENT FORM] Location data:", {
+      latitude,
+      longitude,
+      location,
+      isZeroCoordinates: latitude === 0 || longitude === 0,
+      isNullCoordinates: latitude === null || longitude === null,
+    });
+
+    // Prevent request if coordinates are 0 (testing purposes)
+    if (latitude === 0 || longitude === 0) {
+      console.log(
+        "[INTENT FORM] BLOCKED: Coordinates are 0, not sending request to backend"
+      );
+      showMessage(
+        "Location Error",
+        "GPS coordinates are 0. Please enable location services.",
+        "error"
+      );
+      return;
+    }
+
+    // Dispatch intent creation
     let result;
     if (isEditMode && id) {
-      result = await dispatch(
-        updateIntentThunk({ id, data: intentData }) as any
-      );
+      result = await dispatch(updateIntentThunk({ 
+        id, 
+        data: intentData  // Wrap in data property for updateIntent
+      }) as any);
     } else {
       result = await dispatch(createIntentThunk(intentData) as any);
     }
@@ -217,13 +308,13 @@ export default function CreateIntentScreen() {
       const successMessage = isEditMode
         ? "Your buyer request has been updated!"
         : "Your buyer request has been posted!";
-      showMessage("Success", successMessage, 'success', () => {
+      showMessage("Success", successMessage, "success", () => {
         // Reset form
-        setTitle("");
-        setDescription("");
-        setMaxPrice("");
-        setCategory(0);
-        setLocation("");
+        // setTitle("");
+        // setDescription("");
+        // setMaxPrice("");
+        // setCategory(0);
+        // setLocation("");
         // Navigate back to profile
         router.replace("/(tabs)/profile");
       });
@@ -309,7 +400,11 @@ export default function CreateIntentScreen() {
                     color={theme.colors.surface}
                   />
                 ) : (
-                  <Ionicons name="checkmark" size={18} color={theme.colors.surface} />
+                  <Ionicons
+                    name="checkmark"
+                    size={18}
+                    color={theme.colors.surface}
+                  />
                 )}
                 <Text style={[styles.postButtonText]}>
                   {isCreatingIntent || isUpdatingIntent
@@ -374,17 +469,16 @@ export default function CreateIntentScreen() {
                 onSelectCategory={setCategory}
               />
 
-              <FormField
-                label="Location"
-                value={location}
-                onChangeText={setLocation}
-                placeholder="City, State"
-              />
+              {isLocationFromGPS && (
+                <ThemedText type="caption" style={{ color: '#666', marginTop: 4 }}>
+                  📍 GPS location obtained: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
+                </ThemedText>
+              )}
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
+
       <MessageModal
         visible={messageModal.visible}
         title={messageModal.title}

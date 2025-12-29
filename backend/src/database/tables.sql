@@ -596,3 +596,40 @@ CREATE TABLE auction_bids (
 
 CREATE INDEX idx_auction_bids_amount
 ON auction_bids (auction_id, amount DESC);
+
+ALTER TABLE listings
+ADD COLUMN embedding vector(768);
+
+ALTER TABLE intents
+ADD COLUMN embedding vector(768);
+
+CREATE INDEX idx_listings_embedding
+ON listings
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Add latitude/longitude to listings for location-based matching
+ALTER TABLE listings
+ADD COLUMN IF NOT EXISTS latitude numeric,
+ADD COLUMN IF NOT EXISTS longitude numeric;
+
+-- Add latitude/longitude to intents for location-based matching
+ALTER TABLE intents
+ADD COLUMN IF NOT EXISTS latitude numeric,
+ADD COLUMN IF NOT EXISTS longitude numeric;
+
+-- Indexes for location queries (optional but recommended)
+CREATE INDEX IF NOT EXISTS idx_listings_lat_lng ON listings(latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_intents_lat_lng ON intents(latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+CREATE TABLE intent_matches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  intent_id uuid REFERENCES intents(id),
+  listing_id uuid REFERENCES listings(id),
+  similarity FLOAT,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (intent_id, listing_id)
+);
+
+-- Add unique constraint to intent_matches table
+ALTER TABLE intent_matches ADD CONSTRAINT unique_intent_listing UNIQUE (intent_id, listing_id);

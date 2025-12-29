@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import * as ExpoLocation from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -64,12 +66,18 @@ export default function CreateListingScreen() {
     visible: false,
     title: "",
     message: "",
-    type: 'info' as 'error' | 'success' | 'info',
+    type: "info" as "error" | "success" | "info",
     onConfirm: undefined as (() => void) | undefined,
     showCancel: false,
   });
 
-  const showMessage = (title: string, message: string, type: 'error' | 'success' | 'info' = 'info', onConfirm?: () => void, showCancel = false) => {
+  const showMessage = (
+    title: string,
+    message: string,
+    type: "error" | "success" | "info" = "info",
+    onConfirm?: () => void,
+    showCancel = false
+  ) => {
     setMessageModal({
       visible: true,
       title,
@@ -83,13 +91,13 @@ export default function CreateListingScreen() {
   const closeMessageModal = () => {
     if (messageModal.onConfirm) {
       messageModal.onConfirm();
-      setMessageModal(prev => ({ ...prev, onConfirm: undefined }));
+      setMessageModal((prev) => ({ ...prev, onConfirm: undefined }));
     }
     setMessageModal({
       visible: false,
       title: "",
       message: "",
-      type: 'info',
+      type: "info",
       onConfirm: undefined,
       showCancel: false,
     });
@@ -101,33 +109,182 @@ export default function CreateListingScreen() {
   const createError = useSelector(selectCreateError);
 
   // Form state
-  const [title, setTitle] = useState("iPhone 13 Pro - Excellent Condition");
+  const [title, setTitle] = useState("MacBook Pro 16\" - M2 Max");
   const [description, setDescription] = useState(
-    "Perfect condition iPhone 13 Pro, barely used. Includes original box, charger, and headphones. No scratches or dents, battery health at 95%. Selling because I upgraded to the latest model."
+    "Brand new MacBook Pro 16\" with M2 Max chip, 32GB RAM, 1TB SSD. Space gray color, includes original packaging and accessories. Perfect for creative professionals and developers. Selling because I received a work laptop."
   );
-  const [price, setPrice] = useState("899");
+  const [price, setPrice] = useState("2499");
   const [quantity, setQuantity] = useState("1");
   const [currency, setCurrency] = useState("USD");
   const [category, setCategory] = useState<number>(1); // Electronics
   const [condition, setCondition] = useState<string>("new");
-  const [location, setLocation] = useState("New York, NY");
+  const [location, setLocation] = useState("San Francisco, CA");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [tags, setTags] = useState<string[]>([
-    "electronics",
-    "smartphone",
+    "laptop",
     "apple",
+    "macbook",
+    "professional",
   ]);
   const [visibility, setVisibility] = useState("public");
   const [images, setImages] = useState<string[]>([]);
-  
+
   // New database fields
   const [allowOffers, setAllowOffers] = useState(true);
   const [intentEligible, setIntentEligible] = useState(false);
   const [acceptSwaps, setAcceptSwaps] = useState(false);
 
+  // Fetch current location on component mount and when location services setting changes
+  useEffect(() => {
+    const fetchLocation = async () => {
+      // Check if location services are enabled in settings
+      const locationEnabled = await AsyncStorage.getItem("locationServices");
+      if (locationEnabled !== "true") {
+        console.log(
+          "Location services disabled in settings - proceeding without GPS coordinates"
+        );
+        setLatitude(null);
+        setLongitude(null);
+        return;
+      }
+
+      try {
+        const { status } =
+          await ExpoLocation.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await ExpoLocation.getCurrentPositionAsync({});
+          const { latitude, longitude } = loc.coords;
+          setLatitude(latitude);
+          setLongitude(longitude);
+        } else {
+          console.log(
+            "Location permission denied - using city/state geocoding fallback"
+          );
+          // Fallback to city/state geocoding
+          await geocodeCityState();
+        }
+      } catch (error) {
+        console.warn("Location permission denied or error:", error);
+        // Try geocoding as fallback
+        await geocodeCityState();
+      }
+    };
+
+    const geocodeCityState = async () => {
+      if (!location) return;
+
+      try {
+        const cityState = location
+          .split(",")
+          .map((part) => part.trim())
+          .join(", ");
+        // Use OpenStreetMap Nominatim API (free, no API key needed)
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            cityState
+          )}&limit=1`
+        );
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+          const { lat, lon } = data[0];
+          setLatitude(parseFloat(lat));
+          setLongitude(parseFloat(lon));
+          console.log("Geocoded coordinates:", {
+            latitude: parseFloat(lat),
+            longitude: parseFloat(lon),
+          });
+        }
+      } catch (geocodeError) {
+        console.warn("Geocoding failed:", geocodeError);
+      }
+    };
+
+    fetchLocation();
+  }, [location]); // Re-run when location text changes
+
+  // Listen for location services setting changes
+  useEffect(() => {
+    const checkLocationSetting = async () => {
+      const locationEnabled = await AsyncStorage.getItem("locationServices");
+      if (locationEnabled === "true") {
+        // Location services enabled - request permissions and get coordinates
+        try {
+          console.log("Location services enabled - requesting permissions...");
+          const { status } =
+            await ExpoLocation.requestForegroundPermissionsAsync();
+          if (status === "granted") {
+            const loc = await ExpoLocation.getCurrentPositionAsync({});
+            const { latitude, longitude } = loc.coords;
+            setLatitude(latitude);
+            setLongitude(longitude);
+            console.log("Location services enabled ");
+            // Save coordinates to storage
+            await AsyncStorage.multiSet([
+              ["lastLatitude", latitude.toString()],
+              ["lastLongitude", longitude.toString()],
+            ]);
+            console.log("GPS coordinates obtained:", { latitude, longitude });
+          } else {
+            console.log("GPS permission denied - trying geocoding fallback");
+            // Permission denied, try geocoding
+            if (location) {
+              const cityState = location
+                .split(",")
+                .map((part) => part.trim())
+                .join(", ");
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                  cityState
+                )}&limit=1`
+              );
+              const data = await response.json();
+
+              if (data && data.length > 0) {
+                const { lat, lon } = data[0];
+                setLatitude(parseFloat(lat));
+                setLongitude(parseFloat(lon));
+
+                // Save geocoded coordinates to storage
+                await AsyncStorage.multiSet([
+                  ["lastLatitude", lat],
+                  ["lastLongitude", lon],
+                ]);
+                console.log("Geocoded coordinates obtained:", {
+                  latitude: parseFloat(lat),
+                  longitude: parseFloat(lon),
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("Location fetch failed:", error);
+        }
+      } else {
+        // Location services disabled - clear coordinates and storage
+        setLatitude(null);
+        setLongitude(null);
+        try {
+          await AsyncStorage.multiRemove(["lastLatitude", "lastLongitude"]);
+          console.log("Cleared coordinates - location services disabled");
+        } catch (error) {
+          console.warn("Failed to clear location storage:", error);
+        }
+      }
+    };
+
+    // Check immediately and then every 2 seconds for changes
+    checkLocationSetting();
+    const interval = setInterval(checkLocationSetting, 2000);
+
+    return () => clearInterval(interval);
+  }, [location]);
+
   // Handle successful creation
   useEffect(() => {
     if (createStatus === "success") {
-      showMessage("Success", "Listing created successfully!", 'success', () => {
+      showMessage("Success", "Listing created successfully!", "success", () => {
         // Reset form
         setTitle("");
         setDescription("");
@@ -144,7 +301,7 @@ export default function CreateListingScreen() {
         setIntentEligible(false);
         setAcceptSwaps(false);
         // Navigate back to home
-        router.replace("/(tabs)");
+        router.replace("/");
       });
     }
   }, [createStatus, router]);
@@ -152,7 +309,7 @@ export default function CreateListingScreen() {
   // Handle creation errors
   useEffect(() => {
     if (createError) {
-      showMessage("Error", createError, 'error');
+      showMessage("Error", createError, "error");
     }
   }, [createError]);
 
@@ -177,12 +334,16 @@ export default function CreateListingScreen() {
       !currency ||
       !visibility
     ) {
-      showMessage("Missing Information", "Please fill in all required fields", 'error');
+      showMessage(
+        "Missing Information",
+        "Please fill in all required fields",
+        "error"
+      );
       return;
     }
 
     if (images.length === 0) {
-      showMessage("Add Images", "Please add at least one image", 'error');
+      showMessage("Add Images", "Please add at least one image", "error");
       return;
     }
 
@@ -204,7 +365,7 @@ export default function CreateListingScreen() {
 
     const selectedCategory = categoryMap[category];
     if (!selectedCategory) {
-      showMessage("Error", "Invalid category selected", 'error');
+      showMessage("Error", "Invalid category selected", "error");
       return;
     }
 
@@ -265,6 +426,8 @@ export default function CreateListingScreen() {
       category: selectedCategory,
       condition: condition as Condition,
       location: listingLocation,
+      latitude,
+      longitude,
       tags: tags,
       visibility: visibility,
       images: listingImages,
@@ -314,9 +477,17 @@ export default function CreateListingScreen() {
                 activeOpacity={0.9}
               >
                 {isCreating ? (
-                  <Ionicons name="hourglass-outline" size={18} color={theme.colors.surface} />
+                  <Ionicons
+                    name="hourglass-outline"
+                    size={18}
+                    color={theme.colors.surface}
+                  />
                 ) : (
-                  <Ionicons name="checkmark" size={18} color={theme.colors.surface} />
+                  <Ionicons
+                    name="checkmark"
+                    size={18}
+                    color={theme.colors.surface}
+                  />
                 )}
                 <Text style={[styles.postButtonText]}>
                   {isCreating ? "Posting..." : "Post"}
@@ -407,54 +578,119 @@ export default function CreateListingScreen() {
             />
 
             <View style={styles.toggleSection}>
-              <ThemedText type="subheading" style={styles.toggleSectionTitle}>Listing Options</ThemedText>
-              
+              <ThemedText type="subheading" style={styles.toggleSectionTitle}>
+                Listing Options
+              </ThemedText>
+
               <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
-                  <ThemedText type="body" style={styles.toggleLabel}>Allow Offers</ThemedText>
-                  <ThemedText type="caption" style={styles.toggleDescription}>Buyers can send price offers</ThemedText>
+                  <ThemedText type="body" style={styles.toggleLabel}>
+                    Allow Offers
+                  </ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>
+                    Buyers can send price offers
+                  </ThemedText>
                 </View>
                 <TouchableOpacity
-                  style={[styles.toggle, allowOffers && styles.toggleActive, { backgroundColor: allowOffers ? theme.colors.primary : theme.colors.border }]}
+                  style={[
+                    styles.toggle,
+                    allowOffers && styles.toggleActive,
+                    {
+                      backgroundColor: allowOffers
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                    },
+                  ]}
                   onPress={() => setAllowOffers(!allowOffers)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.toggleThumb, { backgroundColor: allowOffers ? '#FFFFFF' : theme.colors.secondary }]} />
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      {
+                        backgroundColor: allowOffers
+                          ? "#FFFFFF"
+                          : theme.colors.secondary,
+                      },
+                    ]}
+                  />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
-                  <ThemedText type="body" style={styles.toggleLabel}>Intent Eligible</ThemedText>
-                  <ThemedText type="caption" style={styles.toggleDescription}>Show in buyer request matches</ThemedText>
+                  <ThemedText type="body" style={styles.toggleLabel}>
+                    Intent Eligible
+                  </ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>
+                    Show in buyer request matches
+                  </ThemedText>
                 </View>
                 <TouchableOpacity
-                  style={[styles.toggle, intentEligible && styles.toggleActive, { backgroundColor: intentEligible ? theme.colors.primary : theme.colors.border }]}
+                  style={[
+                    styles.toggle,
+                    intentEligible && styles.toggleActive,
+                    {
+                      backgroundColor: intentEligible
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                    },
+                  ]}
                   onPress={() => setIntentEligible(!intentEligible)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.toggleThumb, { backgroundColor: intentEligible ? '#FFFFFF' : theme.colors.secondary }]} />
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      {
+                        backgroundColor: intentEligible
+                          ? "#FFFFFF"
+                          : theme.colors.secondary,
+                      },
+                    ]}
+                  />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.toggleRow}>
                 <View style={styles.toggleInfo}>
-                  <ThemedText type="body" style={styles.toggleLabel}>Accept Swaps</ThemedText>
-                  <ThemedText type="caption" style={styles.toggleDescription}>Willing to trade items</ThemedText>
+                  <ThemedText type="body" style={styles.toggleLabel}>
+                    Accept Swaps
+                  </ThemedText>
+                  <ThemedText type="caption" style={styles.toggleDescription}>
+                    Willing to trade items
+                  </ThemedText>
                 </View>
                 <TouchableOpacity
-                  style={[styles.toggle, acceptSwaps && styles.toggleActive, { backgroundColor: acceptSwaps ? theme.colors.primary : theme.colors.border }]}
+                  style={[
+                    styles.toggle,
+                    acceptSwaps && styles.toggleActive,
+                    {
+                      backgroundColor: acceptSwaps
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                    },
+                  ]}
                   onPress={() => setAcceptSwaps(!acceptSwaps)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.toggleThumb, { backgroundColor: acceptSwaps ? '#FFFFFF' : theme.colors.secondary }]} />
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      {
+                        backgroundColor: acceptSwaps
+                          ? "#FFFFFF"
+                          : theme.colors.secondary,
+                      },
+                    ]}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
+
       <MessageModal
         visible={messageModal.visible}
         title={messageModal.title}

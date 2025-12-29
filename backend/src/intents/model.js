@@ -1,15 +1,45 @@
 const { pool } = require("../database/db");
 
-const createIntent = async (intentData) => {
-  const { buyer_id, title, description, category, max_price, location } = intentData;
-
+const createIntent = async function createIntent({
+  buyer_id,
+  title,
+  description,
+  category,
+  max_price,
+  location,
+  latitude,
+  longitude,
+  embedding,
+}) {
   const query = `
-    INSERT INTO intents (buyer_id, title, description, category, max_price, location, status)
-    VALUES ($1, $2, $3, $4, $5, $6, 'open')
-    RETURNING *
+    INSERT INTO intents (
+      buyer_id,
+      title,
+      description,
+      category,
+      max_price,
+      location,
+      latitude,
+      longitude,
+      embedding,
+      status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')
+    RETURNING *;
   `;
 
-  const result = await pool.query(query, [buyer_id, title, description, category, max_price, JSON.stringify(location)]);
+  const values = [
+    buyer_id,
+    title,
+    description,
+    category,
+    max_price,
+    JSON.stringify(location),
+    latitude,
+    longitude,
+    embedding && Array.isArray(embedding) ? `[${embedding.join(',')}]` : null,
+  ];
+
+  const result = await pool.query(query, values);
   return result.rows[0];
 };
 

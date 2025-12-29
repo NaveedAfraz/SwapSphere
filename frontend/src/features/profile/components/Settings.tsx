@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,10 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Linking,
 } from "react-native";
+import * as ExpoLocation from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { Interactions } from "@/src/constants/theme";
 import { useTheme } from "@/src/contexts/ThemeContext";
@@ -17,6 +20,7 @@ import {
   AnimatedThemedView,
   AnimatedThemedText,
 } from "@/src/components/ThemedView";
+import CustomModal from "@/src/components/CustomModal";
 
 interface SettingItem {
   id: string;
@@ -35,6 +39,120 @@ export default function Settings() {
   const [notifications, setNotifications] = useState(true);
   const [locationServices, setLocationServices] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
+
+  // Custom modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalType, setModalType] = useState<'info' | 'success' | 'warning' | 'error'>('info');
+  const [modalPrimaryText, setModalPrimaryText] = useState("OK");
+  const [modalSecondaryText, setModalSecondaryText] = useState("");
+  const [modalAction, setModalAction] = useState<(() => void) | null>(null);
+
+  // Load saved location preference on mount
+  useEffect(() => {
+    loadLocationPreference();
+  }, []);
+
+  const loadLocationPreference = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('locationServices');
+      if (saved !== null) {
+        setLocationServices(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.warn('Failed to load location preference:', error);
+    }
+  };
+
+  const saveLocationPreference = async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem('locationServices', JSON.stringify(enabled));
+      setLocationServices(enabled);
+      
+      // Clear stored coordinates when location is disabled
+      if (!enabled) {
+        await AsyncStorage.multiRemove(['lastLatitude', 'lastLongitude']);
+        console.log('Cleared stored coordinates - location services disabled');
+      }
+    } catch (error) {
+      console.warn('Failed to save location preference:', error);
+    }
+  };
+
+  const showModal = (
+    title: string, 
+    message: string, 
+    type: 'info' | 'success' | 'warning' | 'error' = 'info',
+    primaryText: string = "OK",
+    secondaryText: string = "",
+    action?: () => void
+  ) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalPrimaryText(primaryText);
+    setModalSecondaryText(secondaryText);
+    setModalAction(action || null);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    if (modalAction) {
+      modalAction();
+      setModalAction(null);
+    }
+  };
+
+  const handleLocationToggle = async () => {
+    console.log("running1")
+    const newValue = !locationServices;
+    console.log("running2")
+    if (newValue) {
+      console.log("running3")
+      // Enable location services
+      try {
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          await saveLocationPreference(true);
+          showModal(
+            "Location Enabled",
+            "Location services are now enabled for better matching with nearby listings.",
+            'success'
+          );
+        } else {
+          // Permission denied but still enable for geocoding fallback
+          await saveLocationPreference(true);
+          showModal(
+            "Location Enabled with Limited Accuracy",
+            "GPS permission was denied, but location services will use city/state for approximate matching.",
+            'warning',
+            'OK',
+            'Enable GPS',
+            () => Linking.openSettings()
+          );
+        }
+      } catch (error) {
+        console.error('Location permission error:', error);
+        // Still enable for geocoding fallback
+        await saveLocationPreference(true);
+        showModal(
+          "Location Enabled with Limited Accuracy",
+          "Unable to access GPS, but location services will use city/state for approximate matching.",
+          'warning'
+        );
+      }
+    } else {
+      // Disable location services
+      await saveLocationPreference(false);
+      showModal(
+        "Location Disabled",
+        "Location services have been disabled. Your location will not be used for matching.",
+        'info'
+      );
+    }
+  };
 
   // Animate the dark mode toggle
   const handleDarkModeToggle = () => {
@@ -76,7 +194,7 @@ export default function Settings() {
       icon: "location-outline",
       type: "toggle",
       value: locationServices,
-      onPress: () => setLocationServices(!locationServices),
+      onPress: handleLocationToggle,
     },
     {
       id: "darkMode",
@@ -249,6 +367,17 @@ export default function Settings() {
           </AnimatedThemedText>
         </AnimatedThemedView>
       </ScrollView>
+
+      <CustomModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        primaryButtonText={modalPrimaryText}
+        secondaryButtonText={modalSecondaryText}
+        onPrimaryPress={modalAction || undefined}
+        onClose={closeModal}
+      />
     </AnimatedThemedView>
   );
 }

@@ -12,12 +12,15 @@ const createListing = async (listingData) => {
     condition,
     category,
     location,
+    latitude,
+    longitude,
     tags,
     metadata,
     images,
     allow_offers,
     intent_eligible,
     accept_swaps,
+    embedding = null,
   } = listingData;
 
   const client = await pool.connect();
@@ -27,8 +30,8 @@ const createListing = async (listingData) => {
 
     // Create listing
     const listingQuery = `
-      INSERT INTO listings (seller_id, title, description, price, currency, quantity, condition, category, location, tags, metadata, allow_offers, intent_eligible, accept_swaps)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      INSERT INTO listings (seller_id, title, description, price, currency, quantity, condition, category, location, latitude, longitude, tags, metadata, allow_offers, intent_eligible, accept_swaps, embedding)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `;
 
@@ -42,11 +45,14 @@ const createListing = async (listingData) => {
       condition,
       category,
       JSON.stringify(location),
-      JSON.stringify(tags),
+      latitude,
+      longitude,
+      `{${tags.map(tag => `"${tag}"`).join(',')}}`, // PostgreSQL array format
       JSON.stringify(metadata),
       allow_offers,
       intent_eligible,
       accept_swaps,
+      embedding ? `[${embedding.join(',')}]` : null, // PostgreSQL vector format
     ];
 
     const listingResult = await client.query(listingQuery, listingValues);

@@ -11,6 +11,26 @@ const {
 } = require("./model");
 const { uploadImage } = require("../services/s3Service");
 
+// Background embedding generation function
+async function generateEmbeddingInBackground(listingId, title, description) {
+  try {
+    console.log(`[BACKGROUND] Generating embedding for listing ${listingId}`);
+    const { generateEmbedding } = require("../services/embedding");
+    const embedding = await generateEmbedding(`${title.trim()} ${description.trim()}`);
+    
+    // Update the listing with the embedding in proper PostgreSQL vector format
+    await pool.query(
+      "UPDATE listings SET embedding = $1 WHERE id = $2",
+      [`[${embedding.join(',')}]`, listingId]
+    );
+    
+    console.log(`[BACKGROUND] Embedding generated and saved for listing ${listingId}`);
+  } catch (error) {
+    console.warn(`[BACKGROUND] Could not generate embedding for ${listingId}:`, error.message);
+    // Listing still exists, just without embedding
+  }
+}
+
 const getMyListings = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -65,6 +85,8 @@ const createListing = async (req, res) => {
       condition,
       category,
       location,
+      latitude,
+      longitude,
       tags,
       metadata,
       images,
@@ -73,8 +95,17 @@ const createListing = async (req, res) => {
       accept_swaps,
     } = req.body;
 
-    // Get seller ID for this user
-    const sellerQuery = "SELECT id FROM sellers WHERE user_id = $1";
+    // Validation
+    if (!title || !description || !price || !category || !condition) {
+      return res
+        .status(400)
+        .json({ error: "Missing required fields" });
+    }
+
+    // Get seller profile for this user
+    const sellerQuery = `
+      SELECT id FROM sellers WHERE user_id = $1
+    `;
     const sellerResult = await pool.query(sellerQuery, [userId]);
 
     if (sellerResult.rows.length === 0) {
@@ -155,6 +186,17 @@ const createListing = async (req, res) => {
       }
     }
 
+    // Generate embedding for the listing (background task)
+    let embedding = null;
+    try {
+      const { generateEmbedding } = require("../services/embedding");
+      embedding = await generateEmbedding(`${title.trim()} ${description.trim()}`);
+      console.log("[LISTING] Embedding generated successfully");
+    } catch (error) {
+      console.warn("[LISTING] Failed to generate embedding for listing, will retry in background:", error.message);
+      // Don't fail the listing creation - we'll retry in background
+    }
+
     const listing = await createListingModel({
       seller_id: sellerId,
       user_id: userId,
@@ -166,15 +208,25 @@ const createListing = async (req, res) => {
       condition,
       category,
       location,
+      latitude: isFinite(latitude) ? Number(latitude) : null,
+      longitude: isFinite(longitude) ? Number(longitude) : null,
       tags,
       metadata,
       images: processedImages,
       allow_offers: allow_offers !== undefined ? allow_offers : true,
       intent_eligible: intent_eligible !== undefined ? intent_eligible : false,
       accept_swaps: accept_swaps !== undefined ? accept_swaps : false,
+      embedding, // May be null if generation failed
     });
 
+    // ✅ Save listing first and return immediately
     res.status(201).json(listing);
+
+    // 🔄 BACKGROUND: Generate embedding if it failed initially
+    if (!embedding) {
+      // Don't wait for this - let it run in background
+      generateEmbeddingInBackground(listing.id, title, description);
+    }
   } catch (error) {
     console.error("Error creating listing:", error);
     res.status(500).json({ error: "Internal server error" });

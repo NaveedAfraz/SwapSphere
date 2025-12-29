@@ -1,10 +1,11 @@
 const { inngest } = require("../services/inngest");
 const { pool } = require("../database/db");
 const NotificationService = require("../services/notificationService");
+const matchIntentService = require("../intents/matchIntentService");
 
 /**
  * Intent Matching Workflow
- * 
+ *
  * This workflow runs when an intent is created and:
  * 1. Matches the intent to eligible listings
  * 2. Creates notifications for sellers (deduplicated)
@@ -15,168 +16,121 @@ const intentMatchingWorkflow = inngest.createFunction(
   { id: "intent-matching-workflow", name: "Intent Matching Workflow" },
   { event: "intent.created" },
   async ({ event, step }) => {
-    
     const { intentId } = event.data;
 
-    // Step 1: Fetch intent details 
+    // Step 1: Fetch intent details (including embedding and lat/lng)
     const intent = await step.run("fetch-intent", async () => {
-      
       const query = `
-        SELECT i.id, i.buyer_id, i.title, i.description, i.category, 
-               i.max_price, 
+        SELECT i.id,
+               i.buyer_id,
+               i.title,
+               i.description,
+               i.category,
+               i.max_price,
                i.location as location_json,
-               i.location->>'city' as buyer_city, i.location->>'state' as buyer_state
+               i.location->>'city'  as buyer_city,
+               i.location->>'state' as buyer_state,
+               i.latitude,
+               i.longitude,
+               i.embedding
         FROM intents i
         WHERE i.id = $1 AND i.status = 'open'
       `;
-      
+
       const result = await pool.query(query, [intentId]);
       if (result.rows.length === 0) {
         throw new Error(`Intent ${intentId} not found or not open`);
       }
-      
+
       const intentData = result.rows[0];
-      return intentData;
-    });
 
-    // Step 2: Find matching listings
-    const matchedListings = await step.run("find-matching-listings", async () => {
-      
-      // Debug: Check what listings exist before running the main query
-      const debugQuery = `
-        SELECT 
-          l.id,
-          l.title,
-          l.category,
-          l.price,
-          l.intent_eligible,
-          l.is_published,
-          l.deleted_at,
-          l.location->>'city' as listing_city,
-          l.location->>'state' as listing_state,
-          s.user_id as seller_user_id
-        FROM listings l
-        JOIN sellers s ON s.id = l.seller_id
-        WHERE l.category = $1
-        ORDER BY l.created_at DESC
-        LIMIT 10
-      `;
-      
-      const debugResult = await pool.query(debugQuery, [intent.category]);
-      
-      debugResult.rows.forEach(listing => {
-        // Extract key city name from intent (e.g., "new york" from "new york usa")
-        const cityKeywords = intent.buyer_city.split(' ').slice(0, 2).join(' ');
-        
-        const checks = {
-          eligible: listing.intent_eligible,
-          published: listing.is_published,
-          notDeleted: listing.deleted_at === null,
-          priceOk: parseFloat(listing.price) <= (parseFloat(intent.max_price) * 1.20),
-          notOwn: listing.seller_user_id !== intent.buyer_id,
-          cityMatch: listing.listing_city && new RegExp(cityKeywords, 'i').test(listing.listing_city)
-        };
-        
-      });
-
-      // Extract key city name from intent (e.g., "new york" from "new york usa")
-      const cityKeywords = intent.buyer_city.split(' ').slice(0, 2).join(' '); // Take first 2 words
-      
-      // Handle state matching in JavaScript to avoid SQL parameter type issues
-      const queryParams = [
-        intent.category,
-        intent.max_price,
-        intent.buyer_id,
-        cityKeywords
-      ];
-      
-      // Always include city matching first
-      let locationFilter = `
-        -- Location filter: same city (case-insensitive with regex) - always included
-        AND (
-          l.location->>'city' IS NOT NULL 
-          AND l.location->>'city' ~* $4
-        `;
-      
-      // Add state filter as additional option only if buyer_state is not null
-      if (intent.buyer_state) {
-        locationFilter += `
-          OR (l.location->>'state' IS NOT NULL AND LOWER(l.location->>'state') = LOWER($5))
-        `;
-        queryParams.push(intent.buyer_state);
+      // Fix: Parse embedding if it's a string
+      let parsedEmbedding = intentData.embedding;
+      if (
+        typeof intentData.embedding === "string" &&
+        intentData.embedding.startsWith("[")
+      ) {
+        try {
+          parsedEmbedding = JSON.parse(intentData.embedding);
+        } catch (parseError) {
+          console.warn(
+            "[WORKFLOW] Failed to parse embedding string:",
+            parseError
+          );
+          parsedEmbedding = null;
+        }
       }
-      
-      locationFilter += `)`;
 
-      const matchingQuery = `
-        SELECT DISTINCT 
-          l.id as listing_id,
-          l.title as listing_title,
-          l.price as listing_price,
-          l.category as listing_category,
-          l.seller_id,
-          s.user_id as seller_user_id,
-          l.location->>'city' as listing_city,
-          l.location->>'state' as listing_state,
-          l.created_at
-        FROM listings l
-        JOIN sellers s ON s.id = l.seller_id
-        WHERE l.intent_eligible = true
-          AND l.is_published = true
-          AND l.deleted_at IS NULL
-          AND l.category = $1
-          AND l.price <= ($2 * 1.20)
-          AND s.user_id != $3
-          ${locationFilter}
-        ORDER BY 
-          l.created_at DESC
-        LIMIT 100
-      `;
+      return {
+        ...intentData,
+        embedding: parsedEmbedding,
+      };
+    });
+    
 
-      const result = await pool.query(matchingQuery, queryParams);
+    // Step 2: Match listings using semantic + location + commitment scoring
+    const matchedListings = await step.run("match-intent", async () => {
+      try {
+        const matches = await matchIntentService.matchIntent({
+          intentId,
+          intentEmbedding: intent.embedding,
+          buyerId: intent.buyer_id,
+          buyerLocation: {
+            city: intent.buyer_city,
+            state: intent.buyer_state,
+            latitude: intent.latitude,
+            longitude: intent.longitude,
+          },
+          maxPrice: intent.max_price,
+          category: intent.category,
+        });
 
-      result.rows.forEach(listing => {
-      });
-
-      return result.rows;
+        return matches;
+      } catch (err) {
+        console.error(
+          `[WORKFLOW] matchIntentService failed for intent ${intentId}:`,
+          err
+        );
+        return [];
+      }
     });
 
     // Step 3: Create notifications for sellers (with deduplication)
     const notifications = await step.run("create-notifications", async () => {
-      
       if (matchedListings.length === 0) {
         return { created: 0, notifications: [] };
       }
 
       // Prepare notification data for each matched listing
-      const notificationData = matchedListings.map(listing => {
-        if (!listing.seller_user_id) {
-          return null;
-        }
-        
-        return {
-          user_id: listing.seller_user_id,
-          actor_id: intent.buyer_id,
-          type: "intent_match",
-          payload: {
-            intent_id: intentId,
-            listing_id: listing.listing_id,
-            intent_title: intent.title,
-            listing_title: listing.listing_title,
-            buyer_max_price: intent.max_price,
-            listing_price: listing.listing_price,
-            category: intent.category,
-            cta_text: "Send Offer",
-            cta_action: "create_offer",
-            cta_data: {
-              intent_id: intentId,
-              listing_id: listing.listing_id
-            }
+      const notificationData = matchedListings
+        .map((listing) => {
+          if (!listing.seller_user_id) {
+            return null;
           }
-        };
-      }).filter(Boolean); // Remove null entries
 
-      
+          return {
+            user_id: listing.seller_user_id,
+            actor_id: intent.buyer_id,
+            type: "intent_match",
+            payload: {
+              intent_id: intentId,
+              listing_id: listing.listing_id,
+              intent_title: intent.title,
+              listing_title: listing.listing_title,
+              buyer_max_price: intent.max_price,
+              listing_price: listing.listing_price,
+              category: intent.category,
+              cta_text: "Send Offer",
+              cta_action: "create_offer",
+              cta_data: {
+                intent_id: intentId,
+                listing_id: listing.listing_id,
+              },
+            },
+          };
+        })
+        .filter(Boolean); // Remove null entries
+
       if (notificationData.length === 0) {
         return { created: 0, notifications: [] };
       }
@@ -184,17 +138,22 @@ const intentMatchingWorkflow = inngest.createFunction(
       // Log first notification for debugging
 
       // Use INSERT ... ON CONFLICT for deduplication
-      const valuesClauses = notificationData.map((notif, index) => 
-        `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${index * 6 + 4}, $${index * 6 + 5}, $${index * 6 + 6})`
-      ).join(', ');
+      const valuesClauses = notificationData
+        .map(
+          (notif, index) =>
+            `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${
+              index * 6 + 4
+            }, $${index * 6 + 5}, $${index * 6 + 6})`
+        )
+        .join(", ");
 
-      const params = notificationData.flatMap(notif => [
+      const params = notificationData.flatMap((notif) => [
         notif.user_id,
         notif.actor_id,
         notif.type,
         JSON.stringify(notif.payload),
         intentId,
-        notif.payload.listing_id
+        notif.payload.listing_id,
       ]);
 
       const insertQuery = `
@@ -205,73 +164,70 @@ const intentMatchingWorkflow = inngest.createFunction(
         DO NOTHING
         RETURNING id, user_id, actor_id, type, payload, intent_id, listing_id, created_at
       `;
-      
-      
+
       const result = await pool.query(insertQuery, params);
-      
-      result.rows.forEach(notification => {
-      });
-      
+
+      result.rows.forEach((notification) => {});
+
       return {
         created: result.rows.length,
-        notifications: result.rows
+        notifications: result.rows,
       };
     });
 
     // Step 4: Emit Socket.IO notifications to online sellers
-    const socketResults = await step.run("emit-socket-notifications", async () => {
-      
-      if (notifications.created === 0) {
-        return { emitted: 0, rate_limited: 0 };
-      }
-
-      try {
-        // Get Socket.IO instance from global or context
-        const io = global.io || null;
-        if (!io) {
+    const socketResults = await step.run(
+      "emit-socket-notifications",
+      async () => {
+        if (notifications.created === 0) {
           return { emitted: 0, rate_limited: 0 };
         }
 
-        
-        // Initialize notification service with actual Socket.IO instance
-        const notificationService = new NotificationService(io, null);
+        try {
+          // Get Socket.IO instance from global or context
+          const io = global.io || null;
+          if (!io) {
+            return { emitted: 0, rate_limited: 0 };
+          }
 
-        // Process socket notifications with rate limiting
-        const results = await notificationService.processSocketNotifications(notifications.notifications);
-        
-        
-        return {
-          emitted: results.processed || 0,
-          rate_limited: results.rate_limited || 0
-        };
-      } catch (error) {
-        console.error(`[WORKFLOW] Socket notification error:`, error);
-        return { emitted: 0, rate_limited: 0 };
+          // Initialize notification service with actual Socket.IO instance
+          const notificationService = new NotificationService(io, null);
+
+          // Process socket notifications with rate limiting
+          const results = await notificationService.processSocketNotifications(
+            notifications.notifications
+          );
+
+          return {
+            emitted: results.processed || 0,
+            rate_limited: results.rate_limited || 0,
+          };
+        } catch (error) {
+          console.error(`[WORKFLOW] Socket notification error:`, error);
+          return { emitted: 0, rate_limited: 0 };
+        }
       }
-    });
+    );
 
     // Step 5: Enqueue push notification batch job
     const pushResults = await step.run("enqueue-push-batch", async () => {
-      
       if (notifications.created === 0) {
         return { enqueued: 0 };
       }
 
       // Create a push batch job event
       const pushBatchData = {
-        notification_ids: notifications.notifications.map(n => n.id),
+        notification_ids: notifications.notifications.map((n) => n.id),
         batch_size: notifications.created,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
-
 
       // Send event to trigger push notification worker using step.sendEvent
       await step.sendEvent({ name: "push.batch.process", data: pushBatchData });
-      
 
-      return { 
+      return {
         enqueued: notifications.created,
-        batch_data: pushBatchData
+        batch_data: pushBatchData,
       };
     });
 
@@ -284,7 +240,7 @@ const intentMatchingWorkflow = inngest.createFunction(
       notifications_created: notifications.created,
       socket_notifications_emitted: socketResults.emitted || 0,
       socket_rate_limited: socketResults.rate_limited || 0,
-      push_batch_enqueued: pushResults.enqueued
+      push_batch_enqueued: pushResults.enqueued,
     };
   }
 );

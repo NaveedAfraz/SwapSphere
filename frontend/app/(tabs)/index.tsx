@@ -200,20 +200,22 @@ export default function HomePage() {
 
   // Transform listing data for FeaturedItems component
   const transformListings = (listings: Listing[]) => {
-    return listings.map((listing) => ({
-      id: listing.id, // Keep UUID as string
-      title: listing.title,
-      image:
-        listing.primary_image_url ||
-        "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
-      price: `$${listing.price}`,
-      location: listing.location?.city || "Unknown",
-      rating: listing.seller_rating || 0,
-      seller: listing.seller_name || "Unknown",
-      condition: listing.condition || "Unknown",
-      posted: getTimeAgo(listing.created_at),
-      category: listing.category || "Other",
-    }));
+    return listings
+      .filter(listing => listing && listing.id) // Filter out undefined listings without id
+      .map((listing) => ({
+        id: listing.id, // Keep UUID as string
+        title: listing.title || "Untitled",
+        image:
+          listing.primary_image_url ||
+          "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800",
+        price: `$${listing.price || 0}`,
+        location: listing.location?.city || "Unknown",
+        rating: listing.seller_rating || 0,
+        seller: listing.seller_name || "Unknown",
+        condition: listing.condition || "Unknown",
+        posted: listing.created_at ? getTimeAgo(listing.created_at) : "Unknown",
+        category: listing.category || "Other",
+      }));
   };
 
   // Helper function to format time ago
